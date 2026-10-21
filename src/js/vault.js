@@ -342,6 +342,37 @@ const Vault = {
     return trashPath;
   },
 
+  /* 删除整个文件夹：内含笔记逐个移入回收站（保留可恢复），再删空目录 */
+  async removeFolder(dirPath){
+    dirPath = U.norm(dirPath);
+    const prefix = dirPath + '/';
+    const notePaths = Array.from(_entries.keys()).filter(p=>p.startsWith(prefix));
+    for(const p of notePaths){ try{ await this.remove(p); }catch(e){} }
+    try{ await VaultFS.delete(dirPath); }catch(e){}
+    /* 同步缓存：移除该文件夹及其所有子文件夹 */
+    for(const d of Array.from(_folders)){
+      if(d===dirPath || d.startsWith(prefix)) _folders.delete(d);
+    }
+    return { trashed: notePaths.length };
+  },
+
+  /* 重命名文件夹：物理改名后，同步更新缓存中所有子文件夹/笔记的路径前缀 */
+  async renameFolder(oldPath, newPath){
+    oldPath = U.norm(oldPath); newPath = U.norm(newPath);
+    if(oldPath===newPath) return newPath;
+    await VaultFS.rename(oldPath, newPath);
+    const oldPrefix = oldPath+'/', newPrefix = newPath+'/';
+    const mapPath = (p)=> p===oldPath?newPath : (p.startsWith(oldPrefix)? newPrefix+p.slice(oldPrefix.length):p);
+    const folderArr = Array.from(_folders).map(mapPath);
+    _folders.clear(); folderArr.forEach(d=>_folders.add(d));
+    const entArr = Array.from(_entries.entries()).map(([p,e])=>{
+      const np=mapPath(p); if(np!==p)e.path=np; return [np,e];
+    });
+    _entries.clear(); entArr.forEach(([np,e])=>_entries.set(np,e));
+    _attach.clear();
+    return newPath;
+  },
+
   /* ---- 回收站列表 ---- */
   trashList(){
     const list = Array.from(_trash.values()).map(v=>({ entry:v.entry, originalPath:v.originalPath }));
@@ -455,6 +486,17 @@ const Vault = {
       try{ await VaultFS.delete(trashPath); }catch(e){}
     }
     _trash.clear();
+    return true;
+  },
+
+  /* ---- 整库清空（云端/目录整库恢复前：删全部笔记/文件夹/回收站，保证恢复不产生重复） ---- */
+  async clear(){
+    let root=[];
+    try{ root = await VaultFS.list(''); }catch(e){ root=[]; }
+    for(const e of root){
+      try{ await VaultFS.delete(e.name); }catch(_){}
+    }
+    _entries.clear(); _folders.clear(); _trash.clear(); _attach.clear();
     return true;
   }
 };

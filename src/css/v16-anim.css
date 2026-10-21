@@ -1,0 +1,105 @@
+/* ============================================================
+   v16-anim.css —— 16 项动效的 keyframes / 物理样式（独立文件）
+   纸感克制风格：暖纸底、柔和、低饱和，不花哨；
+   所有动效在 reduced-motion 下降级（见文件末尾）。
+   ============================================================ */
+
+/* ---------- #2 触点倾斜（在 vault-ui.css :active scale 之后加载，同名特异性由顺序取胜） ---------- */
+.v16-note-card.v16-tilt, .v16-folder-card.v16-tilt{
+  transform: perspective(380px) rotateX(var(--vtilt-x, 0deg)) rotateY(var(--vtilt-y, 0deg)) scale(.985);
+  transition: transform .16s ease-out;
+  will-change: transform;
+}
+
+/* ---------- #3 chip 三连：收缩→回弹→回落 ---------- */
+.v16cdot{ transition: transform .18s ease-out; }
+@keyframes v16ChipPop{
+  0%   { transform: scale(1); }
+  38%  { transform: scale(.78); }
+  68%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+.v16cdot.v16-chip-pop{ animation: v16ChipPop .38s cubic-bezier(.34,1.56,.64,1); }
+
+/* ---------- #5/#8 勾选三连：错峰浮现 + 划线画出 + 弱化 ---------- */
+.v16-todo-li{ transition: background-color .2s; }
+.v16-todo-li .md-todo-text{
+  transition: opacity .3s ease, background-size .35s ease;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-size: 0% 1.5px;          /* 划线从 0 画出到 100% */
+  background-position: left center;
+  padding: 1px 0;
+}
+.v16-todo-li.v16-li-done .md-todo-text{ opacity: .48; background-size: 100% 1.5px; }
+.v16-todo-li .v16-ed-todoinput{ transition: transform .22s cubic-bezier(.34,1.56,.64,1); }
+.v16-todo-li.v16-li-done .v16-ed-todoinput{ transform: scale(1.18); }
+@keyframes v16TodoPop{
+  0%   { transform: translateY(6px) scale(.97); opacity: .35; }
+  60%  { transform: translateY(-2px) scale(1.01); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+.v16-todo-li.v16-todo-pop{ animation: v16TodoPop .4s cubic-bezier(.34,1.4,.64,1) backwards; }
+
+/* ---------- #7 待办弹簧拖拽：抬起阴影 ---------- */
+.v16-todo-li.v16-li-dragging{
+  position: relative;
+  z-index: 3;
+  border-radius: 8px;
+  background: var(--vp-card, #fffdf7);
+  box-shadow: 0 6px 18px rgba(90,80,55,.18);
+  will-change: transform;
+}
+
+/* ---------- #10 内联联想浮层 ---------- */
+.v16-nb-sug{
+  position: fixed; z-index: 90;
+  width: 190px; max-height: 200px; overflow-y: auto;
+  background: #fffdf6; border: 1px solid rgba(120,110,80,.22);
+  border-radius: 12px; box-shadow: 0 8px 24px rgba(90,80,55,.16);
+  padding: 5px; display: none;
+  opacity: 0; transform: translateY(-4px);
+}
+.v16-nb-sug.show{ display: block; animation: v16NbIn .12s ease-out; }
+@keyframes v16NbIn{
+  0% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 1; transform: none; }
+}
+.v16-nb-sug .v16-ns-item{
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  padding: 8px 10px; font-size: 13.5px; color: #4a4436;
+  background: transparent; border: none; border-radius: 8px; cursor: pointer;
+}
+.v16-nb-sug .v16-ns-item:active{ background: rgba(120,110,80,.12); }
+.v16-ns-ic{ color: #8a8270; font-size: 12px; }
+
+/* ---------- #11 大图查看器图片过渡（双击缩放/分页回弹） ---------- */
+#v16Img{
+  transition: transform .28s cubic-bezier(.22,1,.36,1);
+  will-change: transform;
+}
+
+/* ---------- #15 手风琴指示：头部箭头旋转 ---------- */
+.v16-set-group .v16-set-head svg,
+.v16-tree-row .tw svg{ transition: transform .3s cubic-bezier(.22,1,.36,1); }
+.v16-set-group:not(.open) .v16-set-head svg{ transform: rotate(180deg); }
+.v16-tree-row:not(.openfolder) .tw svg{ transform: rotate(-90deg); }
+.v16-set-body{ transition: opacity .3s, max-height var(--dur-3, .26s) var(--ease-decel, cubic-bezier(.22,1,.36,1)); }
+
+/* ---------- #16 进度条 ---------- */
+.v16-progress > i{ transform-origin: left center; }
+
+/* ============================================================
+   reduced-motion 降级：全部动效关闭，功能照常（无动画直出终态）
+   ============================================================ */
+@media (prefers-reduced-motion: reduce){
+  .v16-note-card, .v16-folder-card, .v16cdot, .v16-todo-li,
+  .v16-nb-sug, #v16Img, .v16-set-body, .v16-set-group .v16-set-head svg,
+  .v16-tree-row .tw svg{
+    transition: none !important;
+    animation: none !important;
+  }
+  .v16-todo-li.v16-todo-pop{ animation: none !important; }
+  .v16cdot.v16-chip-pop{ animation: none !important; }
+  .v16-nb-sug.show{ animation: none !important; opacity: 1 !important; transform: none !important; }
+}

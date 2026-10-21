@@ -118,14 +118,18 @@ function inline(t){
   // 5) 链接 [文字](url)（文字允许嵌套行内标记，递归解析）
   t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m,txt,url)=>
     put('<a class="md-link" href="'+escAttr(url)+'">'+inline(txt)+'</a>'));
-  // 6) 双链 [[名]] / [[名|显示]]
-  t = t.replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g, (m,name,disp)=>
-    put('<span class="md-wiki" data-target="'+escAttr(name)+'">'+esc(disp||name)+'</span>'));
+  // 6) 双链 [[名]] / [[名|显示]]（可在设置中关闭；关闭时 [[ ]] 原样保留）
+  if(typeof prefs==='undefined' || prefs.wikiSyntax){
+    t = t.replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g, (m,name,disp)=>
+      put('<span class="md-wiki" data-target="'+escAttr(name)+'">'+esc(disp||name)+'</span>'));
+  }
 
   // 7) 其余文本转义
   t = esc(t);
-  // 8) 高亮 ==x==
-  t = t.replace(/==([^=\s][^=]*)==/g, '<mark class="md-hl">$1</mark>');
+  // 8) 高亮 ==x==（可在设置中关闭；关闭时 == == 原样保留）
+  if(typeof prefs==='undefined' || prefs.hlSyntax){
+    t = t.replace(/==([^=\s][^=]*)==/g, '<mark class="md-hl">$1</mark>');
+  }
   // 9) 删除线 ~~x~~
   t = t.replace(/~~([\s\S]+?)~~/g, '<del>$1</del>');
   // 10) 加粗 **x**（先于斜体，避免吃掉星号）
@@ -291,6 +295,12 @@ function htmlToMD(html){
   let s = String(html);
   s = s.replace(/<!--[\s\S]*?-->/g,'');
   s = s.replace(/<br\s*\/?>/gi,'\n');
+
+  /* 受控待办的优先级徽章（编辑器渲染）→ #p/high|#p/low，保证序列化不丢 */
+  s = s.replace(/<span class="md-prio-tag[^"]*" data-p="(high|low)"[^>]*>[\s\S]*?<\/span>/gi,
+    (m,p)=>' #p/'+p);
+  /* 受控待办的正文包裹层解开，使 ul/li/input 逻辑按普通待办行处理（含嵌套/勾选） */
+  s = s.replace(/<span class="md-todo-text">([\s\S]*?)<\/span>/gi, '$1');
 
   /* styleWithCSS / execCommand 产出的样式 span → 标准行内标签 */
   const convStack = [];

@@ -115,6 +115,19 @@ const opfsBE = {
   async _parentOf(rel, create){
     return this._resolve(util.dirOf(rel), create);
   },
+  /* 崩溃恢复：递归清理上一次写中断留下的 .name.tmp（目标文件由原子 move 保证完整） */
+  async cleanupTmp(){
+    const walk=async(dir)=>{
+      for await (const [name,h] of dir.entries()){
+        if(h.kind==='file'){
+          if(name.startsWith('.')&&name.endsWith('.tmp')){ try{ await dir.removeEntry(name); }catch(e){} }
+        } else if(h.kind==='directory' && !name.startsWith('.')){
+          await walk(h);
+        }
+      }
+    };
+    await walk(await this._root());
+  },
   root(){ return this._root().then(()=>({type:'opfs', path:'opfs://vault'})); },
   async list(rel){
     const d=await this._resolve(rel);
@@ -136,16 +149,22 @@ const opfsBE = {
   async _writeBytes(rel, bytes){
     const parent=await this._parentOf(rel, true);
     const name=util.base(rel);
-    /* 原子写：先写 .name.tmp，再 move 覆盖目标 */
+    /* 原子写：先完整写 .name.tmp，再 move 覆盖目标（move 同目录改名是原子替换，
+       不先 removeEntry，避免删除旧目标与改名之间的丢失窗口） */
     const tmp=await parent.getFileHandle('.'+name+'.tmp',{create:true});
     const tw=await tmp.createWritable(); await tw.write(bytes); await tw.close();
-    try{ await parent.removeEntry(name); }catch(e){}
-    try{ await tmp.move(parent, name); }
-    catch(e){
-      const f=await tmp.getFile();
-      const h=await parent.getFileHandle(name,{create:true});
-      const w=await h.createWritable(); await w.write(await f.arrayBuffer()); await w.close();
-      await parent.removeEntry('.'+name+'.tmp');
+    try{
+      await tmp.move(parent, name);
+    }catch(e){
+      /* 某些实现 move 不覆盖已存在文件：回退为删除后重改名，再不行则流式复制 */
+      try{ await parent.removeEntry(name); }catch(e2){}
+      try{ await tmp.move(parent, name); }
+      catch(e3){
+        const f=await tmp.getFile();
+        const h=await parent.getFileHandle(name,{create:true});
+        const w=await h.createWritable(); await w.write(await f.arrayBuffer()); await w.close();
+        await parent.removeEntry('.'+name+'.tmp');
+      }
     }
   },
   async write(rel, text){ await this._writeBytes(rel, new TextEncoder().encode(String(text==null?'':text))); return rel; },
@@ -348,6 +367,14 @@ async function genericWriteAttachment(be, name, blob, notePath){
   return util.join(dir, finalName);
 }
 
+/* 写队列：所有写/改名/删除串行执行，避免并发写同一文件时 tmp 竞争或目标丢失窗口 */
+let _fsChain = Promise.resolve();
+function fsSerial(fn){
+  const r = _fsChain.then(()=>fn());
+  _fsChain = r.catch(()=>{});
+  return r;
+}
+
 /* ============================================================
    VaultFS 对外门面
    ============================================================ */
@@ -357,7 +384,7 @@ const VaultFS = {
   async init(force){
     this._name = force || (envNative()?'native':(envOpfs()?'opfs':'idb'));
     if(this._name==='native') this._be=nativeBE;
-    else if(this._name==='opfs') this._be=opfsBE;
+    else if(this._name==='opfs'){ this._be=opfsBE; await opfsBE.cleanupTmp(); }
     else { this._be=idbBE; await idbBE.init(); }
     return this._name;
   },
@@ -365,36 +392,44 @@ const VaultFS = {
   root(){ return this._be.root(); },
   list(path){ return this._be.list(util.norm(path)); },
   read(path){ return this._be.read(util.norm(path)); },
-  write(path, text){ return this._be.write(util.norm(path), text); },
-  mkdir(path){ return this._be.mkdir(util.norm(path)); },
-  rename(path, newPath){ return this._be.rename(util.norm(path), util.norm(newPath)); },
-  async move(path, dirPath){
+  write(path, text){ return fsSerial(()=>this._be.write(util.norm(path), text)); },
+  mkdir(path){ return fsSerial(()=>this._be.mkdir(util.norm(path))); },
+  rename(path, newPath){ return fsSerial(()=>this._be.rename(util.norm(path), util.norm(newPath))); },
+  move(path, dirPath){
     path=util.norm(path); dirPath=util.norm(dirPath);
-    if(this._be.move) return this._be.move(path, dirPath);
-    const newPath=util.join(dirPath, util.base(path));
-    await this._be.rename(path, newPath);
-    return newPath;
+    return fsSerial(async()=>{
+      if(this._be.move) return this._be.move(path, dirPath);
+      const newPath=util.join(dirPath, util.base(path));
+      await this._be.rename(path, newPath);
+      return newPath;
+    });
   },
   trash(path){
     path=util.norm(path);
-    if(this._name==='native') return this._be.trash(path);
-    return genericTrash(this._be, path);
+    return fsSerial(()=>{
+      if(this._name==='native') return this._be.trash(path);
+      return genericTrash(this._be, path);
+    });
   },
   restore(trashPath){
     trashPath=util.norm(trashPath);
-    if(this._name==='native') return this._be.restore(trashPath);
-    return genericRestore(this._be, trashPath);
+    return fsSerial(()=>{
+      if(this._name==='native') return this._be.restore(trashPath);
+      return genericRestore(this._be, trashPath);
+    });
   },
   listTrash(){
     if(this._name==='native') return this._be.listTrash();
     return genericListTrash(this._be);
   },
-  delete(path){ return this._be.delete(util.norm(path)); },
+  delete(path){ return fsSerial(()=>this._be.delete(util.norm(path))); },
   readBlob(path){ return this._be.readBlob(util.norm(path)); },
   writeAttachment(name, blob, notePath){
     notePath=util.norm(notePath||'');
-    if(this._name==='native') return this._be.writeAttachment(name, blob, notePath);
-    return genericWriteAttachment(this._be, name, blob, notePath);
+    return fsSerial(()=>{
+      if(this._name==='native') return this._be.writeAttachment(name, blob, notePath);
+      return genericWriteAttachment(this._be, name, blob, notePath);
+    });
   },
   importFile(uri, dirPath){ return this._be.importFile(uri, util.norm(dirPath||'')); },
   bindFolder(){ return this._be.bindFolder(); },

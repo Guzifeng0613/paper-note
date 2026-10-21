@@ -18,7 +18,8 @@ function markCloudDeleted(ids){
   return changed;
 }
 let prefs={theme:'auto',view:'grid',filter:'全部',recents:[],favoriteTags:[],
-  notebooks:[],nbFilter:null,pan:null,libName:'',lastPanSync:null};
+  notebooks:[],nbFilter:null,pan:null,libName:'',lastPanSync:null,
+  hlSyntax:true,wikiSyntax:true,defaultType:'note',newFileLoc:'current'};
 
 /* ---- 运行日志（本地持久：操作可追溯、异常可定位） ---- */
 const LOG_KEY='zhipian.logs.v1', LOG_MAX=400;

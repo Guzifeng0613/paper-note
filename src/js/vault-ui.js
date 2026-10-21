@@ -45,6 +45,7 @@ const I = {
   edit:'<svg class="stic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
   export:'<svg class="stic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg>',
   eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  sparkle:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6l1.9 5.1 5.1 1.9-5.1 1.9L12 16.6l-1.9-5.1L5 9.6l5.1-1.9z"/><path d="M18.6 15l.85 2.35L21.8 18.2l-2.35.85L18.6 21.4l-.85-2.35L15.4 18.2l2.35-.85z" opacity=".65"/></svg>',
   closeViewer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
 };
 
@@ -72,6 +73,17 @@ function toast(msg){
   clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1800);
 }
 
+/* ---------- 删除前先播放飞行删除动画（v16-anim 监听并回调 done；含降级） ----------
+   增强层在飞至回收站 + 收拢动画后回调；若增强层未加载，超时兜底直接执行。 */
+function beforeDelete(paths, doThen){
+  let settled=false;
+  const done=async()=>{ if(settled)return; settled=true; clearTimeout(fb); try{ await doThen(); }catch(e){} };
+  const fb=setTimeout(()=>done(), 1300);
+  try{
+    window.dispatchEvent(new CustomEvent('v16:before-delete',{detail:{paths,done}}));
+  }catch(e){ done(); }
+}
+
 /* ---------- 骨架 ---------- */
 function buildRoot(){
   root = document.createElement('div');
@@ -83,6 +95,7 @@ function buildRoot(){
       <header class="v16-topbar">
         <button class="v16-ic" id="v16Menu" aria-label="菜单">${I.menu}</button>
         <div class="v16-crumbs" id="v16Crumbs"></div>
+        <button class="v16-ic v16-ai-entry" id="v16HomeAi" aria-label="AI 对话">${I.sparkle}</button>
         <button class="v16-ic" id="v16SearchBtn" aria-label="搜索">${I.search}</button>
         <button class="v16-ic" id="v16More" aria-label="更多">${I.more}</button>
       </header>
@@ -112,6 +125,7 @@ function buildRoot(){
       <header class="v16-topbar">
         <button class="v16-ic" id="v16EdBack" aria-label="返回">${I.back}</button>
         <div class="v16-crumbs" id="v16EdCrumb"></div>
+        <button class="v16-ic v16-ai-entry" id="v16EdAi" aria-label="本页问答">${I.sparkle}</button>
         <button class="v16-ic" id="v16EdSource" aria-label="源码模式">${I.code}</button>
         <button class="v16-ic" id="v16EdMore" aria-label="更多">${I.more}</button>
       </header>
@@ -241,10 +255,21 @@ async function renderHome(){
 
   /* 文件夹点击 */
   body.querySelectorAll('.v16-folder-card').forEach(card=>{
-    card.onclick = ()=>{ S.curFolder = card.dataset.folder; renderHome(); };
-    bindLongPress(card, ()=>{ openSheet('文件夹操作', [
-      {icon:I.move, label:'重命名', fn:()=>toast('重命名 · v16 后续里程碑接入')},
-      {icon:I.trash, label:'删除', fn:()=>toast('删除 · v16 后续里程碑接入')}
+    const fpath = card.dataset.folder;
+    card.onclick = ()=>{ S.curFolder = fpath; renderHome(); };
+    bindLongPress(card, ()=>{ openSheet('文件夹操作（'+fpath+'）', [
+      {icon:I.move, label:'重命名', fn:()=>{
+        const nn = prompt('重命名文件夹为：', fpath.split('/').pop());
+        if(nn && nn.trim() && nn.trim()!==fpath.split('/').pop()){
+          const newPath = fpath.split('/').slice(0,-1).concat(nn.trim()).join('/');
+          Vault.renameFolder(fpath, newPath).then(()=>{ toast('已重命名'); renderHome(); }).catch(e=>toast('重命名失败'));
+        }
+      }},
+      {icon:I.trash, label:'删除', fn:()=>{
+        if(confirm('删除文件夹「'+fpath+'」？内含笔记将移入回收站。')){
+          Vault.removeFolder(fpath).then(()=>{ toast('已删除'); renderHome(); }).catch(e=>toast('删除失败'));
+        }
+      }}
     ]); });
   });
   /* 笔记卡片 */
@@ -320,26 +345,58 @@ function mdToEditableHTML(md){
   const html = MD.toHTML(md||'');
   const div = document.createElement('div');
   div.innerHTML = html;
-  const todos = div.querySelectorAll('.md-todo');
-  if(todos.length){
-    const ul = document.createElement('ul');
-    ul.className = 'v16-ed-todoul';
-    todos.forEach(t=>{
-      const li = document.createElement('li');
-      const input = document.createElement('input');
-      input.type='checkbox';
-      if(t.dataset.done==='1') input.checked=true;
-      input.className='v16-ed-todoinput';
-      const txt = t.querySelector('.md-todo-text');
-      li.appendChild(input);
-      li.appendChild(document.createTextNode(' '));
-      if(txt) li.appendChild(txt);
-      ul.appendChild(li);
-    });
-    todos[0].parentNode.insertBefore(ul, todos[0]);
-    todos.forEach(t=>t.remove());
+  const todoDivs = Array.from(div.querySelectorAll('.md-todo'));
+  if(todoDivs.length){
+    const rows = MD.todoLines(md);
+    const ul = buildTodoUL(rows, todoDivs);
+    todoDivs[0].parentNode.insertBefore(ul, todoDivs[0]);
+    todoDivs.forEach(t=>t.remove());
   }
   return div.innerHTML;
+}
+/* 受控待办：按 MD.todoLines 构建嵌套 ul；checkbox 带 data-key 与 checked 属性，
+   勾选只经 change 委托调 Vault.toggleTodo（不依赖自由序列化）；优先级以徽章渲染，
+   序列化时由 MD.htmlToMD 还原为 #p/high|#p/low。保证勾选态与优先级永不丢失。 */
+function buildTodoUL(rows, todoDivs){
+  const rootUl = document.createElement('ul');
+  rootUl.className = 'v16-ed-todoul';
+  const ulStack = [rootUl];
+  let curIndent = 0;
+  rows.forEach((r,i)=>{
+    const t = r.indent;
+    if(t > curIndent){
+      for(let k=curIndent;k<t;k++){
+        const sub = document.createElement('ul');
+        sub.className = 'v16-ed-todoul';
+        const lastLi = ulStack[ulStack.length-1].lastElementChild;
+        if(lastLi) lastLi.appendChild(sub);
+        ulStack.push(sub);
+      }
+    } else if(t < curIndent){
+      for(let k=curIndent;k>t;k--) ulStack.pop();
+    }
+    curIndent = t;
+    const ul = ulStack[ulStack.length-1];
+    const li = document.createElement('li');
+    li.className = 'v16-todo-li';
+    const cb = document.createElement('input');
+    cb.type='checkbox'; cb.className='v16-ed-todoinput'; cb.dataset.key=r.key;
+    if(r.done) cb.setAttribute('checked','checked');
+    li.appendChild(cb);
+    const span = document.createElement('span');
+    span.className='md-todo-text';
+    const td = todoDivs[i];
+    span.innerHTML = td ? td.querySelector('.md-todo-text').innerHTML : (r.text||'');
+    li.appendChild(span);
+    if(r.priority==='high'||r.priority==='low'){
+      const pg = document.createElement('span');
+      pg.className='md-prio-tag p-'+r.priority; pg.dataset.p=r.priority;
+      pg.textContent = r.priority==='high'?'高':'低';
+      li.appendChild(pg);
+    }
+    ul.appendChild(li);
+  });
+  return rootUl;
 }
 /* 序列化当前 contenteditable → md 字符串（保留 frontmatter） */
 function serializeWYSIWIG(){
@@ -363,6 +420,21 @@ function serializeWYSIWIG(){
 }
 /* 选图 → VaultFS.writeAttachment 落盘 → 插入 contenteditable */
 async function pickWYSIWYGImage(){
+  /* 原生：拍照 */
+  if(typeof Native!=='undefined' && Native && Native.call){
+    try{
+      const relPath = await Native.call('vaultTakePhoto', {notePath: S._cur.entry.path});
+      if(relPath){
+        const ed = $('#v16EdBody'); ed.focus();
+        document.execCommand('insertHTML', false,
+          '<img src="'+relPath+'" data-relpath="'+relPath+'" style="max-width:100%;border-radius:12px;margin:8px 0;display:block">');
+        scheduleWYSIWIGSave();
+        toast('照片已插入');
+        return;
+      }
+    }catch(e){ console.warn('takePhoto fallback', e); }
+  }
+  /* 浏览器降级：file input */
   const inp = document.createElement('input');
   inp.type='file'; inp.accept='image/*';
   inp.style.display='none'; document.body.appendChild(inp);
@@ -445,23 +517,26 @@ function renderEditor(){
   /* WYSIWYG：输入防抖保存 500ms（htmlToMD 序列化） */
   if(!S.sourceMode){
     const ed = $('#v16EdBody');
-    ed.oninput = ()=> scheduleWYSIWIGSave();
+    /* 勾选 checkbox 触发的 input 事件不调度自由序列化（受控勾选由 change 委托处理），
+       避免 htmlToMD 与 toggleTodo 竞争；只有正文文本编辑才走防抖保存 */
+    ed.oninput = (ev)=>{
+      if(ev && ev.target && ev.target.classList && ev.target.classList.contains('v16-ed-todoinput')) return;
+      scheduleWYSIWIGSave();
+    };
     /* 勾选 input：同步 checked attribute（htmlToMD 读 attribute） */
     ed.onclick = (ev)=>{
-      if(ev.target && ev.target.classList && ev.target.classList.contains('v16-ed-todoinput')){
-        if(ev.target.checked) ev.target.setAttribute('checked','checked');
-        else ev.target.removeAttribute('checked');
-      }
-      /* 点击图片：打开大图查看器 */
+      /* 点击图片：打开大图查看器（受控待办勾选由 change 委托处理，不在此处理） */
       if(ev.target && ev.target.tagName==='IMG'){
         const src = ev.target.getAttribute('data-relpath') || ev.target.getAttribute('src')||'';
         if(src){ $('#v16Img').src = src; $('#v16ImgViewer').classList.add('open'); }
       }
-      /* 点击 wiki 双链：跳转对应笔记 */
+      /* 点击 wiki 双链：跳转对应笔记（Vault.search 只接受一个参数，返回 entry 数组） */
       if(ev.target && ev.target.classList && ev.target.classList.contains('md-wiki')){
         const target = ev.target.dataset.target || ev.target.textContent;
-        Vault.search(target, 3).then(res=>{
-          if(res.entries && res.entries.length){ openNote(res.entries[0].path); }
+        Vault.search(target).then(res=>{
+          const arr = Array.isArray(res)?res:[];
+          const hit = arr.find(e=>e.title===target) || arr[0];
+          if(hit) openNote(hit.path);
           else toast('未找到「'+target+'」');
         }).catch(()=>toast('未找到「'+target+'」'));
       }
@@ -571,27 +646,35 @@ async function renderSettings(){
       <div class="v16-row"><span class="rl">附件</span><span class="rv">${st.attachments} 个</span></div>
       <div class="v16-row"><span class="rl">容量</span><span class="rv">${sz}</span></div>
       <div class="v16-row" data-row="bind"><span class="rl">绑定外部文件夹（SAF）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="safpush"><span class="rl">同步到绑定目录</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="safpull"><span class="rl">从绑定目录恢复</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="newvault"><span class="rl">新建 / 切换资料库</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="export"><span class="rl">导出资料库（zip）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="exportbak"><span class="rl">完整备份包（zip）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="exportjsonl"><span class="rl">知识库切片（JSONL）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="exportkbmd"><span class="rl">知识库（Markdown）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="exportjson"><span class="rl">JSON 导出</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row hl" data-row="migrate"><span class="rl">检测到旧库 library.json</span><span class="rv" style="color:#A04438;font-weight:700">迁移旧库 →</span></div>
     `)
     + g('g-edit','编辑',I.edit, `
       <div class="v16-row" data-row="attachloc"><span class="rl">默认附件位置</span><span class="rv">attachments/</span></div>
-      <div class="v16-row" data-row="newloc"><span class="rl">新建文件默认位置</span><span class="rv">当前目录</span></div>
-      <div class="v16-row" data-row="hlsyn"><span class="rl">==高亮== 语法</span><span class="v16-switch on" data-sw></span></div>
-      <div class="v16-row" data-row="wiki"><span class="rl">[[wiki]] 双链</span><span class="v16-switch on" data-sw></span></div>
-      <div class="v16-row" data-row="newtype"><span class="rl">默认新建类型</span><span class="rv">笔记</span></div>
+      <div class="v16-row" data-row="newloc"><span class="rl">新建文件默认位置</span><span class="rv">${prefs.newFileLoc==='root'?'资料库根':'当前目录'}</span></div>
+      <div class="v16-row" data-row="hlsyn"><span class="rl">==高亮== 语法</span><span class="v16-switch ${prefs.hlSyntax?'on':''}" data-sw></span></div>
+      <div class="v16-row" data-row="wiki"><span class="rl">[[wiki]] 双链</span><span class="v16-switch ${prefs.wikiSyntax?'on':''}" data-sw></span></div>
+      <div class="v16-row" data-row="newtype"><span class="rl">默认新建类型</span><span class="rv">${prefs.defaultType==='todo'?'待办':'笔记'}</span></div>
     `)
     + g('g-app','显示与主题',I.export.replace('stic','stic'), `
       <div class="v16-row" data-row="font"><span class="rl">显示字体</span><span class="rv">默认</span></div>
       <div class="v16-row" data-row="fontscale"><span class="rl">字号刻度尺</span><span class="rv">标准</span></div>
-      <div class="v16-row" data-row="theme"><span class="rl">主题（${S.theme==='dark'?'深色':'浅色'}）</span><span class="rv">点击切换</span></div>
+      <div class="v16-row" data-row="theme"><span class="rl">主题</span><span class="rv">${{light:'浅色',dark:'深色',auto:'跟随系统'}[prefs.theme]||'跟随系统'}</span></div>
     `)
     + g('g-more','更多',I.settings, `
       <div class="v16-row" data-row="ai"><span class="rl">AI 服务与模型</span><span class="rv">OpenAI 兼容</span></div>
       <div class="v16-row" data-row="log"><span class="rl">运行日志</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="pan"><span class="rl">百度网盘</span><span class="rv">连接/同步</span></div>
+      <div class="v16-row" data-row="install"><span class="rl">安装到主屏</span><span class="rv">像原生应用</span></div>
       <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v${APP_VERSION}</span></div>
-      <div class="v16-row"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
+      <div class="v16-row" data-row="privacy"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
     `);
 
   /* 手风琴 */
@@ -604,9 +687,79 @@ async function renderSettings(){
   root.querySelectorAll('.v16-row[data-row]').forEach(r=>{
     r.onclick = ()=>{
       const a = r.dataset.row;
-      if(a==='theme'){ toggleTheme(true); }
+      if(a==='theme'){ openThemePicker(); }
       else if(a==='migrate'){ startMigrateFlow(); }
-      else if(a==='about'){ toast('纸片 v'+APP_VERSION); }
+      else if(a==='ai'){ openLegacy('ai','settings'); }
+      else if(a==='log'){ openLegacy('log','settings'); }
+      else if(a==='pan'){
+        /* 进入网盘前先 vault→Store，保证上传/合并用最新库 */
+        (async()=>{ try{ await VaultSync.syncVaultToStore(); }catch(e){} openLegacy('pan','settings'); })();
+      }
+      else if(a==='about'){
+        openModal('<h3>关于纸片</h3><p><b>纸片 · 便签 v16</b><br>Markdown 单文件资料库（类 Obsidian）：文字笔记与待办、文件夹分类、富文本、图片与附件、内联搜索、回收站、目录绑定与 zip 迁移，并可接入 OpenAI 兼容 AI 与百度网盘。</p><p>所有数据仅存于本机，不经过任何服务器。</p>');
+      }
+      else if(a==='privacy'){
+        openModal('<h3>纯本地隐私说明</h3><p>纸片不设账号、不收集任何数据。所有笔记、图片、附件与 AI 配置均只保存在本设备；AI 问答仅在你主动触发时，把当前页内容发送到你自己配置的模型服务。</p><p>清理应用数据前请先导出备份。</p>');
+      }
+      else if(a==='fontscale'){
+        /* 字号刻度尺：cycle 3 档 */
+        const cur = parseFloat(root.style.fontSize||'16');
+        const next = cur>=18 ? 14 : (cur<=14 ? 16 : 18);
+        root.style.fontSize = next+'px';
+        toast('字号：'+next+'px');
+      }
+      else if(a==='font'){ openFontPicker(); }
+      else if(a==='install'){ installApp(); }
+      else if(a==='bind'){
+        VaultFS.bindFolder().then(r=>toast('已绑定：'+(r||'外部文件夹'))).catch(e=>toast('绑定失败（需真机）'));
+      }
+      else if(a==='safpush'){
+        (async()=>{ toast('正在同步…'); try{ await VaultSync.syncVaultToStore(); if(typeof syncFolder==='function') await syncFolder(true); toast('已同步到目录'); }catch(e){ console.warn(e); toast('同步失败（需真机）'); } })();
+      }
+      else if(a==='safpull'){
+        (async()=>{ toast('正在恢复…'); try{ if(typeof openFolder==='function') await openFolder(); await VaultSync.restoreFromStore(); renderHome(); toast('已从目录恢复'); }catch(e){ console.warn(e); toast('恢复失败（需真机）'); } })();
+      }
+      else if(a==='export'){
+        VaultFS.exportZip().then(r=>toast('已导出资料库 zip')).catch(e=>toast('导出失败（需真机）'));
+      }
+      else if(a==='exportbak'){
+        (async()=>{ toast('正在备份…'); try{ await VaultSync.syncVaultToStore(); if(typeof exportData==='function') await exportData(); toast('备份包已导出'); }catch(e){ console.warn(e); toast('备份失败'); } })();
+      }
+      else if(a==='exportjsonl'){
+        (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); if(typeof exportRAGJsonl==='function') await exportRAGJsonl(); toast('JSONL 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
+      }
+      else if(a==='exportkbmd'){
+        (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); if(typeof exportRAGMarkdown==='function') await exportRAGMarkdown(); toast('知识库 MD 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
+      }
+      else if(a==='exportjson'){
+        (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); const blob=new Blob([Store.payload()],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='zhipian-library.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast('JSON 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
+      }
+      else if(a==='hlsyn'){
+        prefs.hlSyntax=!prefs.hlSyntax; persistPrefs();
+        r.querySelector('.v16-switch').classList.toggle('on',prefs.hlSyntax);
+        toast(prefs.hlSyntax?'已启用 ==高亮==':'已关闭 ==高亮==');
+      }
+      else if(a==='wiki'){
+        prefs.wikiSyntax=!prefs.wikiSyntax; persistPrefs();
+        r.querySelector('.v16-switch').classList.toggle('on',prefs.wikiSyntax);
+        toast(prefs.wikiSyntax?'已启用 [[wiki]]':'已关闭 [[wiki]]');
+      }
+      else if(a==='newtype'){
+        prefs.defaultType=prefs.defaultType==='todo'?'note':'todo'; persistPrefs();
+        r.querySelector('.rv').textContent=prefs.defaultType==='todo'?'待办':'笔记';
+        toast('默认新建：'+(prefs.defaultType==='todo'?'待办':'笔记'));
+      }
+      else if(a==='newloc'){
+        prefs.newFileLoc=prefs.newFileLoc==='root'?'current':'root'; persistPrefs();
+        r.querySelector('.rv').textContent=prefs.newFileLoc==='root'?'资料库根':'当前目录';
+      }
+      else if(a==='newvault'){
+        /* 新建资料库：确认后清空当前库（含回收站），重新落 seed 或空白 */
+        if(confirm('新建资料库？当前所有笔记将被清空，建议先导出备份。')){
+          (async()=>{ try{ await Vault.clear(); await Vault.init(); renderHome(); toast('已新建资料库'); }catch(e){ toast('新建失败'); } })();
+        }
+      }
+      else if(a==='attachloc'){ /* 固定为 attachments/，无需操作 */ }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };
   });
@@ -647,16 +800,146 @@ async function renderTrash(){
   });
 }
 
+/* ---------- 文件夹选择面板（移动/批量移动） ---------- */
+async function pickFolderAndMove(notePath){
+  try{
+    const root = await Vault.tree();   /* 根节点对象 {name,path:'',children:[...]} */
+    const folders = [{path:'',name:'根目录',depth:0}];
+    (function walk(node, depth){
+      (node.children||[]).forEach(c=>{
+        folders.push({path:c.path, name:c.name, depth});
+        walk(c, depth+1);
+      });
+    })(root, 0);
+    const opts = folders.map(f=>({
+      icon: I.folder,
+      label: '　'.repeat(f.depth) + (f.name||'根目录'),
+      fn: async ()=>{
+        await Vault.move(notePath, f.path);
+        toast('已移动到「'+(f.name||'根目录')+'」');
+        show('home'); renderHome();
+      }
+    }));
+    openSheet('移动到…', opts);
+  }catch(e){ console.warn(e); toast('移动失败'); }
+}
+
 /* ---------- 底部 sheet ---------- */
 function openSheet(title, opts){
   $('#v16SheetTitle').textContent = title;
-  $('#v16SheetOpts').innerHTML = opts.map((o,i)=>`<div class="v16-sheet-opt" data-i="${i}">${o.icon}${esc(o.label)}</div>`).join('');
+  $('#v16SheetOpts').innerHTML = opts.map((o,i)=>{
+    if(o.html) return `<div class="v16-sheet-opt v16-sheet-html" data-i="${i}">${o.html}</div>`;
+    return `<div class="v16-sheet-opt" data-i="${i}">${o.icon||''}${esc(o.label||'')}</div>`;
+  }).join('');
   $('#v16SheetOpts').querySelectorAll('.v16-sheet-opt').forEach(el=>{
-    el.onclick = ()=>{ closeSheet(); opts[Number(el.dataset.i)].fn(); };
+    const o = opts[Number(el.dataset.i)];
+    if(o.html) return;
+    el.onclick = ()=>{ if(!o.noClose) closeSheet(); o.fn&&o.fn(); };
   });
   $('#v16SheetMask').classList.add('open'); $('#v16Sheet').classList.add('open');
 }
 function closeSheet(){ $('#v16SheetMask').classList.remove('open'); $('#v16Sheet').classList.remove('open'); }
+
+/* ---------- 颜色选择器（7 色，单篇/批量共用） ---------- */
+const V16_COLORS = ['cream','yellow','orange','pink','green','blue','purple'];
+const COLOR_LABEL = {cream:'米白',yellow:'明黄',orange:'暖橙',pink:'樱粉',green:'草绿',blue:'青蓝',purple:'浅紫'};
+function openColorPicker(current, onPick){
+  const html = '<div class="v16-colorpal">'+V16_COLORS.map(c=>
+    `<button class="v16cdot ${c===current?'sel':''}" data-c="${c}" style="background:var(--vp-c-${c})" aria-label="${COLOR_LABEL[c]}"></button>`
+  ).join('')+'</div>';
+  openSheet('选择颜色',[{html, noClose:true}]);
+  $('#v16SheetOpts').querySelectorAll('.v16cdot').forEach(d=>{
+    d.onclick = async()=>{ const c=d.dataset.c; await onPick(c); closeSheet(); };
+  });
+}
+
+/* ---------- 旧屏桥接（沿用 v15 功能屏：AI/网盘/日志/API/搜索等） ----------
+   不改变 hash、不进 navStack：直接把旧 v15 屏提升到 v16 之上显示；
+   其返回按钮经捕获式拦截回到 v16。这样旧屏的成熟逻辑原样保留，不重写。 */
+let _legacyReturn = null;
+function openLegacy(name, returnScr){
+  const el = document.getElementById('scr-'+name);
+  if(!el){ toast('该功能暂不可用'); return; }
+  /* 若该屏需要初始化（如本页问答需当前笔记上下文），可在调用前由调用方设置 */
+  el.classList.add('active','legacy-top');
+  _legacyReturn = returnScr || 'settings';
+}
+function closeLegacy(){
+  const el = document.querySelector('.screen.legacy-top');
+  if(el) el.classList.remove('active','legacy-top');
+  const r = _legacyReturn || 'settings';
+  _legacyReturn = null;
+  if(r==='home'){ show('home'); renderHome(); }
+  else if(r==='editor'){ show('editor'); }
+  else show(r);
+}
+/* 捕获式拦截：旧屏内返回按钮（id 含 Back）点击 → 回 v16，阻止其原有 hash 导航 */
+document.addEventListener('click', (e)=>{
+  const legacy = document.querySelector('.screen.legacy-top');
+  if(!legacy) return;
+  const btn = e.target && e.target.closest && e.target.closest('button');
+  if(!btn || !legacy.contains(btn)) return;
+  if(/back/i.test(btn.id)){
+    e.stopPropagation(); e.preventDefault();
+    closeLegacy();
+  }
+}, true);
+
+/* ---------- 旧 modal 提升：让 v15 的 openModal（字体/关于/隐私）在 v16 之上显示 ---------- */
+(function patchLegacyModal(){
+  if(typeof openModal!=='function' || typeof closeModal!=='function') return;
+  const _OM = openModal, _CM = closeModal;
+  openModal = function(html){
+    _OM(html);
+    const m = document.getElementById('modal');
+    if(m) m.classList.add('v16-lift');
+  };
+  closeModal = function(){
+    const m = document.getElementById('modal');
+    if(m) m.classList.remove('v16-lift');
+    _CM();
+  };
+})();
+
+/* ---------- 本页问答：把当前 vault 笔记合成 v15 笔记，复用 openNoteAi 全套逻辑 ---------- */
+let _naiSynth = null;
+async function openVaultNoteAi(){
+  if(!S._cur){ toast('请先打开笔记'); return; }
+  const data=S._cur, e=data.entry;
+  const fm = MD.parseFrontmatter(data.md).fm||{};
+  const todoRows = MD.todoLines(data.md);
+  const atts = await Vault.attachments(e.path);
+  const synth = {
+    id: fm.id || ('vault-'+e.path),
+    title: e.title,
+    content: data.html,                 /* 渲染 HTML，noteContextText 内部转 md */
+    todos: todoRows.map(t=>({done:t.done,text:t.text})),
+    files: atts.map(a=>({name:a.name,size:a.size||0})),
+    color: fm.color, type: fm.type||'note',
+    _vaultSynth:true
+  };
+  const prevEditing = editingId;
+  if(!notes.find(n=>n.id===synth.id)) notes.push(synth);
+  editingId = synth.id;
+  _naiSynth = { synth, prevEditing };
+  await openNoteAi();
+  /* 未配置 AI 等导致面板未打开：回滚注入 */
+  if(!$('#noteAiPanel').classList.contains('open')){
+    notes = notes.filter(n=>n.id!==synth.id);
+    editingId = prevEditing;
+    _naiSynth = null;
+  }
+}
+/* 关闭本页问答时，移除合成笔记并还原 v15 编辑上下文 */
+const _origCloseNoteAi = closeNoteAi;
+closeNoteAi = function(){
+  _origCloseNoteAi();
+  if(_naiSynth){
+    notes = notes.filter(n=>n.id!==_naiSynth.synth.id);
+    editingId = _naiSynth.prevEditing;
+    _naiSynth = null;
+  }
+};
 
 /* ---------- 主题圆形扩散（双图层） ---------- */
 function applyTheme(t){
@@ -664,8 +947,8 @@ function applyTheme(t){
   document.documentElement.dataset.theme = t;
   if(root) root.style.background = (t==='dark') ? '#18191C' : '#ECEAE2';
 }
-function toggleTheme(animate){
-  const next = S.theme==='dark' ? 'light' : 'dark';
+function toggleTheme(target, animate){
+  const next = target || (S.theme==='dark' ? 'light' : 'dark');
   if(!animate || reduceMotion()){ applyTheme(next); return; }
   /* 双图层揭示：圆形遮罩从右上扩散 */
   const circle = document.createElement('div');
@@ -685,9 +968,30 @@ function toggleTheme(animate){
   setTimeout(()=>{ circle.style.opacity='0'; setTimeout(()=>circle.remove(), 500); }, 620);
 }
 
+/* 主题三选：浅色 / 深色 / 跟随系统（保留 v15 三档，含圆形扩散动画） */
+function openThemePicker(){
+  const cur = (typeof prefs!=='undefined' && prefs.theme) || 'auto';
+  const name={light:'浅色',dark:'深色',auto:'跟随系统'};
+  const icon={light:I.sun,dark:I.moon,auto:I.auto};
+  openSheet('主题', ['light','dark','auto'].map(k=>({
+    icon: icon[k],
+    label: name[k] + (cur===k?'　✓':''),
+    fn:()=>{
+      prefs.theme = k; persistPrefs();
+      const t = k==='auto'
+        ? (window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')
+        : k;
+      if(t!==S.theme) toggleTheme(t,true);
+      else applyTheme(t);
+    }
+  })));
+}
+
 /* ---------- 事件绑定 ---------- */
 function bind(){
   $('#v16Menu').onclick = openDrawer;
+  $('#v16HomeAi').onclick = ()=>openLegacy('chat','home');
+  $('#v16EdAi').onclick = ()=>openVaultNoteAi();
   $('#v16DrawerMask').onclick = closeDrawer;
   $('#v16DrawerClose').onclick = closeDrawer;
   $('#v16SearchBtn').onclick = ()=>{ show('search'); setTimeout(()=>$('#v16SrInput').focus(), 300); };
@@ -717,11 +1021,28 @@ function bind(){
           await renderHome();
           await openNote(path);
         } else if(it.dataset.f==='folder'){
-          /* 新建文件夹：先在当前目录建一个"新文件夹" */
           const nm = '新文件夹';
           const path = await Vault.createFolder ? await Vault.createFolder(S.curFolder, nm) : null;
           toast('已新建文件夹'); renderHome();
-        } else toast('导入文件 · M4 接入');
+        } else if(it.dataset.f==='import'){
+          /* 统一导入：原生 vaultPickImport，浏览器降级 file input */
+          if(typeof Native!=='undefined' && Native && Native.call){
+            try{
+              await Native.call('vaultPickImport', {dirPath: S.curFolder});
+              toast('导入完成'); renderHome();
+            }catch(e){ console.warn(e); toast('导入失败'); }
+          } else {
+            const inp = document.createElement('input');
+            inp.type='file'; inp.style.display='none'; document.body.appendChild(inp);
+            inp.onchange = async ()=>{
+              inp.remove();
+              const f = inp.files && inp.files[0]; if(!f) return;
+              try{ await VaultFS.writeAttachment(f.name, f, S.curFolder); toast('已导入'); renderHome(); }
+              catch(e){ toast('导入失败'); }
+            };
+            inp.click();
+          }
+        }
       }catch(e){ console.warn('create failed', e); toast('新建失败'); }
     };
   });
@@ -749,8 +1070,15 @@ function bind(){
     renderEditor();
   };
   $('#v16EdMore').onclick = ()=>openSheet('笔记操作', [
-    {icon:I.move, label:'移动到…', fn:()=>toast('移动到… · M2 接入')},
-    {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ await Vault.remove(S._cur.entry.path); toast('已移入回收站'); show('home'); renderHome(); } }},
+    {icon:I.hl, label:'颜色', fn:()=>{ if(S._cur){ openColorPicker(S._cur.entry.color, async(c)=>{
+      await Vault.setColor(S._cur.entry.path, c);
+      /* 刷新编辑器缓存，避免下次 WYSIWYG 保存用旧 frontmatter 覆盖新颜色 */
+      const fresh = await Vault.get(S._cur.entry.path);
+      S._cur.md=fresh.md; S._cur.entry=fresh.entry; S._cur.frontmatter=fresh.frontmatter;
+      toast('颜色已更换'); }); } }},
+    {icon:I.move, label:'移动到…', fn:()=>pickFolderAndMove(S._cur.entry.path)},
+    {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ const path=S._cur.entry.path;
+      beforeDelete([path], async()=>{ await Vault.remove(path); toast('已移入回收站'); show('home'); renderHome(); }); } }},
     {icon:I.pin, label:'置顶/取消', fn:async()=>{ if(S._cur){ await Vault.setPin(S._cur.entry.path, !S._cur.entry.pinned); toast('已更新'); } }}
   ]);
   /* 底部工具栏：WYSIWYG 格式化 */
@@ -789,6 +1117,22 @@ function bind(){
       }catch(e){ console.warn('toolbar exec', e); }
     };
   });
+  /* 受控待办勾选：change 委托（renderEditor 重渲染 innerHTML 后仍生效）。
+     勾选只调 Vault.toggleTodo，状态与 #p 优先级由数据层保证，不丢。 */
+  root.addEventListener('change', async (ev)=>{
+    if(!(ev.target && ev.target.classList && ev.target.classList.contains('v16-ed-todoinput'))) return;
+    if(!S._cur) return;
+    clearTimeout(_wysiwygTimer);   /* 取消挂起的自由序列化，受控勾选为唯一写入源 */
+    const key = ev.target.dataset.key;
+    try{
+      const res = await Vault.toggleTodo(S._cur.entry.path, key);
+      if(res){
+        S._cur = await Vault.get(S._cur.entry.path);
+        const ed = document.getElementById('v16EdBody');
+        if(ed) ed.innerHTML = mdToEditableHTML(S._cur.md);
+      }
+    }catch(e){ console.warn('toggle todo failed', e); }
+  });
   /* 搜索 */
   $('#v16SrBack').onclick = ()=>{ show('home'); renderHome(); };
   $('#v16SrInput').addEventListener('input', doSearch);
@@ -814,15 +1158,41 @@ function bind(){
       const action = b.dataset.a;
       const paths = Array.from(S.selected);
       if(action==='del'){
-        for(const p of paths){ try{ await Vault.remove(p); }catch(e){} }
-        toast('已移入回收站');
+        beforeDelete(paths, async()=>{
+          for(const p of paths){ try{ await Vault.remove(p); }catch(e){} }
+          toast('已移入回收站');
+          S.selecting=false; S.selected=new Set(); renderHome();
+        });
+        return;
       } else if(action==='pin'){
         for(const p of paths){ try{ await Vault.setPin(p, true); }catch(e){} }
         toast('已置顶');
       } else if(action==='color'){
-        toast('批量颜色 · 单篇可在编辑器里设置');
+        openColorPicker(null, async(c)=>{
+          for(const p of paths){ try{ await Vault.setColor(p, c); }catch(e){} }
+          toast('颜色已批量更换');
+        });
+        return; /* 颜色选择后由 picker 内部关闭并刷新 */
       } else if(action==='move'){
-        toast('批量移动 · 单篇可在编辑器"移动到…"');
+        /* 批量移动：选文件夹后逐个 Vault.move */
+        const root = await Vault.tree();
+        const folders = [{path:'',name:'根目录',depth:0}];
+        (function walk(node, depth){
+          (node.children||[]).forEach(c=>{
+            folders.push({path:c.path,name:c.name,depth});
+            walk(c,depth+1);
+          });
+        })(root, 0);
+        openSheet('移动 '+paths.length+' 篇到…', folders.map(f=>({
+          icon: I.folder,
+          label: '　'.repeat(f.depth)+(f.name||'根目录'),
+          fn: async ()=>{
+            for(const p of paths){ try{ await Vault.move(p, f.path); }catch(e){} }
+            toast('已移动 '+paths.length+' 篇');
+            S.selecting=false; S.selected=new Set(); renderHome();
+          }
+        })));
+        return;
       }
       S.selecting=false; S.selected=new Set(); renderHome();
     };
@@ -836,8 +1206,10 @@ function bind(){
     const top = root.querySelector('.v16-scr.on');
     if(!top || top.dataset.scr==='home') return;
     if(e.clientX > EDGE) return;
-    /* 起手点控件守卫 */
-    if(e.target && e.target.closest && e.target.closest('button,a,input,textarea,select,.seg,.switch,.v16-dock button')) return;
+    /* 弹层（抽屉/底部 sheet/对话框）打开时不接管 */
+    if(document.querySelector('.v16-drawer.open, .v16-sheet.open, .v16-mask.open, .v16-modal.open, .screen.legacy-top')) return;
+    /* 起手点控件守卫；顶栏/工具栏整体视为控制区（含其左侧 padding，防止顶栏误触） */
+    if(e.target && e.target.closest && e.target.closest('button,a,input,textarea,select,.seg,.switch,.v16-dock,.v16-topbar')) return;
     g = { id:e.pointerId, el:top, startX:e.clientX, startY:e.clientY, locked:false, dx:0 };
   }, {passive:true});
   window.addEventListener('pointermove', (e)=>{
@@ -857,8 +1229,12 @@ function bind(){
     if(!g) return;
     const s = g; g = null;
     if(!s.locked){ s.el.style.transform=''; return; }
+    /* 抬手时指尖落在控件上：让控件点击生效，不触发返回 */
+    let overCtrl=false;
+    try{ const el=document.elementFromPoint(e.clientX,e.clientY);
+      overCtrl = !!(el&&el.closest&&el.closest('button,a,input,textarea,select,.seg,.switch,.v16-topbar')); }catch(_){}
     s.el.style.transition='transform .3s cubic-bezier(.22,1,.36,1)';
-    if(s.dx > window.innerWidth*0.25){
+    if(s.dx > window.innerWidth*0.25 && !overCtrl){
       s.el.style.transform='translateX('+window.innerWidth+'px)';
       setTimeout(()=>{ show('home'); renderHome(); }, 250);
     } else {
@@ -872,6 +1248,11 @@ async function boot(){
   buildRoot();
   applyTheme(document.documentElement.dataset.theme==='dark' ? 'dark' : 'light');
   await Vault.init();
+  /* 云端/目录整库恢复后的待同步：把已恢复的 Store 落进 vault（先清空避免重复） */
+  if(typeof VaultSync!=='undefined' && VaultSync.consumePending && VaultSync.consumePending()){
+    toast('正在把恢复的资料写入资料库…');
+    try{ await VaultSync.restoreFromStore(); }catch(e){ console.warn('restore sync failed', e); }
+  }
   bind();
   renderHome();
 }

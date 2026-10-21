@@ -1291,10 +1291,8 @@ body.capturing .paper-rtbar{display:none!important}
 
 /* ---------- 屏幕切换 ---------- */
 .v16-scr{ position:absolute; inset:0; display:flex; flex-direction:column;
-  background:var(--vp-paper); opacity:0; visibility:hidden; pointer-events:none;
-  transform:translateX(28px); transition:transform var(--dur-4) var(--ease-decel),
-  opacity var(--dur-3) ease, visibility var(--dur-3); }
-.v16-scr.on{ opacity:1; visibility:visible; pointer-events:auto; transform:none; z-index:2; }
+  background:var(--vp-paper); opacity:0; visibility:hidden; pointer-events:none; }
+.v16-scr.on{ opacity:1; visibility:visible; pointer-events:auto; z-index:2; }
 .v16-scr.behind{ opacity:1; visibility:visible; transform:none; pointer-events:none; z-index:1; }
 @media (prefers-reduced-motion:reduce){
   .v16-scr{ transition:none !important; transform:none !important; }
@@ -1608,6 +1606,179 @@ body.capturing .paper-rtbar{display:none!important}
   pointer-events:none !important; z-index:0 !important; transform:none !important; }
 #app > .mask, #app > .sheet, #app > .modal, #app > .sync-overlay,
 #app > .toast, #app > .nb-picker, #app > .chat-drawer, #app > .note-ai-panel{ z-index:1 !important; }
+
+/* ============ M4 WYSIWYG 编辑器 ============ */
+.v16-ed-body{ outline:none; min-height:200px; font-size:16px; line-height:1.8; color:var(--vp-ink); padding:4px 2px; }
+.v16-ed-body:empty::before{ content:attr(data-ph); color:var(--vp-ink-3); }
+.v16-ed-body h2{ font-size:20px; font-weight:800; margin:16px 0 8px; color:var(--vp-ink); }
+.v16-ed-body blockquote{ border-left:3px solid var(--vp-accent); padding:4px 12px; margin:10px 0; color:var(--vp-ink-2); background:var(--vp-paper-2); border-radius:0 8px 8px 0; }
+.v16-ed-body pre{ background:var(--vp-paper-2); padding:10px 12px; border-radius:8px; font-family:monospace; font-size:14px; overflow-x:auto; margin:10px 0; }
+.v16-ed-body img{ max-width:100%; border-radius:12px; margin:8px 0; }
+.v16-ed-todoul{ list-style:none; padding-left:4px; margin:8px 0; }
+.v16-ed-todoul li{ display:flex; align-items:flex-start; gap:8px; padding:4px 0; }
+.v16-ed-todoinput{ width:20px; height:20px; margin-top:3px; flex-shrink:0; accent-color:var(--vp-accent); }
+.v16-ed-todoinput:checked + *{ text-decoration:line-through; color:var(--vp-ink-3); }
+
+/* ============ M5 rc：纸感金色 checkbox + wiki + 动效 ============ */
+.v16-ed-todoul{ list-style:none; padding-left:2px; margin:8px 0; }
+.v16-ed-todoul li{ display:flex; align-items:flex-start; gap:10px; padding:5px 0; }
+.v16-ed-todoinput{
+  -webkit-appearance:none; appearance:none;
+  width:22px; height:22px; border-radius:50%;
+  border:2px solid #C9B98A; background:#FBFAF4;
+  cursor:pointer; position:relative; flex-shrink:0; margin-top:2px;
+  transition:background .2s, border-color .2s;
+}
+.v16-ed-todoinput:checked{ background:#A8843C; border-color:#A8843C; }
+.v16-ed-todoinput:checked::after{
+  content:''; position:absolute; left:6px; top:2px;
+  width:6px; height:11px; border:solid #FBFAF4; border-width:0 2px 2px 0;
+  transform:rotate(45deg);
+}
+:root[data-theme="dark"] .v16-ed-todoinput{ background:#26272C; border-color:#6E5A32; }
+:root[data-theme="dark"] .v16-ed-todoinput:checked{ background:#D3B266; border-color:#D3B266; }
+:root[data-theme="dark"] .v16-ed-todoinput:checked::after{ border-color:#18191C; }
+/* wiki 双链 */
+.v16-ed-body .md-wiki{
+  color:var(--vp-accent); background:var(--vp-accent-soft);
+  padding:1px 6px; border-radius:6px; cursor:pointer; font-size:.95em;
+}
+/* 手风琴展开动画 */
+.v16-tree-node .v16-tree-children{ overflow:hidden; }
+.v16-tree-node.collapsed .v16-tree-children{ display:none; }
+/* 进度条 */
+.v16-progress{ height:6px; background:var(--vp-line); border-radius:3px; overflow:hidden; margin:8px 0; }
+.v16-progress > i{ display:block; height:100%; background:var(--vp-accent); border-radius:3px; transition:width .4s cubic-bezier(.34,1.56,.64,1); }
+/* 卡片按压 */
+.v16-note-card, .v16-folder-card{ transition:transform .15s, box-shadow .15s; }
+.v16-note-card:active, .v16-folder-card:active{ transform:scale(.97); }
+
+/* ============ 旧屏桥接：沿用 v15 功能屏（AI/网盘/日志/API 等）到 v16 之上 ============ */
+.screen.legacy-top{
+  z-index:70 !important; visibility:visible !important; opacity:1 !important;
+  pointer-events:auto !important; transform:none !important;
+}
+/* 旧屏在移动端本被隐藏的桌面返回键，桥接时显示，作为可见返回入口 */
+.screen.legacy-top .desk-only{ display:inline-flex !important; align-items:center; justify-content:center; }
+
+/* 旧 modal 在 v16 之上打开（字体/关于/隐私等）：提升层级，覆盖默认的 z-index:1 */
+#app > .modal.v16-lift{ z-index:90 !important; }
+
+/* ============ 颜色选择器（7 色圆点） ============ */
+.v16-colorpal{ display:flex; gap:14px; padding:16px 10px 6px; justify-content:center; flex-wrap:wrap; }
+.v16-colorpal .v16cdot{
+  width:40px; height:40px; border-radius:50%; cursor:pointer;
+  border:2px solid rgba(0,0,0,.12); box-shadow:0 1px 3px rgba(0,0,0,.18);
+  transition:transform .15s;
+}
+.v16-colorpal .v16cdot:active{ transform:scale(.9); }
+.v16-colorpal .v16cdot.sel{ border-color:var(--vp-accent); box-shadow:0 0 0 2px var(--vp-paper), 0 0 0 4px var(--vp-accent); }
+
+/* ============================================================
+   v16-anim.css —— 16 项动效的 keyframes / 物理样式（独立文件）
+   纸感克制风格：暖纸底、柔和、低饱和，不花哨；
+   所有动效在 reduced-motion 下降级（见文件末尾）。
+   ============================================================ */
+
+/* ---------- #2 触点倾斜（在 vault-ui.css :active scale 之后加载，同名特异性由顺序取胜） ---------- */
+.v16-note-card.v16-tilt, .v16-folder-card.v16-tilt{
+  transform: perspective(380px) rotateX(var(--vtilt-x, 0deg)) rotateY(var(--vtilt-y, 0deg)) scale(.985);
+  transition: transform .16s ease-out;
+  will-change: transform;
+}
+
+/* ---------- #3 chip 三连：收缩→回弹→回落 ---------- */
+.v16cdot{ transition: transform .18s ease-out; }
+@keyframes v16ChipPop{
+  0%   { transform: scale(1); }
+  38%  { transform: scale(.78); }
+  68%  { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+.v16cdot.v16-chip-pop{ animation: v16ChipPop .38s cubic-bezier(.34,1.56,.64,1); }
+
+/* ---------- #5/#8 勾选三连：错峰浮现 + 划线画出 + 弱化 ---------- */
+.v16-todo-li{ transition: background-color .2s; }
+.v16-todo-li .md-todo-text{
+  transition: opacity .3s ease, background-size .35s ease;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-size: 0% 1.5px;          /* 划线从 0 画出到 100% */
+  background-position: left center;
+  padding: 1px 0;
+}
+.v16-todo-li.v16-li-done .md-todo-text{ opacity: .48; background-size: 100% 1.5px; }
+.v16-todo-li .v16-ed-todoinput{ transition: transform .22s cubic-bezier(.34,1.56,.64,1); }
+.v16-todo-li.v16-li-done .v16-ed-todoinput{ transform: scale(1.18); }
+@keyframes v16TodoPop{
+  0%   { transform: translateY(6px) scale(.97); opacity: .35; }
+  60%  { transform: translateY(-2px) scale(1.01); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+.v16-todo-li.v16-todo-pop{ animation: v16TodoPop .4s cubic-bezier(.34,1.4,.64,1) backwards; }
+
+/* ---------- #7 待办弹簧拖拽：抬起阴影 ---------- */
+.v16-todo-li.v16-li-dragging{
+  position: relative;
+  z-index: 3;
+  border-radius: 8px;
+  background: var(--vp-card, #fffdf7);
+  box-shadow: 0 6px 18px rgba(90,80,55,.18);
+  will-change: transform;
+}
+
+/* ---------- #10 内联联想浮层 ---------- */
+.v16-nb-sug{
+  position: fixed; z-index: 90;
+  width: 190px; max-height: 200px; overflow-y: auto;
+  background: #fffdf6; border: 1px solid rgba(120,110,80,.22);
+  border-radius: 12px; box-shadow: 0 8px 24px rgba(90,80,55,.16);
+  padding: 5px; display: none;
+  opacity: 0; transform: translateY(-4px);
+}
+.v16-nb-sug.show{ display: block; animation: v16NbIn .12s ease-out; }
+@keyframes v16NbIn{
+  0% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 1; transform: none; }
+}
+.v16-nb-sug .v16-ns-item{
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  padding: 8px 10px; font-size: 13.5px; color: #4a4436;
+  background: transparent; border: none; border-radius: 8px; cursor: pointer;
+}
+.v16-nb-sug .v16-ns-item:active{ background: rgba(120,110,80,.12); }
+.v16-ns-ic{ color: #8a8270; font-size: 12px; }
+
+/* ---------- #11 大图查看器图片过渡（双击缩放/分页回弹） ---------- */
+#v16Img{
+  transition: transform .28s cubic-bezier(.22,1,.36,1);
+  will-change: transform;
+}
+
+/* ---------- #15 手风琴指示：头部箭头旋转 ---------- */
+.v16-set-group .v16-set-head svg,
+.v16-tree-row .tw svg{ transition: transform .3s cubic-bezier(.22,1,.36,1); }
+.v16-set-group:not(.open) .v16-set-head svg{ transform: rotate(180deg); }
+.v16-tree-row:not(.openfolder) .tw svg{ transform: rotate(-90deg); }
+.v16-set-body{ transition: opacity .3s, max-height var(--dur-3, .26s) var(--ease-decel, cubic-bezier(.22,1,.36,1)); }
+
+/* ---------- #16 进度条 ---------- */
+.v16-progress > i{ transform-origin: left center; }
+
+/* ============================================================
+   reduced-motion 降级：全部动效关闭，功能照常（无动画直出终态）
+   ============================================================ */
+@media (prefers-reduced-motion: reduce){
+  .v16-note-card, .v16-folder-card, .v16cdot, .v16-todo-li,
+  .v16-nb-sug, #v16Img, .v16-set-body, .v16-set-group .v16-set-head svg,
+  .v16-tree-row .tw svg{
+    transition: none !important;
+    animation: none !important;
+  }
+  .v16-todo-li.v16-todo-pop{ animation: none !important; }
+  .v16cdot.v16-chip-pop{ animation: none !important; }
+  .v16-nb-sug.show{ animation: none !important; opacity: 1 !important; transform: none !important; }
+}
 
 </style>
 </head>
@@ -2076,7 +2247,8 @@ function markCloudDeleted(ids){
   return changed;
 }
 let prefs={theme:'auto',view:'grid',filter:'全部',recents:[],favoriteTags:[],
-  notebooks:[],nbFilter:null,pan:null,libName:'',lastPanSync:null};
+  notebooks:[],nbFilter:null,pan:null,libName:'',lastPanSync:null,
+  hlSyntax:true,wikiSyntax:true,defaultType:'note',newFileLoc:'current'};
 
 /* ---- 运行日志（本地持久：操作可追溯、异常可定位） ---- */
 const LOG_KEY='zhipian.logs.v1', LOG_MAX=400;
@@ -5911,6 +6083,7 @@ async function doCloudSync(push){
       const failWarn=r.failedFiles?('；'+r.failedFiles+' 个附件下载失败，可稍后重试恢复'):'';
       toast('恢复完成：'+arr.length+' 张便签'+(pm.added?('（合并新增 '+pm.added+'）'):'')+'；下载附件 '+(r.downloaded||0)+' 个'+failWarn);
       Logs.info('云同步','从云端恢复：'+arr.length+' 张，下载附件 '+(r.downloaded||0)+(r.failedFiles?('，失败 '+r.failedFiles+'：'+(r.failedNames||[]).join(',')):''));
+      if(typeof VaultSync!=='undefined' && VaultSync.markPending) VaultSync.markPending();
       setTimeout(()=>location.reload(),900);
     }
   }catch(e){
@@ -8358,6 +8531,19 @@ const opfsBE = {
   async _parentOf(rel, create){
     return this._resolve(util.dirOf(rel), create);
   },
+  /* 崩溃恢复：递归清理上一次写中断留下的 .name.tmp（目标文件由原子 move 保证完整） */
+  async cleanupTmp(){
+    const walk=async(dir)=>{
+      for await (const [name,h] of dir.entries()){
+        if(h.kind==='file'){
+          if(name.startsWith('.')&&name.endsWith('.tmp')){ try{ await dir.removeEntry(name); }catch(e){} }
+        } else if(h.kind==='directory' && !name.startsWith('.')){
+          await walk(h);
+        }
+      }
+    };
+    await walk(await this._root());
+  },
   root(){ return this._root().then(()=>({type:'opfs', path:'opfs://vault'})); },
   async list(rel){
     const d=await this._resolve(rel);
@@ -8379,16 +8565,22 @@ const opfsBE = {
   async _writeBytes(rel, bytes){
     const parent=await this._parentOf(rel, true);
     const name=util.base(rel);
-    /* 原子写：先写 .name.tmp，再 move 覆盖目标 */
+    /* 原子写：先完整写 .name.tmp，再 move 覆盖目标（move 同目录改名是原子替换，
+       不先 removeEntry，避免删除旧目标与改名之间的丢失窗口） */
     const tmp=await parent.getFileHandle('.'+name+'.tmp',{create:true});
     const tw=await tmp.createWritable(); await tw.write(bytes); await tw.close();
-    try{ await parent.removeEntry(name); }catch(e){}
-    try{ await tmp.move(parent, name); }
-    catch(e){
-      const f=await tmp.getFile();
-      const h=await parent.getFileHandle(name,{create:true});
-      const w=await h.createWritable(); await w.write(await f.arrayBuffer()); await w.close();
-      await parent.removeEntry('.'+name+'.tmp');
+    try{
+      await tmp.move(parent, name);
+    }catch(e){
+      /* 某些实现 move 不覆盖已存在文件：回退为删除后重改名，再不行则流式复制 */
+      try{ await parent.removeEntry(name); }catch(e2){}
+      try{ await tmp.move(parent, name); }
+      catch(e3){
+        const f=await tmp.getFile();
+        const h=await parent.getFileHandle(name,{create:true});
+        const w=await h.createWritable(); await w.write(await f.arrayBuffer()); await w.close();
+        await parent.removeEntry('.'+name+'.tmp');
+      }
     }
   },
   async write(rel, text){ await this._writeBytes(rel, new TextEncoder().encode(String(text==null?'':text))); return rel; },
@@ -8432,9 +8624,12 @@ const opfsBE = {
 
 /* ============================================================
    后端 C：idb（IndexedDB 虚拟 FS）—— 兜底
+   性能：init 时游标一次性全量扫描建内存索引 _idx（Map<key,{kind,size,mtime}>），
+   此后 list 为纯内存前缀过滤（O(子项) 输出、O(全量) 内存扫），
+   不再每次 getAllKeys + 逐条 get 事务；写/删/移动时同步维护 _idx。
    ============================================================ */
 const idbBE = {
-  db:null, NAME:'zhipian-vaultfs',
+  db:null, NAME:'zhipian-vaultfs', _idx:null,
   async init(){
     this.db=await new Promise((res,rej)=>{
       const rq=indexedDB.open(this.NAME,1);
@@ -8443,7 +8638,21 @@ const idbBE = {
       rq.onsuccess=e=>res(e.target.result);
       rq.onerror=()=>rej(rq.error);
     });
+    await this._loadIndex();
     return this.db;
+  },
+  /* 一次性游标全量扫描：key → {kind,size,mtime} 内存索引 */
+  _loadIndex(){
+    return new Promise((res,rej)=>{
+      this._idx=new Map();
+      const rq=this.db.transaction('files','readonly').objectStore('files').openCursor();
+      rq.onsuccess=e=>{ const c=e.target.result;
+        if(!c) return res();
+        const v=c.value;
+        this._idx.set(c.key,{kind:v.kind, size:v.blob?v.blob.size:0, mtime:v.mtime||0});
+        c.continue(); };
+      rq.onerror=()=>rej(rq.error);
+    });
   },
   _store(mode){ return this.db.transaction('files',mode).objectStore('files'); },
   _op(mode, fn){
@@ -8457,17 +8666,17 @@ const idbBE = {
   _del(k){ return this._op('readwrite',s=>s.delete(k)); },
   _keys(){ return this._op('readonly',s=>s.getAllKeys()); },
   root(){ return Promise.resolve({type:'idb', path:'idb://'+this.NAME}); },
+  /* 纯内存前缀过滤：不再触发任何 IDB 事务 */
   async list(rel){
-    const keys=await this._keys();
+    if(!this._idx) await this._loadIndex();
     const prefix=rel?rel+'/':'';
     const out=[];
-    for(const k of keys){
+    for(const [k,v] of this._idx){
       if(!k.startsWith(prefix)) continue;
       const rest=k.slice(prefix.length);
       if(!rest || rest.indexOf('/')>=0) continue;
       if(!rel && rest==='.trash') continue;
-      const e=await this._get(k);
-      out.push({name:rest, type:e.kind, size:e.blob?e.blob.size:0, mtime:e.mtime||0});
+      out.push({name:rest, type:v.kind, size:v.size, mtime:v.mtime});
     }
     return out;
   },
@@ -8477,13 +8686,17 @@ const idbBE = {
     return e.blob.text();
   },
   async write(rel, text){
-    await this._put(rel, {kind:'file', blob:new Blob([String(text==null?'':text)],{type:'text/plain'}), mtime:Date.now()});
+    const blob=new Blob([String(text==null?'':text)],{type:'text/plain'});
+    await this._put(rel,{kind:'file', blob, mtime:Date.now()});
+    if(this._idx) this._idx.set(rel,{kind:'file', size:blob.size, mtime:Date.now()});
     return rel;
   },
   async mkdir(rel){
     if(!rel) return rel;
     const segs=rel.split('/'); let acc='';
-    for(const s of segs){ acc=acc?acc+'/'+s:s; await this._put(acc,{kind:'folder', mtime:Date.now()}); }
+    for(const s of segs){ acc=acc?acc+'/'+s:s;
+      await this._put(acc,{kind:'folder', mtime:Date.now()});
+      if(this._idx) this._idx.set(acc,{kind:'folder', size:0, mtime:Date.now()}); }
     return rel;
   },
   async moveRaw(srcRel, dstRel){
@@ -8497,12 +8710,20 @@ const idbBE = {
       }
     }
     if(!moved.length) throw err('移动源不存在：'+srcRel);
-    for(const [k,nk,e] of moved){ await this._put(nk,e); await this._del(k); }
+    for(const [k,nk,e] of moved){
+      await this._put(nk,e); await this._del(k);
+      if(this._idx){ this._idx.delete(k); this._idx.set(nk,{kind:e.kind, size:e.blob?e.blob.size:0, mtime:e.mtime||0}); }
+    }
   },
   async rename(rel,newRel){ await this.moveRaw(rel,newRel); return newRel; },
   async delete(rel){
     const keys=await this._keys();
-    for(const k of keys) if(k===rel || k.indexOf(rel+'/')===0) await this._del(k);
+    for(const k of keys){
+      if(k===rel || k.indexOf(rel+'/')===0){
+        await this._del(k);
+        if(this._idx) this._idx.delete(k);
+      }
+    }
   },
   async readBlob(rel){
     const e=await this._get(rel);
@@ -8511,6 +8732,7 @@ const idbBE = {
   },
   async writeBlob(rel,blob){
     await this._put(rel,{kind:'file', blob, mtime:Date.now()});
+    if(this._idx) this._idx.set(rel,{kind:'file', size:blob.size, mtime:Date.now()});
     return rel;
   },
   importFile(){ return Promise.reject(err('浏览器预览端不支持外部 uri 导入')); },
@@ -8561,6 +8783,14 @@ async function genericWriteAttachment(be, name, blob, notePath){
   return util.join(dir, finalName);
 }
 
+/* 写队列：所有写/改名/删除串行执行，避免并发写同一文件时 tmp 竞争或目标丢失窗口 */
+let _fsChain = Promise.resolve();
+function fsSerial(fn){
+  const r = _fsChain.then(()=>fn());
+  _fsChain = r.catch(()=>{});
+  return r;
+}
+
 /* ============================================================
    VaultFS 对外门面
    ============================================================ */
@@ -8570,7 +8800,7 @@ const VaultFS = {
   async init(force){
     this._name = force || (envNative()?'native':(envOpfs()?'opfs':'idb'));
     if(this._name==='native') this._be=nativeBE;
-    else if(this._name==='opfs') this._be=opfsBE;
+    else if(this._name==='opfs'){ this._be=opfsBE; await opfsBE.cleanupTmp(); }
     else { this._be=idbBE; await idbBE.init(); }
     return this._name;
   },
@@ -8578,36 +8808,44 @@ const VaultFS = {
   root(){ return this._be.root(); },
   list(path){ return this._be.list(util.norm(path)); },
   read(path){ return this._be.read(util.norm(path)); },
-  write(path, text){ return this._be.write(util.norm(path), text); },
-  mkdir(path){ return this._be.mkdir(util.norm(path)); },
-  rename(path, newPath){ return this._be.rename(util.norm(path), util.norm(newPath)); },
-  async move(path, dirPath){
+  write(path, text){ return fsSerial(()=>this._be.write(util.norm(path), text)); },
+  mkdir(path){ return fsSerial(()=>this._be.mkdir(util.norm(path))); },
+  rename(path, newPath){ return fsSerial(()=>this._be.rename(util.norm(path), util.norm(newPath))); },
+  move(path, dirPath){
     path=util.norm(path); dirPath=util.norm(dirPath);
-    if(this._be.move) return this._be.move(path, dirPath);
-    const newPath=util.join(dirPath, util.base(path));
-    await this._be.rename(path, newPath);
-    return newPath;
+    return fsSerial(async()=>{
+      if(this._be.move) return this._be.move(path, dirPath);
+      const newPath=util.join(dirPath, util.base(path));
+      await this._be.rename(path, newPath);
+      return newPath;
+    });
   },
   trash(path){
     path=util.norm(path);
-    if(this._name==='native') return this._be.trash(path);
-    return genericTrash(this._be, path);
+    return fsSerial(()=>{
+      if(this._name==='native') return this._be.trash(path);
+      return genericTrash(this._be, path);
+    });
   },
   restore(trashPath){
     trashPath=util.norm(trashPath);
-    if(this._name==='native') return this._be.restore(trashPath);
-    return genericRestore(this._be, trashPath);
+    return fsSerial(()=>{
+      if(this._name==='native') return this._be.restore(trashPath);
+      return genericRestore(this._be, trashPath);
+    });
   },
   listTrash(){
     if(this._name==='native') return this._be.listTrash();
     return genericListTrash(this._be);
   },
-  delete(path){ return this._be.delete(util.norm(path)); },
+  delete(path){ return fsSerial(()=>this._be.delete(util.norm(path))); },
   readBlob(path){ return this._be.readBlob(util.norm(path)); },
   writeAttachment(name, blob, notePath){
     notePath=util.norm(notePath||'');
-    if(this._name==='native') return this._be.writeAttachment(name, blob, notePath);
-    return genericWriteAttachment(this._be, name, blob, notePath);
+    return fsSerial(()=>{
+      if(this._name==='native') return this._be.writeAttachment(name, blob, notePath);
+      return genericWriteAttachment(this._be, name, blob, notePath);
+    });
   },
   importFile(uri, dirPath){ return this._be.importFile(uri, util.norm(dirPath||'')); },
   bindFolder(){ return this._be.bindFolder(); },
@@ -8741,14 +8979,18 @@ function inline(t){
   // 5) 链接 [文字](url)（文字允许嵌套行内标记，递归解析）
   t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m,txt,url)=>
     put('<a class="md-link" href="'+escAttr(url)+'">'+inline(txt)+'</a>'));
-  // 6) 双链 [[名]] / [[名|显示]]
-  t = t.replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g, (m,name,disp)=>
-    put('<span class="md-wiki" data-target="'+escAttr(name)+'">'+esc(disp||name)+'</span>'));
+  // 6) 双链 [[名]] / [[名|显示]]（可在设置中关闭；关闭时 [[ ]] 原样保留）
+  if(typeof prefs==='undefined' || prefs.wikiSyntax){
+    t = t.replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g, (m,name,disp)=>
+      put('<span class="md-wiki" data-target="'+escAttr(name)+'">'+esc(disp||name)+'</span>'));
+  }
 
   // 7) 其余文本转义
   t = esc(t);
-  // 8) 高亮 ==x==
-  t = t.replace(/==([^=\s][^=]*)==/g, '<mark class="md-hl">$1</mark>');
+  // 8) 高亮 ==x==（可在设置中关闭；关闭时 == == 原样保留）
+  if(typeof prefs==='undefined' || prefs.hlSyntax){
+    t = t.replace(/==([^=\s][^=]*)==/g, '<mark class="md-hl">$1</mark>');
+  }
   // 9) 删除线 ~~x~~
   t = t.replace(/~~([\s\S]+?)~~/g, '<del>$1</del>');
   // 10) 加粗 **x**（先于斜体，避免吃掉星号）
@@ -8915,11 +9157,30 @@ function htmlToMD(html){
   s = s.replace(/<!--[\s\S]*?-->/g,'');
   s = s.replace(/<br\s*\/?>/gi,'\n');
 
+  /* 受控待办的优先级徽章（编辑器渲染）→ #p/high|#p/low，保证序列化不丢 */
+  s = s.replace(/<span class="md-prio-tag[^"]*" data-p="(high|low)"[^>]*>[\s\S]*?<\/span>/gi,
+    (m,p)=>' #p/'+p);
+  /* 受控待办的正文包裹层解开，使 ul/li/input 逻辑按普通待办行处理（含嵌套/勾选） */
+  s = s.replace(/<span class="md-todo-text">([\s\S]*?)<\/span>/gi, '$1');
+
+  /* styleWithCSS / execCommand 产出的样式 span → 标准行内标签 */
+  const convStack = [];
+  s = s.replace(/<span[^>]*style="([^"]*)"[^>]*>/gi, (m, style)=>{
+    if(/font-weight\s*:\s*(bold|[6-9]00)/i.test(style)){ convStack.push('b'); return '<b>'; }
+    if(/font-style\s*:\s*italic/i.test(style)){ convStack.push('i'); return '<i>'; }
+    if(/text-decoration\s*:\s*underline/i.test(style)){ convStack.push('u'); return '<u>'; }
+    if(/background(-color)?\s*:/i.test(style)){ convStack.push('mark'); return '<mark>'; }
+    return m; // 字号等复杂内联样式：原样保留（见 span/font 分支）
+  });
+  /* 已转换 span 的闭合标签 → 对应标签闭合 */
+  s = s.replace(/<\/span>/gi, ()=> convStack.length ? '</'+convStack.pop()+'>' : '</span>');
+
   let out = '';
-  const stack = [];                 // 块级上下文栈：'ul'|'ol'|'quote'|'wiki'
+  const stack = [];                 // 块级上下文栈：'ul'|'ol'|'quote'|'wiki'|'hl'
   const linkStack = [];            // {href, buf}
   let pendingLi = null;             // {type, indent, isTodo, checked}
   let preActive = false, preLang = '', preBuf = [];
+  let rawInlineDepth = 0;          // 原样保留的内联 HTML（字号 span/font）深度
 
   /* 输出目标：若在链接内则写入链接缓冲，否则写入主输出 */
   const emit = txt => {
@@ -8927,8 +9188,15 @@ function htmlToMD(html){
     if(linkStack.length){ linkStack[linkStack.length-1].buf += txt; return; }
     out += txt;
   };
-  /* 块间换行：引用块内换行后补 '> ' */
-  const br = () => emit(stack.includes('quote') ? '\n> ' : '\n');
+  /* 单换行（引用块内换行后补 '> '） */
+  const nl = () => emit(stack.includes('quote') ? '\n> ' : '\n');
+  /* 块间标准空行：保证相邻块之间恰好一个空行 */
+  const blk = () => {
+    if(!out) return;
+    if(out.endsWith('\n\n')) return;
+    if(out.endsWith('\n')) nl();
+    else { nl(); nl(); }
+  };
   const pushText = txt => {
     if(!txt) return;
     if(preActive){ preBuf.push(decodeEntities(txt)); return; }
@@ -8964,7 +9232,14 @@ function htmlToMD(html){
       if(tag === 'pre' && isClose){
         preActive = false;
         const inner = preBuf.join('').replace(/<\/?code[^>]*>/gi,'');
-        out += '\n```'+preLang+'\n'+inner.replace(/\n+$/,'')+'\n```\n';
+        // 语言：<pre class="language-x"> 或内部 <code class="language-x">
+        if(!preLang){
+          const lm = preBuf.join('').match(/language-([\w+-]+)/);
+          if(lm) preLang = lm[1];
+        }
+        blk();
+        out += '```'+preLang+'\n'+inner.replace(/\n+$/,'')+'\n```';
+        nl();
       } else {
         preBuf.push(m[0]); // pre 内部标签原样保留
       }
@@ -8973,18 +9248,18 @@ function htmlToMD(html){
 
     switch(tag){
       case 'p': case 'div':
-        if(isClose) br();
+        if(isClose) blk();
         break;
       case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6': {
         let lv = Number(tag[1]);
         lv = Math.max(2, Math.min(6, lv)); // 方言：# 不用于正文标题，h1→##
-        if(!isClose){ if(out && !out.endsWith('\n')) br(); emit('#'.repeat(lv)+' '); }
-        else br();
+        if(!isClose){ blk(); emit('#'.repeat(lv)+' '); }
+        else blk();
         break;
       }
       case 'ul': case 'ol':
         if(!isClose) stack.push(tag);
-        else { const k=stack.lastIndexOf(tag); if(k>=0)stack.splice(k,1); br(); }
+        else { const k=stack.lastIndexOf(tag); if(k>=0)stack.splice(k,1); blk(); }
         break;
       case 'li': {
         if(!isClose){
@@ -8999,7 +9274,7 @@ function htmlToMD(html){
                                 : (pendingLi.type==='ol' ? '1. ' : '- ')));
             pendingLi = null;
           }
-          br();
+          nl();
         }
         break;
       }
@@ -9011,22 +9286,25 @@ function htmlToMD(html){
         break;
       }
       case 'blockquote':
-        if(!isClose){ stack.push('quote'); emit('\n> '); }
-        else { const k=stack.lastIndexOf('quote'); if(k>=0)stack.splice(k,1); emit('\n'); }
+        if(!isClose){ blk(); stack.push('quote'); emit('\n> '); }
+        else { const k=stack.lastIndexOf('quote'); if(k>=0)stack.splice(k,1); blk(); }
         break;
       case 'pre':
-        if(!isClose){ preActive = true; preBuf = []; preLang = getAttr('data-lang')||getAttr('class')||'';
-          const lm = preLang.match(/language-([\w+-]+)/); if(lm) preLang = lm[1]; }
+        if(!isClose){
+          preActive = true; preBuf = [];
+          preLang = getAttr('data-lang')||'';
+          const lm = attrs.match(/language-([\w+-]+)/); if(lm) preLang = lm[1];
+        }
         break;
       case 'code':
-        emit(isClose ? '`' : '`');
-        break;
+        emit(isClose ? '`' : '`'); break;
       case 'strong': case 'b':           emit('**'); break;
       case 'em': case 'i':               emit('*');  break;
       case 'u':                          emit(isClose ? '</u>' : '<u>'); break;
       case 'del': case 's': case 'strike': emit('~~'); break;
       case 'mark': case 'highlight':      emit('==');  break;
-      case 'hr': emit('\n---\n'); break;      case 'img': {
+      case 'hr': blk(); emit('---'); nl(); break;
+      case 'img': {
         const src = getAttr('src')||'', alt = getAttr('alt')||'';
         if(pendingLi){ pendingLi = null; } // 图片直接成项
         emit('!['+alt+']('+src+')');
@@ -9042,6 +9320,15 @@ function htmlToMD(html){
       case 'span':
         if(!isClose && /md-wiki/.test(attrs)){ stack.push('wiki'); emit('[['); }
         else if(isClose && stack[stack.length-1]==='wiki'){ stack.pop(); emit(']]'); }
+        else if(!isClose && /background(-color)?:/.test(attrs)){ stack.push('hl'); emit('=='); }
+        else if(isClose && stack[stack.length-1]==='hl'){ stack.pop(); emit('=='); }
+        /* 其余 span（字号等复杂内联）：原样保留内联 HTML */
+        else if(!isClose){ emit(m[0]); rawInlineDepth++; }
+        else if(rawInlineDepth>0){ emit('</span>'); rawInlineDepth--; }
+        break;
+      case 'font':
+        if(!isClose){ emit(m[0]); rawInlineDepth++; }
+        else if(rawInlineDepth>0){ emit('</font>'); rawInlineDepth--; }
         break;
       default: break;
     }
@@ -9199,6 +9486,464 @@ if(typeof module!=='undefined' && module.exports) module.exports = MD;
 })();
 
 /* ============================================================
+   migrate.js —— 旧库迁移（M4）：v15.4.4 JSON 库 → v16 Markdown vault
+   全局名 Migrate。严格按 docs/VAULT-INTERFACE.md 第 4 节：
+     detect() / async backup() / async run({onProgress}) / verify()
+   笔记本→同名文件夹；HTML→MD（复用 MD 引擎方言）；待办→checkbox+优先级；
+   附件→attachments/<笔记名>/ 并重写引用；回收站→.trash；全部经 VaultFS 原子写。
+   依赖可注入（node 单测）：configure({loadLib, loadBlob, FS, zipImpl, MD})。
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------------- 工具 ---------------- */
+function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function decodeEntities(s){
+  return String(s==null?'':s)
+    .replace(/&nbsp;/g,' ').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+}
+function dataURLtoBytes(dataurl){
+  const m=/^data:(.*?);base64,(.*)$/.exec(dataurl||''); if(!m) return null;
+  const bin=Buffer ? Buffer.from(m[2],'base64') : atob(m[2]);
+  return bin;
+}
+function sanitizeName(s){
+  const t = String(s==null?'':s).replace(/[\/\\]/g,'／').trim();
+  return t || '未命名';
+}
+function tsISO(ms){ return ms ? new Date(Number(ms)).toISOString() : null; }
+
+/* ============================================================
+   旧库 → Markdown 正文转换器
+   旧 HTML 形态（v15.4.4）：b/strong、i/em、u、s/strike/del、span.hl、
+   mark、span style=background、span style=font-size（保留内联 HTML）、
+   br、p/div、ul/ol/li、blockquote、pre、hr、
+   img.note-img[data-id]（图片附件）、span.attref[data-fid]（文档附件）、a。
+   ============================================================ */
+function legacyHTMLtoMD(html, fileByFid){
+  let s = String(html||'');
+  // 1) 图片附件 → 占位 token（data-id 指向旧 files[]）
+  s = s.replace(/<img[^>]*class="[^"]*note-img[^"]*"[^>]*data-id="([^"]*)"[^>]*>/gi, '@@IMG:$1@@');
+  s = s.replace(/<img[^>]*data-id="([^"]*)"[^>]*class="[^"]*note-img[^"]*"[^>]*>/gi, '@@IMG:$1@@');
+  // 2) 文档附件芯片（整块，含内部 svg/文字）→ 占位 token
+  s = s.replace(/<span[^>]*class="[^"]*attref[^"]*"[^>]*data-fid="([^"]*)"[^>]*>[\s\S]*?<\/span>/gi, '@@FILE:$1@@');
+  s = s.replace(/<span[^>]*data-fid="([^"]*)"[^>]*class="[^"]*attref[^"]*"[^>]*>[\s\S]*?<\/span>/gi, '@@FILE:$1@@');
+  // 3) 高亮 span.hl / 背景色 span（整块）→ mark（转 ==）
+  s = s.replace(/<span[^>]*class="[^"]*\bhl\b[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<mark>$1</mark>');
+  s = s.replace(/<span[^>]*style="[^"]*background[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<mark>$1</mark>');
+
+  let out = '';
+  const stack = [];               // ul|ol|quote
+  const linkStack = [];
+  let pendingLi = null;
+  let preActive = false, preLang = '', preBuf = [];
+
+  const emit = txt => {
+    if(!txt) return;
+    if(linkStack.length){ linkStack[linkStack.length-1].buf += txt; return; }
+    out += txt;
+  };
+  const br = () => emit(stack.includes('quote') ? '\n> ' : '\n');
+  const pushText = txt => {
+    if(!txt) return;
+    if(preActive){ preBuf.push(decodeEntities(txt)); return; }
+    let t = decodeEntities(txt);
+    if(stack.includes('quote')) t = t.replace(/\n/g,'\n> ');
+    if(pendingLi){
+      const indent = '  '.repeat(pendingLi.indent);
+      const sep = out.endsWith('\n') ? '' : '\n';
+      emit(sep + indent + (pendingLi.type==='ol' ? '1. ' : '- '));
+      pendingLi = null;
+    }
+    emit(t);
+  };
+
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9-]*)((?:[^<>]*?))(\/?)>/g;
+  let lastIdx = 0, m;
+  while((m = tagRe.exec(s))){
+    pushText(s.slice(lastIdx, m.index));
+    lastIdx = tagRe.lastIndex;
+    const isClose = m[0][1] === '/';
+    const tag = m[1].toLowerCase();
+    const attrs = m[2]||'';
+    const rawOpen = m[0]; // 完整开标签（span 原样保留用）
+
+    if(preActive){
+      if(tag==='pre' && isClose){
+        preActive = false;
+        const inner = preBuf.join('').replace(/<\/?code[^>]*>/gi,'');
+        out += '\n```'+preLang+'\n'+inner.replace(/\n+$/,'')+'\n```\n';
+      } else preBuf.push(rawOpen);
+      continue;
+    }
+
+    switch(tag){
+      case 'br': emit('\n'); break;
+      case 'p': case 'div': if(isClose) br(); break;
+      case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6': {
+        let lv = Math.max(2, Math.min(6, Number(tag[1])));
+        if(!isClose){ if(out && !out.endsWith('\n')) br(); emit('#'.repeat(lv)+' '); }
+        else br();
+        break;
+      }
+      case 'ul': case 'ol':
+        if(!isClose) stack.push(tag);
+        else { const k=stack.lastIndexOf(tag); if(k>=0)stack.splice(k,1); br(); }
+        break;
+      case 'li':
+        if(!isClose){
+          const depth = stack.filter(x=>x==='ul'||x==='ol').length;
+          pendingLi = { type: stack[stack.length-1]==='ol'?'ol':'ul', indent: Math.max(0,depth-1) };
+        } else {
+          if(pendingLi){
+            emit('\n'+'  '.repeat(pendingLi.indent)+(pendingLi.type==='ol'?'1. ':'- '));
+            pendingLi = null;
+          }
+          br();
+        }
+        break;
+      case 'blockquote':
+        if(!isClose){ stack.push('quote'); emit('\n> '); }
+        else { const k=stack.lastIndexOf('quote'); if(k>=0)stack.splice(k,1); emit('\n'); }
+        break;
+      case 'pre':
+        if(!isClose){ preActive=true; preBuf=[]; preLang=''; }
+        break;
+      case 'code': emit('`'); break;
+      case 'strong': case 'b': emit('**'); break;
+      case 'em': case 'i': emit('*'); break;
+      case 'u': emit(isClose?'</u>':'<u>'); break;
+      case 'del': case 's': case 'strike': emit('~~'); break;
+      case 'mark': emit('=='); break;
+      case 'hr': emit('\n---\n'); break;
+      case 'img': break; // 旧图已转为 token
+      case 'a':
+        if(!isClose) linkStack.push({ href:(attrs.match(/href="([^"]*)"/)||[])[1]||'', buf:'' });
+        else { const lk=linkStack.pop(); if(lk) emit('['+lk.buf+']('+lk.href+')'); }
+        break;
+      case 'font': case 'span':
+        // 字号等复杂内联样式：原样保留内联 HTML（报告标注；Obsidian 可渲染）
+        if(!isClose) emit(rawOpen); else emit('</'+tag+'>');
+        break;
+      default: break;
+    }
+  }
+  pushText(s.slice(lastIdx));
+
+  // 解析附件 token → 相对路径链接
+  out = out
+    .replace(/@@IMG:([^@]+)@@/g, (_,fid)=>{
+      const r = fileByFid[fid];
+      return r ? '!['+(r.name||'')+']('+r.path+')' : '';
+    })
+    .replace(/@@FILE:([^@]+)@@/g, (_,fid)=>{
+      const r = fileByFid[fid];
+      return r ? '['+(r.name||'')+']('+r.path+')' : '';
+    });
+
+  return out
+    .split('\n').filter(l=>l.trim()!=='>' && l.trim()!=='> ')
+    .join('\n').replace(/\n{3,}/g,'\n\n').replace(/[ \t]+\n/g,'\n').trim();
+}
+
+/* ---------------- 待办 → MD ---------------- */
+function todosToMD(todos){
+  return (todos||[]).map(t=>{
+    const pr = t.priority==='high' ? ' #p/high' : t.priority==='low' ? ' #p/low' : '';
+    return '- ['+(t.done?'x':' ')+'] '+(t.text||'')+pr;
+  }).join('\n');
+}
+
+/* ============================================================
+   Migrate 门面
+   ============================================================ */
+const Migrate = {
+  _cfg: null,
+  configure(opts){ this._cfg = Object.assign(this._cfg||{}, opts||{}); return this; },
+
+  /* ---- 旧库读取（浏览器默认实现；node 测试注入） ---- */
+  async _loadLib(){
+    if(this._cfg && this._cfg.loadLib) return this._cfg.loadLib();
+    if(typeof Native!=='undefined' && Native.call){
+      const r = await Native.call('loadMeta');
+      return (typeof r==='string') ? JSON.parse(r) : r;
+    }
+    if(typeof indexedDB!=='undefined'){
+      // 旧库 IDB：zhipian-db-v3 / kv / 'library'
+      return await new Promise((res,rej)=>{
+        const rq = indexedDB.open('zhipian-db-v3',1);
+        rq.onupgradeneeded=e=>{const db=e.target.result;
+          if(!db.objectStoreNames.contains('kv'))db.createObjectStore('kv');};
+        rq.onsuccess=e=>{
+          const db=e.target.result;
+          const g=db.transaction('kv','readonly').objectStore('kv').get('library');
+          g.onsuccess=()=>{ let v=g.result; if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){}} res(v); };
+          g.onerror=()=>rej(g.error);
+        };
+        rq.onerror=()=>rej(rq.error);
+      });
+    }
+    if(typeof localStorage!=='undefined'){
+      const raw = localStorage.getItem('zhipian.library.v3')
+        || localStorage.getItem('zhipian.notes.v2') || localStorage.getItem('zhipian.notes.v1');
+      return raw ? JSON.parse(raw) : null;
+    }
+    return null;
+  },
+  /* 读旧附件字节：优先级
+     1) file.data（导入时内嵌 dataURL，v1/v2 旧库形态）
+     2) 注入 loadBlob（node 测试 / idb 后端）
+     3) native：Native.call('loadBlobBytes',{id}) → {b64,name,type}（原生 agent 同步添加）
+     4) 浏览器 idb 兜底：zhipian-db-v3 / blobs / <id>
+     全部失败 → 返回 null（run 会记 failures，不丢其他附件） */
+  async _loadBlobBytes(note, file){
+    if(file && file.data) return dataURLtoBytes(file.data);
+    if(this._cfg && this._cfg.loadBlob) return await this._cfg.loadBlob(note, file);
+    if(typeof Native!=='undefined' && Native.call){
+      try{
+        const r = await Native.call('loadBlobBytes', JSON.stringify({id:file.id}));
+        if(r && r.b64){
+          const bin = dataURLtoBytes('data:application/octet-stream;base64,'+r.b64);
+          return bin;
+        }
+      }catch(e){ /* 桥未就绪，走兜底 */ }
+    }
+    if(typeof indexedDB!=='undefined'){
+      try{
+        const blob = await new Promise((res,rej)=>{
+          const rq = indexedDB.open('zhipian-db-v3',1);
+          rq.onupgradeneeded=e=>{const db=e.target.result;
+            if(!db.objectStoreNames.contains('blobs'))db.createObjectStore('blobs');};
+          rq.onsuccess=e=>{
+            const g=e.target.result.transaction('blobs','readonly').objectStore('blobs').get(file.id);
+            g.onsuccess=()=>res(g.result); g.onerror=()=>rej(g.error);
+          };
+          rq.onerror=()=>rej(rq.error);
+        });
+        if(blob) return blob;
+      }catch(e){ /* idb 也没有 */ }
+    }
+    return null;
+  },
+
+  /* ---- detect：是否存在可迁移旧库 ---- */
+  async detect(){
+    let lib=null;
+    try{ lib = await this._loadLib(); }catch(e){ lib=null; }
+    if(!lib || !Array.isArray(lib.notes)) return {found:false, summary:null};
+    const notes = lib.notes;
+    const active = notes.filter(n=>!n.trashed);
+    const trashed = notes.filter(n=>n.trashed);
+    const notebooks = Array.isArray(lib.prefs&&lib.prefs.notebooks) ? lib.prefs.notebooks : [];
+    const attachments = notes.reduce((s,n)=>s+((n.files||[]).filter(f=>!f.hidden&&!f.derivedOf).length),0);
+    const summary = {
+      notes: notes.length, active: active.length, trashed: trashed.length,
+      notebooks: notebooks.slice(), attachments,
+      version: lib.version||1, app: lib.app||'zhipian-notes'
+    };
+    return {found:true, summary, lib};
+  },
+
+  /* ---- backup：迁移前完整备份 zip（失败必须中止） ---- */
+  async backup(){
+    const det = this._cachedDetect || await this.detect();
+    if(!det.found) throw new Error('未检测到旧库，无需备份');
+    const lib = det.lib;
+    const date = new Date();
+    const name = '迁移前备份-'+date.getFullYear()
+      +String(date.getMonth()+1).padStart(2,'0')+String(date.getDate()).padStart(2,'0')+'.zip';
+
+    // 收集附件字节（按 id 去重）
+    const blobs = new Map();
+    for(const n of lib.notes){
+      for(const f of (n.files||[])){
+        if(blobs.has(f.id)) continue;
+        const bytes = await this._loadBlobBytes(n, f);
+        if(bytes) blobs.set(f.id, bytes);
+      }
+    }
+    const entries = [
+      {name:'library.json', data: JSON.stringify(lib,null,2)},
+      ...Array.from(blobs.entries()).map(([id,bytes])=>({name:'files/'+id, data:bytes}))
+    ];
+    // zip 实现：浏览器默认 JSZip；测试注入
+    let bytes;
+    if(this._cfg && this._cfg.zipImpl){
+      bytes = await this._cfg.zipImpl.pack(entries);
+      await this._cfg.zipImpl.save(bytes, name);
+    } else if(typeof JSZip!=='undefined'){
+      const zip = new JSZip();
+      entries.forEach(e=>zip.file(e.name, e.data));
+      const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE'});
+      if(typeof Native!=='undefined' && Native.call){
+        const u8 = new Uint8Array(await blob.arrayBuffer());
+        let bin=''; for(let i=0;i<u8.length;i+=8192) bin+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));
+        await Native.call('exportToFolder', JSON.stringify(
+          {cat:'备份', name, mime:'application/zip', data:btoa(bin)}));
+      } else {
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=url; a.download=name; a.click();
+        setTimeout(()=>URL.revokeObjectURL(url),4000);
+      }
+    } else {
+      throw new Error('无可用的 zip 实现（JSZip 未加载且未注入），备份中止');
+    }
+    return {ok:true, name, entries:entries.length, bytes: bytes ? bytes.length : null};
+  },
+
+  /* ---- run：执行迁移 ---- */
+  async run(opts){
+    opts = opts||{};
+    const onProgress = opts.onProgress || (()=>{});
+    const FS = this._cfg && this._cfg.FS;
+    const MDX = (this._cfg && this._cfg.MD) || (typeof MD!=='undefined' ? MD : null);
+    if(!FS || !MDX) throw new Error('migrate 未配置 FS / MD（configure({FS,MD})）');
+
+    const det = this._cachedDetect || await this.detect();
+    if(!det.found) return {ok:false, reason:'旧库不存在'};
+    this._cachedDetect = det;
+    const lib = det.lib;
+    const notes = lib.notes.filter(n=>n && n.id);
+
+    const report = {files:0, attachments:0, failures:[], skipped:[], notes:[], trash:0};
+    const complexBlocks = [];   // 保留内联 HTML 的篇目标注
+
+    // 收集所有笔记本文件夹（含空笔记本也建目录）
+    const nbSet = new Set((lib.prefs && lib.prefs.notebooks)||[]);
+
+    let done = 0, total = notes.length;
+    for(const n of notes){
+      done++;
+      try{
+        const folder = n.notebook ? sanitizeName(n.notebook) : '';
+        if(folder && !this._mkdirDone.has(folder)){ await FS.mkdir(folder); this._mkdirDone.add(folder); }
+
+        // 文件名（同目录重名加序号）
+        const existing = (await FS.list(folder)).map(e=>e.name);
+        const base = sanitizeName(n.title||'');
+        const fname = FS.util.dedupeName(existing, base+'.md');
+        const notePath = folder ? folder+'/'+fname : fname;
+
+        // 附件物理复制 → attachments/<标题>/
+        const fileByFid = {};
+        for(const f of (n.files||[])){
+          if(f.hidden || f.derivedOf) continue;
+          let bytes = await this._loadBlobBytes(n, f);
+          if(!bytes){ report.failures.push({id:n.id, title:n.title, err:'附件读取失败：'+f.id}); continue; }
+          const blob = this._toBlob(bytes, f.type||'application/octet-stream');
+          const rel = await FS.writeAttachment(f.name||'附件', blob, notePath);
+          fileByFid[f.id] = {path:rel, name:f.name};
+          report.attachments++;
+        }
+
+        // frontmatter
+        const fm = {id:n.id, created:tsISO(n.createdAt), updated:tsISO(n.updatedAt)};
+        if(n.color && n.color!=='cream') fm.color = n.color;
+        if(n.pinned) fm.pinned = true;
+        fm.type = n.type==='todo' ? 'todo' : 'note';
+
+        // 正文：待办块 + HTML 转 MD
+        let body = '';
+        if(n.type==='todo' && (n.todos||[]).length) body += todosToMD(n.todos)+'\n\n';
+        const mdBody = legacyHTMLtoMD(n.content||'', fileByFid);
+        if(mdBody) body += mdBody;
+        // 未在正文出现的附件：文末补引用
+        const referenced = new Set(Object.keys(fileByFid));
+        for(const fid of Object.keys(fileByFid)){
+          if(!body.includes(fileByFid[fid].path)){
+            body += (body?'\n':'')+'['+fileByFid[fid].name+']('+fileByFid[fid].path+')';
+          }
+        }
+        if(/<span[^>]*style=|<font/i.test(n.content||'')) complexBlocks.push(notePath);
+
+        const md = MDX.serialize(MDX.parse(MDX.stringifyFrontmatter(fm)+'\n'+body).blocks, fm);
+
+        if(n.trashed){
+          // 旧回收站 → .trash/<原结构>/<文件>
+          const trashPath = '.trash/'+notePath;
+          const trashDir = '.trash/'+folder;
+          if(!this._mkdirDone.has(trashDir)){ await FS.mkdir(trashDir); this._mkdirDone.add(trashDir); }
+          await FS.write(trashPath, md);
+          report.trash++;
+        } else {
+          await FS.write(notePath, md);
+          report.files++;
+          report.notes.push(notePath);
+        }
+      }catch(e){
+        report.failures.push({id:n.id, title:n.title, err:(e&&e.message)||String(e)});
+      }
+      onProgress(Math.round(done/total*100), n.title||'未命名');
+    }
+    report.complexBlocks = complexBlocks;
+    report.ok = report.failures.length===0;
+    return report;
+  },
+
+  _mkdirDone: new Set(),
+  _toBlob(bytes, type){
+    // 浏览器包成 Blob；node 环境（无 window）直接透传 Buffer/Uint8Array（注入 FS 自行消费）
+    if(typeof window!=='undefined' && typeof Blob!=='undefined' && bytes instanceof Uint8Array) return new Blob([bytes],{type});
+    return bytes;
+  },
+
+  /* ---- verify：迁移后校验 ---- */
+  async verify(){
+    const FS = this._cfg && this._cfg.FS;
+    const MDX = (this._cfg && this._cfg.MD) || (typeof MD!=='undefined' ? MD : null);
+    if(!FS || !MDX) throw new Error('migrate 未配置 FS / MD');
+
+    // 递归收集 vault 内 .md（排除 .trash）
+    const allMd = [];
+    const walk = async(dir)=>{
+      let entries=[];
+      try{ entries = await FS.list(dir); }catch(e){ return; }
+      for(const e of entries){
+        const full = dir ? dir+'/'+e.name : e.name;
+        if(e.type==='folder'){
+          if(!dir && e.name==='.trash') continue;
+          await walk(full);
+        } else if(/\.md$/.test(e.name)) allMd.push(full);
+      }
+    };
+    await walk('');
+
+    let ok=0, attachments=0, missingAttach=[];
+    const failures = [];
+    for(const p of allMd){
+      let text='';
+      try{ text = await FS.read(p); }catch(e){ failures.push({path:p, err:'读不出'}); continue; }
+      try{
+        const parsed = MDX.parse(text);
+        if(!parsed || !Array.isArray(parsed.blocks)) throw new Error('blocks 非数组');
+        ok++;
+        // 附件存在性
+        for(const r of MDX.extractAttachRefs(text)){
+          attachments++;
+          try{ await FS.readBlob(r.link); }catch(e){ missingAttach.push({path:p, ref:r.link}); }
+        }
+      }catch(e){
+        failures.push({path:p, err:(e&&e.message)||String(e)});
+      }
+    }
+    return {
+      files: allMd.length,
+      attachments,
+      parseRate: allMd.length ? ok/allMd.length : 1,
+      missingAttach,
+      failures,
+      skipped: [],
+      notes: allMd
+    };
+  }
+};
+
+if(typeof window!=='undefined') window.Migrate = Migrate;
+if(typeof module!=='undefined' && module.exports) module.exports = Migrate;
+})();
+
+/* ============================================================
    vault.js —— 纸片 v16 RealVault（M2 真实 CRUD，M3 源码模式）
    全局名 Vault。业务层：索引 / 搜索 / 树 / 写盘调度。
    建立在 VaultFS（低层文件系统）+ MD（Markdown 引擎）之上。
@@ -9267,22 +10012,30 @@ function cleanFm(fm){
   return out;
 }
 
-/* ---------- 递归扫描建索引（一次遍历，避免重复 list） ---------- */
+/* ---------- 递归扫描建索引（同层并发，减少串行 await） ----------
+   保留数据目录（attachments/ 等）不递归、不入目录树：
+   附件是存储区而非用户内容，单篇笔记 get 时按 md 内引用按需解析。 */
+const RESERVED_DIRS = new Set(['attachments']);
 async function scanDir(dirPath){
   let items = [];
   try{ items = await VaultFS.list(dirPath); }catch(e){ return; }
+  const subs = [], mdFiles = [];
   for(const it of items){
-    if(it.name.startsWith('.')) continue;   // 隐藏文件（.trash/.tmp）跳过
+    if(it.name.startsWith('.')) continue;                 // 隐藏文件（.trash/.tmp）跳过
+    if(dirPath==='' && RESERVED_DIRS.has(it.name)) continue;  // 保留数据目录不索引
     const full = U.join(dirPath, it.name);
-    if(it.type==='folder'){
-      _folders.add(full);
-      await scanDir(full);
-    } else if(/\.md$/i.test(it.name)){
-      let md='';
-      try{ md = await VaultFS.read(full); }catch(e){ continue; }
-      _entries.set(full, makeEntry(full, md));
-    }
+    if(it.type==='folder'){ _folders.add(full); subs.push(full); }
+    else if(/\.md$/i.test(it.name)){ mdFiles.push(full); }
   }
+  /* 同层子目录并发 list、同层 md 并发读，消除逐层串行 await 链 */
+  await Promise.all([
+    ...subs.map(full=>scanDir(full)),
+    ...mdFiles.map(async full=>{
+      let md='';
+      try{ md = await VaultFS.read(full); }catch(e){ return; }
+      _entries.set(full, makeEntry(full, md));
+    })
+  ]);
 }
 async function scanTrash(){
   let list=[];
@@ -9534,6 +10287,37 @@ const Vault = {
     return trashPath;
   },
 
+  /* 删除整个文件夹：内含笔记逐个移入回收站（保留可恢复），再删空目录 */
+  async removeFolder(dirPath){
+    dirPath = U.norm(dirPath);
+    const prefix = dirPath + '/';
+    const notePaths = Array.from(_entries.keys()).filter(p=>p.startsWith(prefix));
+    for(const p of notePaths){ try{ await this.remove(p); }catch(e){} }
+    try{ await VaultFS.delete(dirPath); }catch(e){}
+    /* 同步缓存：移除该文件夹及其所有子文件夹 */
+    for(const d of Array.from(_folders)){
+      if(d===dirPath || d.startsWith(prefix)) _folders.delete(d);
+    }
+    return { trashed: notePaths.length };
+  },
+
+  /* 重命名文件夹：物理改名后，同步更新缓存中所有子文件夹/笔记的路径前缀 */
+  async renameFolder(oldPath, newPath){
+    oldPath = U.norm(oldPath); newPath = U.norm(newPath);
+    if(oldPath===newPath) return newPath;
+    await VaultFS.rename(oldPath, newPath);
+    const oldPrefix = oldPath+'/', newPrefix = newPath+'/';
+    const mapPath = (p)=> p===oldPath?newPath : (p.startsWith(oldPrefix)? newPrefix+p.slice(oldPrefix.length):p);
+    const folderArr = Array.from(_folders).map(mapPath);
+    _folders.clear(); folderArr.forEach(d=>_folders.add(d));
+    const entArr = Array.from(_entries.entries()).map(([p,e])=>{
+      const np=mapPath(p); if(np!==p)e.path=np; return [np,e];
+    });
+    _entries.clear(); entArr.forEach(([np,e])=>_entries.set(np,e));
+    _attach.clear();
+    return newPath;
+  },
+
   /* ---- 回收站列表 ---- */
   trashList(){
     const list = Array.from(_trash.values()).map(v=>({ entry:v.entry, originalPath:v.originalPath }));
@@ -9647,6 +10431,17 @@ const Vault = {
       try{ await VaultFS.delete(trashPath); }catch(e){}
     }
     _trash.clear();
+    return true;
+  },
+
+  /* ---- 整库清空（云端/目录整库恢复前：删全部笔记/文件夹/回收站，保证恢复不产生重复） ---- */
+  async clear(){
+    let root=[];
+    try{ root = await VaultFS.list(''); }catch(e){ root=[]; }
+    for(const e of root){
+      try{ await VaultFS.delete(e.name); }catch(_){}
+    }
+    _entries.clear(); _folders.clear(); _trash.clear(); _attach.clear();
     return true;
   }
 };
@@ -10153,6 +10948,197 @@ window.MockVault = MockVault;
 })();
 
 /* ============================================================
+   vault-sync.js：库同步桥
+   syncVaultToStore()  vault → 旧 v15 Store（网盘上传/备份导出前）
+   syncStoreToVault() 旧 Store → vault（网盘恢复/导入后）
+   作用域内可直接用 Vault / VaultFS / MD / Store / Migrate / notes / prefs / flushDisk
+   ============================================================ */
+(function(){
+
+/* 递归收集 vault 内全部 .md 路径（跳过 .trash / attachments / 隐藏） */
+async function collectAllMd(dir){
+  dir = dir || '';
+  let entries = [];
+  try{ entries = await VaultFS.list(dir); }catch(e){ return []; }
+  const out = [];
+  for(const e of entries){
+    const rel = dir ? dir+'/'+e.name : e.name;
+    if(e.type==='folder'){
+      const base = (e.name||'');
+      if(base.startsWith('.') || base==='attachments') continue;
+      out.push(...await collectAllMd(rel));
+    }else{
+      if(!e.name || !e.name.endsWith('.md')) continue;
+      if((e.name||'').startsWith('.')) continue;
+      out.push(rel);
+    }
+  }
+  return out;
+}
+
+/* 稳定短哈希（同一附件每次同步得到相同 id，保证幂等） */
+function simpleHash(s){
+  let h=0;
+  for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; }
+  return Math.abs(h).toString(36);
+}
+function mimeFromName(name){
+  const e=(name.split('.').pop()||'').toLowerCase();
+  const m={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',
+    pdf:'application/pdf',txt:'text/plain',md:'text/markdown',
+    doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt:'application/vnd.ms-powerpoint',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    zip:'application/zip',mp3:'audio/mpeg',mp4:'video/mp4',m4a:'audio/mp4'};
+  return m[e]||'application/octet-stream';
+}
+function blobToDataURL(blob){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>res(fr.result); fr.onerror=rej;
+    fr.readAsDataURL(blob);
+  });
+}
+function baseName(p){ return String(p).split('/').pop(); }
+
+/* 把 vault 一篇转成 v15 笔记结构（不含附件，附件由 fillAttachments 处理） */
+function toLegacyNote(path, g){
+  const fm = g.frontmatter || {};
+  const entry = g.entry || {};
+  const id = fm.id || (entry.path ? String(entry.path).replace(/[^\w]/g,'') : 'id'+Date.now());
+  const type = (fm.type==='todo') ? 'todo' : 'note';
+  const title = fm.title || entry.title || path.replace(/\.md$/,'').split('/').pop();
+  const createdAt = fm.created ? Date.parse(fm.created) : Date.now();
+  const updatedAt = fm.updated ? Date.parse(fm.updated) : createdAt;
+  const note = {
+    id: id,
+    type: type,
+    title: title,
+    content: type==='note' ? (g.html || '') : '',
+    color: fm.color || (type==='todo'?'green':'yellow'),
+    pinned: !!fm.pinned,
+    trashed: false,
+    trashedAt: null,
+    notebook: entry.folder || '',
+    createdAt: isNaN(createdAt)?Date.now():createdAt,
+    updatedAt: isNaN(updatedAt)?Date.now():updatedAt,
+    todos: [],
+    files: []
+  };
+  if(type==='todo'){
+    const rows = (typeof MD!=='undefined' && MD.todoLines) ? MD.todoLines(g.md) : [];
+    note.todos = rows.map(r=>({
+      id: id+'_t'+(r.key!=null?r.key:Math.random().toString(36).slice(2,7)),
+      text: r.text || '',
+      done: !!r.done,
+      priority: (r.priority==='high'||r.priority==='low') ? r.priority : 'normal'
+    }));
+  }
+  return note;
+}
+
+/* 处理附件：构建 files[]、物理复制字节到旧 blob 库、重写正文图片标记 */
+async function fillAttachments(note, g){
+  const refs = (typeof MD!=='undefined' && MD.extractAttachRefs) ? MD.extractAttachRefs(g.md) : [];
+  const linkToId = {};
+  for(const r of refs){
+    const id = 'att_'+simpleHash(r.link);
+    const name = baseName(r.link);
+    let blob=null;
+    try{ blob = await VaultFS.readBlob(r.link); }catch(e){ blob=null; }
+    const isImg = /\.(jpe?g|png|gif|webp)$/i.test(name);
+    const size = blob ? blob.size : 0;
+    const type = (blob && blob.type) ? blob.type : mimeFromName(name);
+    const kind = (r.embed && isImg) ? 'image' : 'file';
+    note.files.push({ id, name, size, type, kind });
+    linkToId[r.link] = id;
+    /* 物理复制字节到旧 blob 库（网盘/备份需要真实字节） */
+    if(blob){
+      try{
+        if(Store.env==='native'){
+          const dataUrl = await blobToDataURL(blob);
+          await Native.call('putBlobFromDataUrl', JSON.stringify({ id, dataUrl, name, type }));
+        }else if(Store.env==='idb' && typeof idbPutBlob==='function'){
+          await idbPutBlob(id, blob);
+        }
+      }catch(e){ /* 浏览器降级环境无 blob 桥时跳过 */ }
+    }
+  }
+  /* 重写正文：md-img 占位 → v15 note-img[data-id] */
+  if(note.type==='note' && note.content){
+    note.content = note.content.replace(/<img class="md-img"[^>]*>/g, (m)=>{
+      const altM=/alt="([^"]*)"/.exec(m);
+      const alt = altM?altM[1]:'';
+      const id = linkToId[alt];
+      if(id) return '<img class="note-img" data-id="'+id+'">';
+      return m;
+    });
+  }
+  return note;
+}
+
+const VaultSync = {
+
+  /* vault → 旧 Store：替换全局 notes、复制附件字节并 flushDisk */
+  async syncVaultToStore(){
+    const paths = await collectAllMd('');
+    const converted = [];
+    for(const p of paths){
+      try{
+        const g = await Vault.get(p);
+        const note = toLegacyNote(p, g);
+        await fillAttachments(note, g);
+        converted.push(note);
+      }catch(e){ console.warn('sync read skip', p, e); }
+    }
+    /* 替换全局 notes（作用域内 notes 由 store.js 声明） */
+    if(typeof notes!=='undefined'){
+      notes.length = 0;
+      converted.forEach(n=>notes.push(n));
+    }
+    await flushDisk();
+    return {count: converted.length, paths};
+  },
+
+  /* 旧 Store → vault：把当前 Store 数据注入 Migrate 并落 vault（合并到现有 vault） */
+  async syncStoreToVault(onProgress){
+    Migrate.configure({ FS: VaultFS, MD: MD, loadLib: ()=>{
+      try{ return JSON.parse(Store.payload()); }catch(e){ return {notes:[]}; }
+    }});
+    Migrate._cachedDetect = null;
+    const res = await Migrate.run({ onProgress: onProgress || (()=>{}) });
+    await Vault.init();
+    return res;
+  },
+
+  /* 整库恢复（云端/目录 pull 后）：先清空 vault 再迁移，避免重复，返回迁移报告 */
+  async restoreFromStore(onProgress){
+    await Vault.clear();
+    Migrate.configure({ FS: VaultFS, MD: MD, loadLib: ()=>{
+      try{ return JSON.parse(Store.payload()); }catch(e){ return {notes:[]}; }
+    }});
+    Migrate._cachedDetect = null;
+    const res = await Migrate.run({ onProgress: onProgress || (()=>{}) });
+    await Vault.init();
+    return res;
+  },
+
+  /* 待同步标记：整库恢复（云端/目录）在 reload 前置位，启动时由 VUI 消费 */
+  markPending(){ try{ localStorage.setItem('zhipian.v16.storeSync','1'); }catch(e){} },
+  consumePending(){
+    try{
+      const v = localStorage.getItem('zhipian.v16.storeSync');
+      if(v){ localStorage.removeItem('zhipian.v16.storeSync'); return true; }
+    }catch(e){}
+    return false;
+  }
+};
+
+if(typeof window!=='undefined') window.VaultSync = VaultSync;
+if(typeof module!=='undefined' && module.exports) module.exports = VaultSync;
+})();
+
+/* ============================================================
    vault-ui.js —— 纸片 v16 新 UI（M1 高保真走查）
    全局 VUI。独立构建 #v16root，承载首页 / 文件树抽屉 / 编辑器 /
    源码模式 / 待办勾选 / 设置 / 搜索 / 回收站 / FAB / 底部 sheet /
@@ -10199,6 +11185,7 @@ const I = {
   edit:'<svg class="stic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
   export:'<svg class="stic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg>',
   eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  sparkle:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6l1.9 5.1 5.1 1.9-5.1 1.9L12 16.6l-1.9-5.1L5 9.6l5.1-1.9z"/><path d="M18.6 15l.85 2.35L21.8 18.2l-2.35.85L18.6 21.4l-.85-2.35L15.4 18.2l2.35-.85z" opacity=".65"/></svg>',
   closeViewer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
 };
 
@@ -10212,7 +11199,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.0-alpha.2';
+const APP_VERSION = '16.0.0-rc';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -10226,6 +11213,17 @@ function toast(msg){
   clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1800);
 }
 
+/* ---------- 删除前先播放飞行删除动画（v16-anim 监听并回调 done；含降级） ----------
+   增强层在飞至回收站 + 收拢动画后回调；若增强层未加载，超时兜底直接执行。 */
+function beforeDelete(paths, doThen){
+  let settled=false;
+  const done=async()=>{ if(settled)return; settled=true; clearTimeout(fb); try{ await doThen(); }catch(e){} };
+  const fb=setTimeout(()=>done(), 1300);
+  try{
+    window.dispatchEvent(new CustomEvent('v16:before-delete',{detail:{paths,done}}));
+  }catch(e){ done(); }
+}
+
 /* ---------- 骨架 ---------- */
 function buildRoot(){
   root = document.createElement('div');
@@ -10237,6 +11235,7 @@ function buildRoot(){
       <header class="v16-topbar">
         <button class="v16-ic" id="v16Menu" aria-label="菜单">${I.menu}</button>
         <div class="v16-crumbs" id="v16Crumbs"></div>
+        <button class="v16-ic v16-ai-entry" id="v16HomeAi" aria-label="AI 对话">${I.sparkle}</button>
         <button class="v16-ic" id="v16SearchBtn" aria-label="搜索">${I.search}</button>
         <button class="v16-ic" id="v16More" aria-label="更多">${I.more}</button>
       </header>
@@ -10266,6 +11265,7 @@ function buildRoot(){
       <header class="v16-topbar">
         <button class="v16-ic" id="v16EdBack" aria-label="返回">${I.back}</button>
         <div class="v16-crumbs" id="v16EdCrumb"></div>
+        <button class="v16-ic v16-ai-entry" id="v16EdAi" aria-label="本页问答">${I.sparkle}</button>
         <button class="v16-ic" id="v16EdSource" aria-label="源码模式">${I.code}</button>
         <button class="v16-ic" id="v16EdMore" aria-label="更多">${I.more}</button>
       </header>
@@ -10395,10 +11395,21 @@ async function renderHome(){
 
   /* 文件夹点击 */
   body.querySelectorAll('.v16-folder-card').forEach(card=>{
-    card.onclick = ()=>{ S.curFolder = card.dataset.folder; renderHome(); };
-    bindLongPress(card, ()=>{ openSheet('文件夹操作', [
-      {icon:I.move, label:'重命名', fn:()=>toast('重命名 · v16 后续里程碑接入')},
-      {icon:I.trash, label:'删除', fn:()=>toast('删除 · v16 后续里程碑接入')}
+    const fpath = card.dataset.folder;
+    card.onclick = ()=>{ S.curFolder = fpath; renderHome(); };
+    bindLongPress(card, ()=>{ openSheet('文件夹操作（'+fpath+'）', [
+      {icon:I.move, label:'重命名', fn:()=>{
+        const nn = prompt('重命名文件夹为：', fpath.split('/').pop());
+        if(nn && nn.trim() && nn.trim()!==fpath.split('/').pop()){
+          const newPath = fpath.split('/').slice(0,-1).concat(nn.trim()).join('/');
+          Vault.renameFolder(fpath, newPath).then(()=>{ toast('已重命名'); renderHome(); }).catch(e=>toast('重命名失败'));
+        }
+      }},
+      {icon:I.trash, label:'删除', fn:()=>{
+        if(confirm('删除文件夹「'+fpath+'」？内含笔记将移入回收站。')){
+          Vault.removeFolder(fpath).then(()=>{ toast('已删除'); renderHome(); }).catch(e=>toast('删除失败'));
+        }
+      }}
     ]); });
   });
   /* 笔记卡片 */
@@ -10467,6 +11478,141 @@ function renderDrawer(){
 function openDrawer(){ $('#v16Drawer').classList.add('open'); $('#v16DrawerMask').classList.add('open'); renderDrawer(); }
 function closeDrawer(){ $('#v16Drawer').classList.remove('open'); $('#v16DrawerMask').classList.remove('open'); }
 
+/* ---------- WYSIWYG 辅助 ---------- */
+/* MD.toHTML 输出 → 可编辑 HTML：把 <div class="md-todo"> 转成 <ul><li><input checkbox>文本</li></ul>，
+   htmlToMD 序列化时自动转回 "- [ ]"/"- [x]" 行 */
+function mdToEditableHTML(md){
+  const html = MD.toHTML(md||'');
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const todoDivs = Array.from(div.querySelectorAll('.md-todo'));
+  if(todoDivs.length){
+    const rows = MD.todoLines(md);
+    const ul = buildTodoUL(rows, todoDivs);
+    todoDivs[0].parentNode.insertBefore(ul, todoDivs[0]);
+    todoDivs.forEach(t=>t.remove());
+  }
+  return div.innerHTML;
+}
+/* 受控待办：按 MD.todoLines 构建嵌套 ul；checkbox 带 data-key 与 checked 属性，
+   勾选只经 change 委托调 Vault.toggleTodo（不依赖自由序列化）；优先级以徽章渲染，
+   序列化时由 MD.htmlToMD 还原为 #p/high|#p/low。保证勾选态与优先级永不丢失。 */
+function buildTodoUL(rows, todoDivs){
+  const rootUl = document.createElement('ul');
+  rootUl.className = 'v16-ed-todoul';
+  const ulStack = [rootUl];
+  let curIndent = 0;
+  rows.forEach((r,i)=>{
+    const t = r.indent;
+    if(t > curIndent){
+      for(let k=curIndent;k<t;k++){
+        const sub = document.createElement('ul');
+        sub.className = 'v16-ed-todoul';
+        const lastLi = ulStack[ulStack.length-1].lastElementChild;
+        if(lastLi) lastLi.appendChild(sub);
+        ulStack.push(sub);
+      }
+    } else if(t < curIndent){
+      for(let k=curIndent;k>t;k--) ulStack.pop();
+    }
+    curIndent = t;
+    const ul = ulStack[ulStack.length-1];
+    const li = document.createElement('li');
+    li.className = 'v16-todo-li';
+    const cb = document.createElement('input');
+    cb.type='checkbox'; cb.className='v16-ed-todoinput'; cb.dataset.key=r.key;
+    if(r.done) cb.setAttribute('checked','checked');
+    li.appendChild(cb);
+    const span = document.createElement('span');
+    span.className='md-todo-text';
+    const td = todoDivs[i];
+    span.innerHTML = td ? td.querySelector('.md-todo-text').innerHTML : (r.text||'');
+    li.appendChild(span);
+    if(r.priority==='high'||r.priority==='low'){
+      const pg = document.createElement('span');
+      pg.className='md-prio-tag p-'+r.priority; pg.dataset.p=r.priority;
+      pg.textContent = r.priority==='high'?'高':'低';
+      li.appendChild(pg);
+    }
+    ul.appendChild(li);
+  });
+  return rootUl;
+}
+/* 序列化当前 contenteditable → md 字符串（保留 frontmatter） */
+function serializeWYSIWIG(){
+  const ed = document.getElementById('v16EdBody');
+  if(!ed || !S._cur) return null;
+  /* 把临时 objectURL 替换为相对路径，便于 htmlToMD 序列化 */
+  const imgs = ed.querySelectorAll('img');
+  const restore = [];
+  imgs.forEach(im=>{
+    const rel = im.dataset.relpath;
+    if(rel){ restore.push([im, im.src]); im.src = rel; }
+  });
+  const bodyMD = MD.htmlToMD(ed.innerHTML);
+  restore.forEach(([im, src])=> im.src = src);
+  const parsed = MD.parseFrontmatter(S._cur.md);
+  const fm = parsed.fm || {};
+  if(!fm.type) fm.type = e_type(S._cur);
+  const clean = {};
+  Object.keys(fm).forEach(k=>{ if(fm[k]!=null && fm[k]!=='') clean[k]=fm[k]; });
+  return MD.stringifyFrontmatter(clean) + bodyMD;
+}
+/* 选图 → VaultFS.writeAttachment 落盘 → 插入 contenteditable */
+async function pickWYSIWYGImage(){
+  /* 原生：拍照 */
+  if(typeof Native!=='undefined' && Native && Native.call){
+    try{
+      const relPath = await Native.call('vaultTakePhoto', {notePath: S._cur.entry.path});
+      if(relPath){
+        const ed = $('#v16EdBody'); ed.focus();
+        document.execCommand('insertHTML', false,
+          '<img src="'+relPath+'" data-relpath="'+relPath+'" style="max-width:100%;border-radius:12px;margin:8px 0;display:block">');
+        scheduleWYSIWIGSave();
+        toast('照片已插入');
+        return;
+      }
+    }catch(e){ console.warn('takePhoto fallback', e); }
+  }
+  /* 浏览器降级：file input */
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='image/*';
+  inp.style.display='none'; document.body.appendChild(inp);
+  inp.onchange = async ()=>{
+    inp.remove();
+    const file = inp.files && inp.files[0]; if(!file) return;
+    try{
+      const relPath = await VaultFS.writeAttachment(file.name, file, S._cur.entry.path);
+      const url = URL.createObjectURL(file);
+      const ed = $('#v16EdBody'); ed.focus();
+      document.execCommand('insertHTML', false,
+        '<img src="'+url+'" data-relpath="'+relPath+'" style="max-width:100%;border-radius:12px;margin:8px 0;display:block">');
+      scheduleWYSIWIGSave();
+      toast('图片已插入');
+    }catch(e){ console.warn(e); toast('图片插入失败'); }
+  };
+  inp.click();
+}
+function e_type(data){
+  const ed = document.getElementById('v16EdBody');
+  if(ed && ed.querySelector('input[type="checkbox"]')) return 'todo';
+  return (data.entry && data.entry.type) || 'note';
+}
+let _wysiwygTimer=null;
+function scheduleWYSIWIGSave(){
+  clearTimeout(_wysiwygTimer);
+  _wysiwygTimer = setTimeout(async ()=>{
+    const newMd = serializeWYSIWIG();
+    if(!newMd || !S._cur) return;
+    try{
+      await Vault.save(S._cur.entry.path, newMd);
+      S._cur.md = newMd;
+      S._cur.html = MD.toHTML(newMd);
+      S._cur.entry = (await Vault.get(S._cur.entry.path)).entry;
+    }catch(e){ console.warn('wysiwyg save failed', e); }
+  }, 500);
+}
+
 /* ---------- 编辑器 ---------- */
 async function openNote(path){
   S.curNote = path; S.sourceMode = false;
@@ -10496,33 +11642,46 @@ function renderEditor(){
   if(S.sourceMode){
     body += `<textarea class="v16-source" id="v16SourceTa" spellcheck="false">${esc(data.md)}</textarea>`;
   } else {
-    if(e.type==='todo'){
-      const todos = MD.todoLines(data.md);
-      body += `<div class="v16-todo-list">` + todos.map(t=>`
-        <div class="v16-todo ${t.done?'done':''} ${t.priority!=='normal'?'pr-'+t.priority:''}" data-key="${t.key}">
-          <span class="mbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-          <span class="mtxt">${esc(t.text.replace(/#p\/(high|low)/g,'').trim())}</span>
-          ${t.priority!=='normal'?`<span class="badge">${t.priority==='high'?'高':'低'}</span>`:''}
-        </div>`).join('') + `</div>`;
-    } else {
-      let html = data.html;
-      /* 图片 src 映射到 mock data-URI */
-      html = html.replace(/src="attachments\/([^"]+)"/g, (m,enc)=>{
-        const name = decodeURIComponent(enc);
-        const url = Vault.attachmentUrl(e.path, name);
-        return url ? `src="${url}"` : m;
-      });
-      body += `<div class="v16-ed-body">${html}</div>`;
-    }
-    if(attachments.length){
-      body += `<div class="v16-attach-sec"><div class="ast">附件（${attachments.length}）</div><div class="v16-attach-row">`
-        + attachments.map((a,i)=> a.kind==='image'
-          ? `<div class="v16-att" data-img="${i}"><img src="${a.url}" alt="${esc(a.name)}"><div class="an">${esc(a.name)}</div></div>`
-          : `<div class="v16-att"><span class="fileico">${I.file}</span><div class="an">${esc(a.name)}</div></div>`
-        ).join('') + `</div></div>`;
-    }
+    /* WYSIWYG 正文：contenteditable，初始 HTML 由 MD.toHTML 后处理（todo 行转 checkbox li） */
+    body += `<div class="v16-ed-body" id="v16EdBody" contenteditable="true" data-ph="点这里开始书写…">${mdToEditableHTML(data.md)}</div>`;
+  }
+  if(attachments.length){
+    body += `<div class="v16-attach-sec"><div class="ast">附件（${attachments.length}）</div><div class="v16-attach-row">`
+      + attachments.map((a,i)=> a.kind==='image'
+        ? `<div class="v16-att" data-img="${i}"><img src="${a.url}" alt="${esc(a.name)}"><div class="an">${esc(a.name)}</div></div>`
+        : `<div class="v16-att"><span class="fileico">${I.file}</span><div class="an">${esc(a.name)}</div></div>`
+      ).join('') + `</div></div>`;
   }
   $('#v16EdScroll').innerHTML = body;
+
+  /* WYSIWYG：输入防抖保存 500ms（htmlToMD 序列化） */
+  if(!S.sourceMode){
+    const ed = $('#v16EdBody');
+    /* 勾选 checkbox 触发的 input 事件不调度自由序列化（受控勾选由 change 委托处理），
+       避免 htmlToMD 与 toggleTodo 竞争；只有正文文本编辑才走防抖保存 */
+    ed.oninput = (ev)=>{
+      if(ev && ev.target && ev.target.classList && ev.target.classList.contains('v16-ed-todoinput')) return;
+      scheduleWYSIWIGSave();
+    };
+    /* 勾选 input：同步 checked attribute（htmlToMD 读 attribute） */
+    ed.onclick = (ev)=>{
+      /* 点击图片：打开大图查看器（受控待办勾选由 change 委托处理，不在此处理） */
+      if(ev.target && ev.target.tagName==='IMG'){
+        const src = ev.target.getAttribute('data-relpath') || ev.target.getAttribute('src')||'';
+        if(src){ $('#v16Img').src = src; $('#v16ImgViewer').classList.add('open'); }
+      }
+      /* 点击 wiki 双链：跳转对应笔记（Vault.search 只接受一个参数，返回 entry 数组） */
+      if(ev.target && ev.target.classList && ev.target.classList.contains('md-wiki')){
+        const target = ev.target.dataset.target || ev.target.textContent;
+        Vault.search(target).then(res=>{
+          const arr = Array.isArray(res)?res:[];
+          const hit = arr.find(e=>e.title===target) || arr[0];
+          if(hit) openNote(hit.path);
+          else toast('未找到「'+target+'」');
+        }).catch(()=>toast('未找到「'+target+'」'));
+      }
+    };
+  }
 
   /* 标题联动文件名（防抖 600ms 调 Vault.rename） */
   let titleTimer=null;
@@ -10576,6 +11735,38 @@ function renderEditor(){
 }
 function afterMove(){ toast('已移动'); closeSheet(); show('home'); S.curFolder=''; renderHome(); }
 
+/* ---------- 迁移完整流程 ---------- */
+async function startMigrateFlow(){
+  if(typeof Migrate==='undefined' || !Migrate || !Migrate.run){ toast('迁移模块未加载'); return; }
+  try{
+    const det = await Migrate.detect();
+    if(!det || !det.notes){ toast('未检测到旧库'); return; }
+    /* 1) 确认 */
+    if(!confirm('检测到旧库 '+det.notes+' 篇笔记。\n将先备份旧库，再迁移为 Markdown 资料库。\n继续？')) return;
+    /* 2) 备份（失败中止） */
+    toast('正在备份旧库…');
+    const backup = await Migrate.backup();
+    if(!backup){ toast('备份失败，已中止迁移'); return; }
+    /* 3) 迁移（进度条） */
+    openSheet('迁移旧库', [
+      {html:'<div class="v16-progress"><i id="v16MigProg" style="width:0%"></i></div><div id="v16MigMsg" style="font-size:13px;color:var(--vp-ink-2)">准备中…</div>', noClose:true}
+    ]);
+    const res = await Migrate.run({onProgress:(p)=>{
+      const bar = document.getElementById('v16MigProg');
+      const msg = document.getElementById('v16MigMsg');
+      if(bar) bar.style.width = Math.min(100, Math.round(p*100))+'%';
+      if(msg) msg.textContent = '迁移中… '+Math.round(p*100)+'%';
+    }});
+    /* 4) 校验 */
+    const verify = await Migrate.verify().catch(()=>null);
+    closeSheet();
+    /* 5) 报告 */
+    const ok = res && res.converted!=null ? res.converted : (res||{});
+    alert('迁移完成\n成功 '+(ok.converted||0)+' 篇\n跳过 '+(ok.skipped||0)+' 篇\n失败 '+(ok.failed||0)+' 篇\n'+(verify?'\n校验通过':'')+'\n旧库已保留，14 天后自动清理。');
+    renderHome();
+  }catch(e){ console.warn(e); closeSheet(); toast('迁移失败'); }
+}
+
 /* ---------- 设置 ---------- */
 async function renderSettings(){
   const st = await Vault.stats();
@@ -10595,27 +11786,35 @@ async function renderSettings(){
       <div class="v16-row"><span class="rl">附件</span><span class="rv">${st.attachments} 个</span></div>
       <div class="v16-row"><span class="rl">容量</span><span class="rv">${sz}</span></div>
       <div class="v16-row" data-row="bind"><span class="rl">绑定外部文件夹（SAF）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="safpush"><span class="rl">同步到绑定目录</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="safpull"><span class="rl">从绑定目录恢复</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="newvault"><span class="rl">新建 / 切换资料库</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="export"><span class="rl">导出资料库（zip）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="exportbak"><span class="rl">完整备份包（zip）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="exportjsonl"><span class="rl">知识库切片（JSONL）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="exportkbmd"><span class="rl">知识库（Markdown）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="exportjson"><span class="rl">JSON 导出</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row hl" data-row="migrate"><span class="rl">检测到旧库 library.json</span><span class="rv" style="color:#A04438;font-weight:700">迁移旧库 →</span></div>
     `)
     + g('g-edit','编辑',I.edit, `
       <div class="v16-row" data-row="attachloc"><span class="rl">默认附件位置</span><span class="rv">attachments/</span></div>
-      <div class="v16-row" data-row="newloc"><span class="rl">新建文件默认位置</span><span class="rv">当前目录</span></div>
-      <div class="v16-row" data-row="hlsyn"><span class="rl">==高亮== 语法</span><span class="v16-switch on" data-sw></span></div>
-      <div class="v16-row" data-row="wiki"><span class="rl">[[wiki]] 双链</span><span class="v16-switch on" data-sw></span></div>
-      <div class="v16-row" data-row="newtype"><span class="rl">默认新建类型</span><span class="rv">笔记</span></div>
+      <div class="v16-row" data-row="newloc"><span class="rl">新建文件默认位置</span><span class="rv">${prefs.newFileLoc==='root'?'资料库根':'当前目录'}</span></div>
+      <div class="v16-row" data-row="hlsyn"><span class="rl">==高亮== 语法</span><span class="v16-switch ${prefs.hlSyntax?'on':''}" data-sw></span></div>
+      <div class="v16-row" data-row="wiki"><span class="rl">[[wiki]] 双链</span><span class="v16-switch ${prefs.wikiSyntax?'on':''}" data-sw></span></div>
+      <div class="v16-row" data-row="newtype"><span class="rl">默认新建类型</span><span class="rv">${prefs.defaultType==='todo'?'待办':'笔记'}</span></div>
     `)
     + g('g-app','显示与主题',I.export.replace('stic','stic'), `
       <div class="v16-row" data-row="font"><span class="rl">显示字体</span><span class="rv">默认</span></div>
       <div class="v16-row" data-row="fontscale"><span class="rl">字号刻度尺</span><span class="rv">标准</span></div>
-      <div class="v16-row" data-row="theme"><span class="rl">主题（${S.theme==='dark'?'深色':'浅色'}）</span><span class="rv">点击切换</span></div>
+      <div class="v16-row" data-row="theme"><span class="rl">主题</span><span class="rv">${{light:'浅色',dark:'深色',auto:'跟随系统'}[prefs.theme]||'跟随系统'}</span></div>
     `)
     + g('g-more','更多',I.settings, `
       <div class="v16-row" data-row="ai"><span class="rl">AI 服务与模型</span><span class="rv">OpenAI 兼容</span></div>
       <div class="v16-row" data-row="log"><span class="rl">运行日志</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="pan"><span class="rl">百度网盘</span><span class="rv">连接/同步</span></div>
+      <div class="v16-row" data-row="install"><span class="rl">安装到主屏</span><span class="rv">像原生应用</span></div>
       <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v${APP_VERSION}</span></div>
-      <div class="v16-row"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
+      <div class="v16-row" data-row="privacy"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
     `);
 
   /* 手风琴 */
@@ -10628,9 +11827,79 @@ async function renderSettings(){
   root.querySelectorAll('.v16-row[data-row]').forEach(r=>{
     r.onclick = ()=>{
       const a = r.dataset.row;
-      if(a==='theme'){ toggleTheme(true); }
-      else if(a==='migrate'){ toast('迁移旧库 · M4 接入'); }
-      else if(a==='about'){ toast('纸片 v'+APP_VERSION); }
+      if(a==='theme'){ openThemePicker(); }
+      else if(a==='migrate'){ startMigrateFlow(); }
+      else if(a==='ai'){ openLegacy('ai','settings'); }
+      else if(a==='log'){ openLegacy('log','settings'); }
+      else if(a==='pan'){
+        /* 进入网盘前先 vault→Store，保证上传/合并用最新库 */
+        (async()=>{ try{ await VaultSync.syncVaultToStore(); }catch(e){} openLegacy('pan','settings'); })();
+      }
+      else if(a==='about'){
+        openModal('<h3>关于纸片</h3><p><b>纸片 · 便签 v16</b><br>Markdown 单文件资料库（类 Obsidian）：文字笔记与待办、文件夹分类、富文本、图片与附件、内联搜索、回收站、目录绑定与 zip 迁移，并可接入 OpenAI 兼容 AI 与百度网盘。</p><p>所有数据仅存于本机，不经过任何服务器。</p>');
+      }
+      else if(a==='privacy'){
+        openModal('<h3>纯本地隐私说明</h3><p>纸片不设账号、不收集任何数据。所有笔记、图片、附件与 AI 配置均只保存在本设备；AI 问答仅在你主动触发时，把当前页内容发送到你自己配置的模型服务。</p><p>清理应用数据前请先导出备份。</p>');
+      }
+      else if(a==='fontscale'){
+        /* 字号刻度尺：cycle 3 档 */
+        const cur = parseFloat(root.style.fontSize||'16');
+        const next = cur>=18 ? 14 : (cur<=14 ? 16 : 18);
+        root.style.fontSize = next+'px';
+        toast('字号：'+next+'px');
+      }
+      else if(a==='font'){ openFontPicker(); }
+      else if(a==='install'){ installApp(); }
+      else if(a==='bind'){
+        VaultFS.bindFolder().then(r=>toast('已绑定：'+(r||'外部文件夹'))).catch(e=>toast('绑定失败（需真机）'));
+      }
+      else if(a==='safpush'){
+        (async()=>{ toast('正在同步…'); try{ await VaultSync.syncVaultToStore(); if(typeof syncFolder==='function') await syncFolder(true); toast('已同步到目录'); }catch(e){ console.warn(e); toast('同步失败（需真机）'); } })();
+      }
+      else if(a==='safpull'){
+        (async()=>{ toast('正在恢复…'); try{ if(typeof openFolder==='function') await openFolder(); await VaultSync.restoreFromStore(); renderHome(); toast('已从目录恢复'); }catch(e){ console.warn(e); toast('恢复失败（需真机）'); } })();
+      }
+      else if(a==='export'){
+        VaultFS.exportZip().then(r=>toast('已导出资料库 zip')).catch(e=>toast('导出失败（需真机）'));
+      }
+      else if(a==='exportbak'){
+        (async()=>{ toast('正在备份…'); try{ await VaultSync.syncVaultToStore(); if(typeof exportData==='function') await exportData(); toast('备份包已导出'); }catch(e){ console.warn(e); toast('备份失败'); } })();
+      }
+      else if(a==='exportjsonl'){
+        (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); if(typeof exportRAGJsonl==='function') await exportRAGJsonl(); toast('JSONL 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
+      }
+      else if(a==='exportkbmd'){
+        (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); if(typeof exportRAGMarkdown==='function') await exportRAGMarkdown(); toast('知识库 MD 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
+      }
+      else if(a==='exportjson'){
+        (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); const blob=new Blob([Store.payload()],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='zhipian-library.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast('JSON 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
+      }
+      else if(a==='hlsyn'){
+        prefs.hlSyntax=!prefs.hlSyntax; persistPrefs();
+        r.querySelector('.v16-switch').classList.toggle('on',prefs.hlSyntax);
+        toast(prefs.hlSyntax?'已启用 ==高亮==':'已关闭 ==高亮==');
+      }
+      else if(a==='wiki'){
+        prefs.wikiSyntax=!prefs.wikiSyntax; persistPrefs();
+        r.querySelector('.v16-switch').classList.toggle('on',prefs.wikiSyntax);
+        toast(prefs.wikiSyntax?'已启用 [[wiki]]':'已关闭 [[wiki]]');
+      }
+      else if(a==='newtype'){
+        prefs.defaultType=prefs.defaultType==='todo'?'note':'todo'; persistPrefs();
+        r.querySelector('.rv').textContent=prefs.defaultType==='todo'?'待办':'笔记';
+        toast('默认新建：'+(prefs.defaultType==='todo'?'待办':'笔记'));
+      }
+      else if(a==='newloc'){
+        prefs.newFileLoc=prefs.newFileLoc==='root'?'current':'root'; persistPrefs();
+        r.querySelector('.rv').textContent=prefs.newFileLoc==='root'?'资料库根':'当前目录';
+      }
+      else if(a==='newvault'){
+        /* 新建资料库：确认后清空当前库（含回收站），重新落 seed 或空白 */
+        if(confirm('新建资料库？当前所有笔记将被清空，建议先导出备份。')){
+          (async()=>{ try{ await Vault.clear(); await Vault.init(); renderHome(); toast('已新建资料库'); }catch(e){ toast('新建失败'); } })();
+        }
+      }
+      else if(a==='attachloc'){ /* 固定为 attachments/，无需操作 */ }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };
   });
@@ -10666,21 +11935,151 @@ async function renderTrash(){
     b.onclick = async ()=>{
       if(b.dataset.action==='restore'){ await Vault.restore(b.dataset.path); toast('已恢复'); }
       else { await Vault.deleteForever(b.dataset.path); toast('已彻底删除'); }
-      renderTrash();
+      await renderTrash();
     };
   });
+}
+
+/* ---------- 文件夹选择面板（移动/批量移动） ---------- */
+async function pickFolderAndMove(notePath){
+  try{
+    const root = await Vault.tree();   /* 根节点对象 {name,path:'',children:[...]} */
+    const folders = [{path:'',name:'根目录',depth:0}];
+    (function walk(node, depth){
+      (node.children||[]).forEach(c=>{
+        folders.push({path:c.path, name:c.name, depth});
+        walk(c, depth+1);
+      });
+    })(root, 0);
+    const opts = folders.map(f=>({
+      icon: I.folder,
+      label: '　'.repeat(f.depth) + (f.name||'根目录'),
+      fn: async ()=>{
+        await Vault.move(notePath, f.path);
+        toast('已移动到「'+(f.name||'根目录')+'」');
+        show('home'); renderHome();
+      }
+    }));
+    openSheet('移动到…', opts);
+  }catch(e){ console.warn(e); toast('移动失败'); }
 }
 
 /* ---------- 底部 sheet ---------- */
 function openSheet(title, opts){
   $('#v16SheetTitle').textContent = title;
-  $('#v16SheetOpts').innerHTML = opts.map((o,i)=>`<div class="v16-sheet-opt" data-i="${i}">${o.icon}${esc(o.label)}</div>`).join('');
+  $('#v16SheetOpts').innerHTML = opts.map((o,i)=>{
+    if(o.html) return `<div class="v16-sheet-opt v16-sheet-html" data-i="${i}">${o.html}</div>`;
+    return `<div class="v16-sheet-opt" data-i="${i}">${o.icon||''}${esc(o.label||'')}</div>`;
+  }).join('');
   $('#v16SheetOpts').querySelectorAll('.v16-sheet-opt').forEach(el=>{
-    el.onclick = ()=>{ closeSheet(); opts[Number(el.dataset.i)].fn(); };
+    const o = opts[Number(el.dataset.i)];
+    if(o.html) return;
+    el.onclick = ()=>{ if(!o.noClose) closeSheet(); o.fn&&o.fn(); };
   });
   $('#v16SheetMask').classList.add('open'); $('#v16Sheet').classList.add('open');
 }
 function closeSheet(){ $('#v16SheetMask').classList.remove('open'); $('#v16Sheet').classList.remove('open'); }
+
+/* ---------- 颜色选择器（7 色，单篇/批量共用） ---------- */
+const V16_COLORS = ['cream','yellow','orange','pink','green','blue','purple'];
+const COLOR_LABEL = {cream:'米白',yellow:'明黄',orange:'暖橙',pink:'樱粉',green:'草绿',blue:'青蓝',purple:'浅紫'};
+function openColorPicker(current, onPick){
+  const html = '<div class="v16-colorpal">'+V16_COLORS.map(c=>
+    `<button class="v16cdot ${c===current?'sel':''}" data-c="${c}" style="background:var(--vp-c-${c})" aria-label="${COLOR_LABEL[c]}"></button>`
+  ).join('')+'</div>';
+  openSheet('选择颜色',[{html, noClose:true}]);
+  $('#v16SheetOpts').querySelectorAll('.v16cdot').forEach(d=>{
+    d.onclick = async()=>{ const c=d.dataset.c; await onPick(c); closeSheet(); };
+  });
+}
+
+/* ---------- 旧屏桥接（沿用 v15 功能屏：AI/网盘/日志/API/搜索等） ----------
+   不改变 hash、不进 navStack：直接把旧 v15 屏提升到 v16 之上显示；
+   其返回按钮经捕获式拦截回到 v16。这样旧屏的成熟逻辑原样保留，不重写。 */
+let _legacyReturn = null;
+function openLegacy(name, returnScr){
+  const el = document.getElementById('scr-'+name);
+  if(!el){ toast('该功能暂不可用'); return; }
+  /* 若该屏需要初始化（如本页问答需当前笔记上下文），可在调用前由调用方设置 */
+  el.classList.add('active','legacy-top');
+  _legacyReturn = returnScr || 'settings';
+}
+function closeLegacy(){
+  const el = document.querySelector('.screen.legacy-top');
+  if(el) el.classList.remove('active','legacy-top');
+  const r = _legacyReturn || 'settings';
+  _legacyReturn = null;
+  if(r==='home'){ show('home'); renderHome(); }
+  else if(r==='editor'){ show('editor'); }
+  else show(r);
+}
+/* 捕获式拦截：旧屏内返回按钮（id 含 Back）点击 → 回 v16，阻止其原有 hash 导航 */
+document.addEventListener('click', (e)=>{
+  const legacy = document.querySelector('.screen.legacy-top');
+  if(!legacy) return;
+  const btn = e.target && e.target.closest && e.target.closest('button');
+  if(!btn || !legacy.contains(btn)) return;
+  if(/back/i.test(btn.id)){
+    e.stopPropagation(); e.preventDefault();
+    closeLegacy();
+  }
+}, true);
+
+/* ---------- 旧 modal 提升：让 v15 的 openModal（字体/关于/隐私）在 v16 之上显示 ---------- */
+(function patchLegacyModal(){
+  if(typeof openModal!=='function' || typeof closeModal!=='function') return;
+  const _OM = openModal, _CM = closeModal;
+  openModal = function(html){
+    _OM(html);
+    const m = document.getElementById('modal');
+    if(m) m.classList.add('v16-lift');
+  };
+  closeModal = function(){
+    const m = document.getElementById('modal');
+    if(m) m.classList.remove('v16-lift');
+    _CM();
+  };
+})();
+
+/* ---------- 本页问答：把当前 vault 笔记合成 v15 笔记，复用 openNoteAi 全套逻辑 ---------- */
+let _naiSynth = null;
+async function openVaultNoteAi(){
+  if(!S._cur){ toast('请先打开笔记'); return; }
+  const data=S._cur, e=data.entry;
+  const fm = MD.parseFrontmatter(data.md).fm||{};
+  const todoRows = MD.todoLines(data.md);
+  const atts = await Vault.attachments(e.path);
+  const synth = {
+    id: fm.id || ('vault-'+e.path),
+    title: e.title,
+    content: data.html,                 /* 渲染 HTML，noteContextText 内部转 md */
+    todos: todoRows.map(t=>({done:t.done,text:t.text})),
+    files: atts.map(a=>({name:a.name,size:a.size||0})),
+    color: fm.color, type: fm.type||'note',
+    _vaultSynth:true
+  };
+  const prevEditing = editingId;
+  if(!notes.find(n=>n.id===synth.id)) notes.push(synth);
+  editingId = synth.id;
+  _naiSynth = { synth, prevEditing };
+  await openNoteAi();
+  /* 未配置 AI 等导致面板未打开：回滚注入 */
+  if(!$('#noteAiPanel').classList.contains('open')){
+    notes = notes.filter(n=>n.id!==synth.id);
+    editingId = prevEditing;
+    _naiSynth = null;
+  }
+}
+/* 关闭本页问答时，移除合成笔记并还原 v15 编辑上下文 */
+const _origCloseNoteAi = closeNoteAi;
+closeNoteAi = function(){
+  _origCloseNoteAi();
+  if(_naiSynth){
+    notes = notes.filter(n=>n.id!==_naiSynth.synth.id);
+    editingId = _naiSynth.prevEditing;
+    _naiSynth = null;
+  }
+};
 
 /* ---------- 主题圆形扩散（双图层） ---------- */
 function applyTheme(t){
@@ -10688,8 +12087,8 @@ function applyTheme(t){
   document.documentElement.dataset.theme = t;
   if(root) root.style.background = (t==='dark') ? '#18191C' : '#ECEAE2';
 }
-function toggleTheme(animate){
-  const next = S.theme==='dark' ? 'light' : 'dark';
+function toggleTheme(target, animate){
+  const next = target || (S.theme==='dark' ? 'light' : 'dark');
   if(!animate || reduceMotion()){ applyTheme(next); return; }
   /* 双图层揭示：圆形遮罩从右上扩散 */
   const circle = document.createElement('div');
@@ -10709,9 +12108,30 @@ function toggleTheme(animate){
   setTimeout(()=>{ circle.style.opacity='0'; setTimeout(()=>circle.remove(), 500); }, 620);
 }
 
+/* 主题三选：浅色 / 深色 / 跟随系统（保留 v15 三档，含圆形扩散动画） */
+function openThemePicker(){
+  const cur = (typeof prefs!=='undefined' && prefs.theme) || 'auto';
+  const name={light:'浅色',dark:'深色',auto:'跟随系统'};
+  const icon={light:I.sun,dark:I.moon,auto:I.auto};
+  openSheet('主题', ['light','dark','auto'].map(k=>({
+    icon: icon[k],
+    label: name[k] + (cur===k?'　✓':''),
+    fn:()=>{
+      prefs.theme = k; persistPrefs();
+      const t = k==='auto'
+        ? (window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')
+        : k;
+      if(t!==S.theme) toggleTheme(t,true);
+      else applyTheme(t);
+    }
+  })));
+}
+
 /* ---------- 事件绑定 ---------- */
 function bind(){
   $('#v16Menu').onclick = openDrawer;
+  $('#v16HomeAi').onclick = ()=>openLegacy('chat','home');
+  $('#v16EdAi').onclick = ()=>openVaultNoteAi();
   $('#v16DrawerMask').onclick = closeDrawer;
   $('#v16DrawerClose').onclick = closeDrawer;
   $('#v16SearchBtn').onclick = ()=>{ show('search'); setTimeout(()=>$('#v16SrInput').focus(), 300); };
@@ -10741,11 +12161,28 @@ function bind(){
           await renderHome();
           await openNote(path);
         } else if(it.dataset.f==='folder'){
-          /* 新建文件夹：先在当前目录建一个"新文件夹" */
           const nm = '新文件夹';
           const path = await Vault.createFolder ? await Vault.createFolder(S.curFolder, nm) : null;
           toast('已新建文件夹'); renderHome();
-        } else toast('导入文件 · M4 接入');
+        } else if(it.dataset.f==='import'){
+          /* 统一导入：原生 vaultPickImport，浏览器降级 file input */
+          if(typeof Native!=='undefined' && Native && Native.call){
+            try{
+              await Native.call('vaultPickImport', {dirPath: S.curFolder});
+              toast('导入完成'); renderHome();
+            }catch(e){ console.warn(e); toast('导入失败'); }
+          } else {
+            const inp = document.createElement('input');
+            inp.type='file'; inp.style.display='none'; document.body.appendChild(inp);
+            inp.onchange = async ()=>{
+              inp.remove();
+              const f = inp.files && inp.files[0]; if(!f) return;
+              try{ await VaultFS.writeAttachment(f.name, f, S.curFolder); toast('已导入'); renderHome(); }
+              catch(e){ toast('导入失败'); }
+            };
+            inp.click();
+          }
+        }
       }catch(e){ console.warn('create failed', e); toast('新建失败'); }
     };
   });
@@ -10773,22 +12210,77 @@ function bind(){
     renderEditor();
   };
   $('#v16EdMore').onclick = ()=>openSheet('笔记操作', [
-    {icon:I.move, label:'移动到…', fn:()=>toast('移动到… · M2 接入')},
-    {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ await Vault.remove(S._cur.entry.path); toast('已移入回收站'); show('home'); renderHome(); } }},
+    {icon:I.hl, label:'颜色', fn:()=>{ if(S._cur){ openColorPicker(S._cur.entry.color, async(c)=>{
+      await Vault.setColor(S._cur.entry.path, c);
+      /* 刷新编辑器缓存，避免下次 WYSIWYG 保存用旧 frontmatter 覆盖新颜色 */
+      const fresh = await Vault.get(S._cur.entry.path);
+      S._cur.md=fresh.md; S._cur.entry=fresh.entry; S._cur.frontmatter=fresh.frontmatter;
+      toast('颜色已更换'); }); } }},
+    {icon:I.move, label:'移动到…', fn:()=>pickFolderAndMove(S._cur.entry.path)},
+    {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ const path=S._cur.entry.path;
+      beforeDelete([path], async()=>{ await Vault.remove(path); toast('已移入回收站'); show('home'); renderHome(); }); } }},
     {icon:I.pin, label:'置顶/取消', fn:async()=>{ if(S._cur){ await Vault.setPin(S._cur.entry.path, !S._cur.entry.pinned); toast('已更新'); } }}
   ]);
-  /* 工具栏 */
+  /* 底部工具栏：WYSIWYG 格式化 */
   $('#v16Dock').querySelectorAll('button').forEach(b=>{
-    b.onclick = ()=>toast('工具栏「'+b.dataset.t+'」· M3/M4 接入');
+    b.onclick = async ()=>{
+      const ed = $('#v16EdBody');
+      if(!ed){ toast('请先打开笔记'); return; }
+      ed.focus();
+      const t = b.dataset.t;
+      try{
+        if(t==='bold') document.execCommand('bold');
+        else if(t==='italic') document.execCommand('italic');
+        else if(t==='underline') document.execCommand('underline');
+        else if(t==='strike') document.execCommand('strikeThrough');
+        else if(t==='head') document.execCommand('formatBlock', false, 'h2');
+        else if(t==='list') document.execCommand('insertUnorderedList');
+        else if(t==='quote') document.execCommand('formatBlock', false, 'blockquote');
+        else if(t==='code') document.execCommand('formatBlock', false, 'pre');
+        else if(t==='hl'){
+          try{ document.execCommand('styleWithCSS', false, true); }catch(e){}
+          document.execCommand('hiliteColor', false, '#FFE27A');
+        }
+        else if(t==='link'){
+          const url = prompt('链接地址（https://…）');
+          if(url) document.execCommand('createLink', false, url);
+        }
+        else if(t==='todo'){
+          /* 插入一个可勾选 li */
+          document.execCommand('insertHTML', false,
+            '<ul><li><input type="checkbox" class="v16-ed-todoinput"> </li></ul><p><br></p>');
+        }
+        else if(t==='image'){
+          await pickWYSIWYGImage();
+        }
+        scheduleWYSIWIGSave();
+      }catch(e){ console.warn('toolbar exec', e); }
+    };
+  });
+  /* 受控待办勾选：change 委托（renderEditor 重渲染 innerHTML 后仍生效）。
+     勾选只调 Vault.toggleTodo，状态与 #p 优先级由数据层保证，不丢。 */
+  root.addEventListener('change', async (ev)=>{
+    if(!(ev.target && ev.target.classList && ev.target.classList.contains('v16-ed-todoinput'))) return;
+    if(!S._cur) return;
+    clearTimeout(_wysiwygTimer);   /* 取消挂起的自由序列化，受控勾选为唯一写入源 */
+    const key = ev.target.dataset.key;
+    try{
+      const res = await Vault.toggleTodo(S._cur.entry.path, key);
+      if(res){
+        S._cur = await Vault.get(S._cur.entry.path);
+        const ed = document.getElementById('v16EdBody');
+        if(ed) ed.innerHTML = mdToEditableHTML(S._cur.md);
+      }
+    }catch(e){ console.warn('toggle todo failed', e); }
   });
   /* 搜索 */
-  $('#v16SrBack').onclick = ()=>show('home');
+  $('#v16SrBack').onclick = ()=>{ show('home'); renderHome(); };
   $('#v16SrInput').addEventListener('input', doSearch);
   /* 回收站 */
-  $('#v16TrashBack').onclick = ()=>show('home');
-  $('#v16TrashEmpty').onclick = ()=>toast('清空回收站 · 后续接入');
+  $('#v16TrashBack').onclick = ()=>{ show('home'); renderHome(); };
+  $('#v16TrashEmpty').onclick = async ()=>{ if(confirm('清空回收站？此操作不可恢复。')){ await Vault.emptyTrash(); toast('回收站已清空'); renderTrash(); } };
   /* 设置 */
-  $('#v16SetBack').onclick = ()=>show('home');
+  $('#v16SetBack').onclick = ()=>{ show('home'); renderHome(); };
   /* sheet */
   $('#v16SheetMask').onclick = closeSheet;
   $('#v16SheetCancel').onclick = closeSheet;
@@ -10806,18 +12298,88 @@ function bind(){
       const action = b.dataset.a;
       const paths = Array.from(S.selected);
       if(action==='del'){
-        for(const p of paths){ try{ await Vault.remove(p); }catch(e){} }
-        toast('已移入回收站');
+        beforeDelete(paths, async()=>{
+          for(const p of paths){ try{ await Vault.remove(p); }catch(e){} }
+          toast('已移入回收站');
+          S.selecting=false; S.selected=new Set(); renderHome();
+        });
+        return;
       } else if(action==='pin'){
         for(const p of paths){ try{ await Vault.setPin(p, true); }catch(e){} }
         toast('已置顶');
       } else if(action==='color'){
-        toast('批量颜色 · 单篇可在编辑器里设置');
+        openColorPicker(null, async(c)=>{
+          for(const p of paths){ try{ await Vault.setColor(p, c); }catch(e){} }
+          toast('颜色已批量更换');
+        });
+        return; /* 颜色选择后由 picker 内部关闭并刷新 */
       } else if(action==='move'){
-        toast('批量移动 · 单篇可在编辑器"移动到…"');
+        /* 批量移动：选文件夹后逐个 Vault.move */
+        const root = await Vault.tree();
+        const folders = [{path:'',name:'根目录',depth:0}];
+        (function walk(node, depth){
+          (node.children||[]).forEach(c=>{
+            folders.push({path:c.path,name:c.name,depth});
+            walk(c,depth+1);
+          });
+        })(root, 0);
+        openSheet('移动 '+paths.length+' 篇到…', folders.map(f=>({
+          icon: I.folder,
+          label: '　'.repeat(f.depth)+(f.name||'根目录'),
+          fn: async ()=>{
+            for(const p of paths){ try{ await Vault.move(p, f.path); }catch(e){} }
+            toast('已移动 '+paths.length+' 篇');
+            S.selecting=false; S.selected=new Set(); renderHome();
+          }
+        })));
+        return;
       }
       S.selecting=false; S.selected=new Set(); renderHome();
     };
+  });
+
+  /* ---- v16 左缘跟手返回手势（复用 route.js 逻辑，作用于 .v16-scr） ---- */
+  const EDGE = 22;
+  let g = null;
+  window.addEventListener('pointerdown', (e)=>{
+    if(IS_DESKTOP) return;
+    const top = root.querySelector('.v16-scr.on');
+    if(!top || top.dataset.scr==='home') return;
+    if(e.clientX > EDGE) return;
+    /* 弹层（抽屉/底部 sheet/对话框）打开时不接管 */
+    if(document.querySelector('.v16-drawer.open, .v16-sheet.open, .v16-mask.open, .v16-modal.open, .screen.legacy-top')) return;
+    /* 起手点控件守卫；顶栏/工具栏整体视为控制区（含其左侧 padding，防止顶栏误触） */
+    if(e.target && e.target.closest && e.target.closest('button,a,input,textarea,select,.seg,.switch,.v16-dock,.v16-topbar')) return;
+    g = { id:e.pointerId, el:top, startX:e.clientX, startY:e.clientY, locked:false, dx:0 };
+  }, {passive:true});
+  window.addEventListener('pointermove', (e)=>{
+    if(!g || e.pointerId!==g.id) return;
+    const dx = e.clientX - g.startX, dy = e.clientY - g.startY;
+    if(!g.locked){
+      if(Math.abs(dx)<12 && Math.abs(dy)<12) return;
+      if(Math.abs(dy)*1.6 > Math.abs(dx) || Math.abs(dx)<12){ g=null; return; }
+      g.locked = true; g.dx = 0;
+      g.el.style.transition='none';
+      haptic(6);
+    }
+    g.dx = Math.max(0, Math.min(window.innerWidth, dx));
+    g.el.style.transform = 'translateX('+g.dx+'px)';
+  }, {passive:true});
+  window.addEventListener('pointerup', (e)=>{
+    if(!g) return;
+    const s = g; g = null;
+    if(!s.locked){ s.el.style.transform=''; return; }
+    /* 抬手时指尖落在控件上：让控件点击生效，不触发返回 */
+    let overCtrl=false;
+    try{ const el=document.elementFromPoint(e.clientX,e.clientY);
+      overCtrl = !!(el&&el.closest&&el.closest('button,a,input,textarea,select,.seg,.switch,.v16-topbar')); }catch(_){}
+    s.el.style.transition='transform .3s cubic-bezier(.22,1,.36,1)';
+    if(s.dx > window.innerWidth*0.25 && !overCtrl){
+      s.el.style.transform='translateX('+window.innerWidth+'px)';
+      setTimeout(()=>{ show('home'); renderHome(); }, 250);
+    } else {
+      s.el.style.transform='translateX(0)';
+    }
   });
 }
 
@@ -10826,12 +12388,642 @@ async function boot(){
   buildRoot();
   applyTheme(document.documentElement.dataset.theme==='dark' ? 'dark' : 'light');
   await Vault.init();
+  /* 云端/目录整库恢复后的待同步：把已恢复的 Store 落进 vault（先清空避免重复） */
+  if(typeof VaultSync!=='undefined' && VaultSync.consumePending && VaultSync.consumePending()){
+    toast('正在把恢复的资料写入资料库…');
+    try{ await VaultSync.restoreFromStore(); }catch(e){ console.warn('restore sync failed', e); }
+  }
   bind();
   renderHome();
 }
 
 window.VUI = { boot, show, renderHome, openNote, renderSettings, renderTrash, doSearch,
   applyTheme, toggleTheme, openSheet, toast, get state(){return S;} };
+})();
+
+/* ============================================================
+   v16-anim.js —— 16 项动效的真实迁移层（独立文件，不改动业务逻辑）
+   通过事件委托/自定义事件挂接稳定元素；所有动效过 reduced-motion 降级。
+   耦合点约定（业务侧 dispatch，本层监听）：
+     window.dispatchEvent(new CustomEvent('v16:before-delete',{detail:{paths:[...], done:fn}}))
+   本层在完成删除动画（飞至回收站）后调用 done()；未监听或降级时业务侧自行继续。
+   覆盖：#2 触点倾斜  #3 chip三连  #4 曲线飞行删除  #5 错峰勾选  #6 边界阻尼
+         #7 待办弹簧拖拽  #8 勾选三连  #9 字号刻度尺  #10 内联联想
+         #11 大图查看器  #12 删除收拢  #13 Press-to-Cancel  #15 手风琴  #16 进度条弹性收尾
+   （#1 跟手返回 / #14 主题圆形扩散 业务侧已实现，本层不重复）
+   ============================================================ */
+(function(){
+'use strict';
+const reduceMotion = ()=> window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const haptic = (ms)=>{ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} };
+const $  = (s, r)=> (r||document).querySelector(s);
+const $$ = (s, r)=> Array.from((r||document).querySelectorAll(s));
+const escHtml = (s)=> String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cssescAttr = (s)=> String(s).replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+
+/* ============================================================
+   #2 触点倾斜：卡片按下随触点轻微 3D 倾斜（rotateX/Y 跟手）
+   ============================================================ */
+function initTilt(){
+  let active = null;
+  document.addEventListener('pointerdown', (e)=>{
+    if(reduceMotion()) return;
+    const card = e.target && e.target.closest && e.target.closest('#v16Body .v16-note-card, #v16Body .v16-folder-card');
+    if(!card) return;
+    active = { card, pid:e.pointerId };
+    paintTilt(card, e.clientX, e.clientY);
+    card.classList.add('v16-tilt');
+  });
+  window.addEventListener('pointermove', (e)=>{
+    if(!active || e.pointerId!==active.pid) return;
+    paintTilt(active.card, e.clientX, e.clientY);
+  });
+  const up = (e)=>{
+    if(!active || e.pointerId!==active.pid) return;
+    active.card.classList.remove('v16-tilt');
+    active = null;
+  };
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+  function paintTilt(card, cx, cy){
+    const r = card.getBoundingClientRect();
+    const px = (cx - r.left)/r.width  - .5;   /* -0.5 .. 0.5 */
+    const py = (cy - r.top) /r.height - .5;
+    card.style.setProperty('--vtilt-x', (py*-4.5).toFixed(2)+'deg');
+    card.style.setProperty('--vtilt-y', (px*5.5).toFixed(2)+'deg');
+  }
+}
+
+/* ============================================================
+   #3 chip 三连：点按 .v16cdot → 收缩→回弹→回落 三段式缩放
+   ============================================================ */
+function initChip(){
+  document.addEventListener('pointerdown', (e)=>{
+    if(reduceMotion()) return;
+    const chip = e.target && e.target.closest && e.target.closest('.v16cdot');
+    if(!chip) return;
+    chip.classList.remove('v16-chip-pop');
+    void chip.offsetWidth;                 /* 重置动画 */
+    chip.classList.add('v16-chip-pop');
+  });
+  document.addEventListener('animationend', (e)=>{
+    const t = e.target;
+    if(t && t.classList && t.classList.contains('v16-chip-pop')) t.classList.remove('v16-chip-pop');
+  });
+}
+
+/* ============================================================
+   #4 曲线飞行删除（WAAPI 贝塞尔三段关键帧）+ #12 删除收拢（FLIP 补位）
+   监听 'v16:before-delete' {paths, done}；未 dispatch 时业务照常。
+   ============================================================ */
+function initDeleteFx(){
+  function snapAll(){
+    const body = document.getElementById('v16Body');
+    const m = new Map();
+    if(!body) return m;
+    $$('#v16Body .v16-note-card, #v16Body .v16-folder-card').forEach(el=>{
+      const k = el.dataset.path || el.dataset.folder;
+      if(k!=null) m.set(k, el.getBoundingClientRect());
+    });
+    return m;
+  }
+  window.addEventListener('v16:before-delete', (ev)=>{
+    const det = ev.detail || {};
+    const done = typeof det.done === 'function' ? det.done : null;
+    const paths = det.paths || [];
+    const body = document.getElementById('v16Body');
+    if(!body || reduceMotion() || !paths.length){ if(done) done(); return; }
+    const before = snapAll();
+    const cards = [];
+    paths.forEach(p=>{
+      const el = body.querySelector('.v16-note-card[data-path="'+cssescAttr(p)+'"], .v16-folder-card[data-folder="'+cssescAttr(p)+'"]');
+      if(el) cards.push(el);
+    });
+    if(!cards.length){ if(done) done(); return; }
+    haptic(10);
+    const tx = window.innerWidth - 56, ty = window.innerHeight - 76;   /* 回收站/FAB 落点 */
+    let finished = 0;
+    cards.forEach((card, i)=>{
+      const r0 = card.getBoundingClientRect();
+      const dx = tx - (r0.left + r0.width/2);
+      const dy = ty - (r0.top  + r0.height/2);
+      card.style.zIndex = '6';
+      card.style.pointerEvents = 'none';
+      const anim = card.animate([
+        { transform:'translate(0px,0px) scale(1)', opacity:1, offset:0 },
+        { transform:'translate('+(dx*.55).toFixed(1)+'px,'+(dy*.6-36).toFixed(1)+'px) scale(.82)', opacity:.92, offset:.55 },
+        { transform:'translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) scale(.3)', opacity:0, offset:1 }
+      ], { duration:420, delay:i*70, easing:'cubic-bezier(.45,0,.8,.6)', fill:'forwards' });
+      anim.onfinish = ()=>{
+        card.style.visibility = 'hidden';
+        if(++finished === cards.length && done){
+          done();                             /* 业务侧真正删除 + renderHome() */
+          /* #12 收拢：业务重渲染后，同 key 卡片位移差值用 FLIP 动画补位 */
+          requestAnimationFrame(()=>requestAnimationFrame(()=>{
+            $$('#v16Body .v16-note-card, #v16Body .v16-folder-card').forEach(el=>{
+              const k = el.dataset.path || el.dataset.folder;
+              const old = before.get(k);
+              if(!old) return;
+              const r1 = el.getBoundingClientRect();
+              const ddx = old.left - r1.left, ddy = old.top - r1.top;
+              if(Math.abs(ddx)>2 || Math.abs(ddy)>2){
+                el.animate([
+                  { transform:'translate('+ddx.toFixed(1)+'px,'+ddy.toFixed(1)+'px)' },
+                  { transform:'translate(0px,0px)' }
+                ], { duration:380, easing:'cubic-bezier(.22,1,.36,1)' });
+              }
+            });
+          }));
+        }
+      };
+    });
+  });
+}
+
+/* ============================================================
+   #8 勾选三连（缩放弹出 + 划线画出 + 弱化）+ #5 错峰勾选（批量 done 错峰延迟）
+   MutationObserver 监听编辑器待办列表重渲染（业务 toggleTodo 后 innerHTML 替换），
+   仅给「新变为已勾选」的 li 打 class，不改写 DOM 文本，不影响 htmlToMD 序列化。
+   ============================================================ */
+function initTodoCheckFx(){
+  function refresh(){
+    const b = document.getElementById('v16EdBody');
+    if(!b) return;
+    const doneLis = [];
+    $$('li.v16-todo-li', b).forEach(li=>{
+      const cb = li.querySelector('input.v16-ed-todoinput');
+      const isDone = !!(cb && (cb.checked || cb.hasAttribute('checked')));
+      if(isDone){ li.classList.add('v16-li-done'); doneLis.push(li); }
+      else li.classList.remove('v16-li-done','v16-todo-pop');
+    });
+    if(reduceMotion()) return;
+    /* 错峰：本批次新 done 的 li 按序号递增 animation-delay */
+    doneLis.forEach((li, idx)=>{
+      if(li.classList.contains('v16-todo-pop')) return;
+      li.style.animationDelay = (idx*70)+'ms';
+      li.classList.add('v16-todo-pop');
+    });
+  }
+  const mo = new MutationObserver(()=>{
+    requestAnimationFrame(refresh);   /* 业务重渲染/勾选属性变化后下一帧刷新 */
+  });
+  function start(){
+    if(document.body) mo.observe(document.body, { childList:true, subtree:true, attributes:true, attributeFilter:['checked','class'] });
+  }
+  if(document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+}
+
+/* ============================================================
+   #6 边界阻尼：#v16Body / #v16EdScroll 滚到顶/底时橡皮筋回弹
+   ============================================================ */
+function initRubber(){
+  function bind(scroller){
+    if(!scroller || scroller._v16Band) return;
+    scroller._v16Band = true;
+    let startY = 0, startTop = 0, pulling = false;
+    const release = ()=>{
+      if(!pulling) return;
+      pulling = false;
+      scroller.style.transition = 'transform .38s cubic-bezier(.22,1,.36,1)';
+      scroller.style.transform = '';
+    };
+    scroller.addEventListener('touchstart', (e)=>{
+      const t = e.touches[0]; if(!t) return;
+      startY = t.clientY; startTop = scroller.scrollTop; pulling = false;
+    }, {passive:true});
+    scroller.addEventListener('touchmove', (e)=>{
+      if(reduceMotion()) return;
+      const t = e.touches[0]; if(!t) return;
+      const dy = t.clientY - startY;
+      const max = scroller.scrollHeight - scroller.clientHeight;
+      const atTop = startTop <= 0, atBottom = startTop >= max - 1;
+      if((atTop && dy > 0) || (atBottom && dy < 0)){
+        e.preventDefault();
+        pulling = true;
+        haptic(4);
+        scroller.style.transition = 'none';
+        scroller.style.transform = 'translateY('+(dy*.35).toFixed(1)+'px)';
+      }
+    }, {passive:false});
+    scroller.addEventListener('touchend', release);
+    scroller.addEventListener('touchcancel', release);
+    /* 滚轮路径（桌面调试/远程）：边界 wheel 同样给出阻尼 */
+    let wheelTimer = 0;
+    scroller.addEventListener('wheel', (e)=>{
+      if(reduceMotion()) return;
+      const max = scroller.scrollHeight - scroller.clientHeight;
+      const atTop = scroller.scrollTop <= 0, atBottom = scroller.scrollTop >= max - 1;
+      if((atTop && e.deltaY < 0) || (atBottom && e.deltaY > 0)){
+        e.preventDefault();
+        pulling = true;
+        scroller.style.transition = 'none';
+        scroller.style.transform = 'translateY('+(e.deltaY*.18).toFixed(1)+'px)';
+        clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(release, 120);
+      }
+    }, {passive:false});
+  }
+  function scan(){
+    bind(document.getElementById('v16Body'));
+    bind(document.getElementById('v16EdScroll'));
+  }
+  scan();
+  window.addEventListener('v16:ready', scan);
+  setTimeout(scan, 1200);   /* 兜底：滚动容器稍后出现再绑 */
+}
+
+/* ============================================================
+   #7 待办弹簧拖拽：按下待办文本→抬起跟手（弹簧滞后）→松手过冲归位
+   仅视觉，不改 DOM 顺序、不写盘（业务无 reorder API）。
+   ============================================================ */
+function initTodoDrag(){
+  let drag = null;
+  document.addEventListener('pointerdown', (e)=>{
+    if(reduceMotion()) return;
+    if(e.target.closest && e.target.closest('input,textarea,.md-prio-tag')) return;
+    const li = e.target.closest && e.target.closest('#v16EdBody li.v16-todo-li');
+    if(!li) return;
+    drag = { li, pid:e.pointerId, startY:e.clientY, targetY:0, renderY:0, on:false, raf:0 };
+  });
+  window.addEventListener('pointermove', (e)=>{
+    if(!drag || e.pointerId!==drag.pid) return;
+    const d = drag;
+    const dy = e.clientY - d.startY;
+    if(!d.on){
+      if(Math.abs(dy) < 10) return;
+      d.on = true;
+      d.renderY = 0; d.targetY = dy;
+      d.li.classList.add('v16-li-dragging');
+      d.li.style.transition = 'none';
+      haptic(8);
+    }
+    d.targetY = dy;
+    if(!d.raf){
+      const step = ()=>{
+        if(!drag) return;
+        drag.renderY += (drag.targetY - drag.renderY) * .22;   /* 弹簧滞后 */
+        drag.li.style.transform = 'translateY('+drag.renderY.toFixed(1)+'px) scale(1.02)';
+        if(Math.abs(drag.targetY - drag.renderY) > .6) drag.raf = requestAnimationFrame(step);
+        else { drag.raf = 0; drag.li.style.transform = 'translateY('+drag.targetY.toFixed(1)+'px) scale(1.02)'; }
+      };
+      d.raf = requestAnimationFrame(step);
+    }
+  });
+  const endDrag = (e)=>{
+    if(!drag || e.pointerId!==drag.pid) return;
+    const d = drag; drag = null;
+    if(d.raf) cancelAnimationFrame(d.raf);
+    if(!d.on){ d.li.classList.remove('v16-li-dragging'); return; }
+    /* 松手：回弹过渡带回弹过冲 */
+    d.li.style.transition = 'transform .45s cubic-bezier(.34,1.56,.64,1)';
+    d.li.style.transform = 'translateY(0px) scale(1)';
+    haptic(6);
+    setTimeout(()=>{
+      d.li.classList.remove('v16-li-dragging');
+      d.li.style.transition = ''; d.li.style.transform = '';
+    }, 480);
+  };
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+}
+
+/* ============================================================
+   #9 字号刻度尺：捕获点击设置行 data-row=fontscale → 调起 v15 真实刻度尺
+   （theme.js openFontSizeSheet：拖动实时改 documentElement.style.zoom，松手吸附刻度）
+   ============================================================ */
+function initFontRuler(){
+  document.addEventListener('click', (e)=>{
+    const row = e.target && e.target.closest && e.target.closest('.v16-row[data-row="fontscale"]');
+    if(!row) return;
+    e.stopPropagation(); e.preventDefault();
+    if(typeof openFontSizeSheet === 'function'){
+      try{ openFontSizeSheet(); }catch(err){ console.warn('font ruler failed', err); }
+    }
+  }, true);
+}
+
+/* ============================================================
+   #10 正文 #笔记本/文件夹 内联联想：光标旁浮层，选中即替换触发文本
+   候选 = Vault.tree() 中已有文件夹名；动画：淡入+下滑 120ms。
+   ============================================================ */
+function initNbSuggest(){
+  const el = document.createElement('div');
+  el.id = 'v16NbSuggest';
+  el.className = 'v16-nb-sug';
+  document.body.appendChild(el);
+  let state = null;
+  function folderNames(){
+    const names = [];
+    try{
+      if(window.Vault && Vault.tree){
+        (function walk(n){ if(n && n.name) names.push(n.name); (n.children||[]).forEach(walk); })(Vault.tree());
+      }
+    }catch(_){}
+    return names;
+  }
+  function readCtx(){
+    const b = document.getElementById('v16EdBody');
+    const sel = window.getSelection && getSelection();
+    if(!sel || !sel.rangeCount || !b || !b.contains(sel.anchorNode)) return null;
+    const node = sel.anchorNode;
+    if(node.nodeType !== 3) return null;
+    if(node.parentElement && node.parentElement.closest('.nb-tag')) return null;
+    const caret = sel.anchorOffset;
+    const text = node.nodeValue.slice(0, caret);
+    const m = text.match(/(^|[\s\n，。、,.；;：:（）()『』「」])#([^\s#，。、,.；;：:（）()]{0,12})$/);
+    if(!m) return null;
+    return { node, hashStart: caret - (m[0].length - m[1].length), caret, query: m[2] };
+  }
+  function choose(btn){
+    const st = state; if(!st) return;
+    const name = btn.dataset.nm;
+    if(!name) return;
+    /* 文本节点切分替换：#query → #name ，光标留在其后 */
+    const q = st.node;
+    const head = q.nodeValue.slice(0, st.hashStart);
+    const tail = q.nodeValue.slice(st.caret);
+    q.nodeValue = head;
+    const added = document.createTextNode('#'+name+' ');
+    const tailNode = document.createTextNode(tail);
+    q.parentNode.insertBefore(added, q.nextSibling);
+    q.parentNode.insertBefore(tailNode, added.nextSibling);
+    el.classList.remove('show');
+    state = null;
+    const sel = getSelection();
+    const rng = document.createRange();
+    rng.setStart(tailNode, 0); rng.collapse(true);
+    sel.removeAllRanges(); sel.addRange(rng);
+  }
+  function update(){
+    const ctx = readCtx();
+    if(!ctx){ el.classList.remove('show'); state = null; return; }
+    const q = ctx.query.trim();
+    let items = folderNames().filter(n => n && n.toLowerCase().includes(q.toLowerCase()));
+    items.sort((a,b)=> (a.startsWith(q)?0:1)-(b.startsWith(q)?0:1) || a.localeCompare(b,'zh'));
+    if(q && !items.some(n=>n===q)) items.push('__new__:'+q);
+    if(!items.length){ el.classList.remove('show'); state = null; return; }
+    state = ctx;
+    el.innerHTML = items.map(it=>{
+      if(it.indexOf('__new__:')===0){
+        return '<button class="v16-ns-item" data-nm="'+escHtml(it.slice(7))+'"><span class="v16-ns-ic">＋</span>新建「'+escHtml(it.slice(7))+'」</button>';
+      }
+      return '<button class="v16-ns-item" data-nm="'+escHtml(it)+'"><span class="v16-ns-ic">▸</span>#'+escHtml(it)+'</button>';
+    }).join('');
+    el.querySelectorAll('.v16-ns-item').forEach(bn=>{
+      bn.onmousedown = (ev)=>{ ev.preventDefault(); choose(bn); };
+    });
+    /* 定位到光标处 */
+    const r = document.createRange();
+    r.setStart(ctx.node, ctx.hashStart); r.setEnd(ctx.node, ctx.caret);
+    const rc = r.getBoundingClientRect();
+    el.style.left = Math.max(8, Math.min(rc.left, window.innerWidth - 198)) + 'px';
+    el.style.top = (rc.bottom + 6) + 'px';
+    el.classList.add('show');
+  }
+  document.addEventListener('input', (e)=>{
+    if(!(e.target && e.target.id === 'v16EdBody')) return;
+    if(reduceMotion()){ el.classList.remove('show'); return; }
+    update();
+  });
+  document.addEventListener('selectionchange', ()=>{
+    const ae = document.activeElement;
+    if(ae && ae.id === 'v16EdBody' && !reduceMotion()) update();
+  });
+}
+
+/* ============================================================
+   #11 大图查看器：双击/双指缩放、左右分页（单图边界阻尼）
+   挂接 #v16ImgViewer；打开时从编辑器正文收集图片页。
+   ============================================================ */
+function initImgViewer(){
+  const viewerEl = document.getElementById('v16ImgViewer');
+  if(!viewerEl){
+    /* v16root 由 boot 异步挂载；观察 body 直到查看器出现再初始化 */
+    const wait = new MutationObserver(()=>{
+      if(document.getElementById('v16ImgViewer')){ wait.disconnect(); initImgViewer(); }
+    });
+    wait.observe(document.body, { childList:true, subtree:true });
+    return;
+  }
+  const im = ()=> document.getElementById('v16Img');
+  function freshState(){ return { scale:1, tx:0, ty:0, swipeX:0, index:0, pages:[], pointers:new Map(), startX:0, startY:0, moved:0, _lastTap:0, pinchDist:0, pinchScale:1 }; }
+  let st = freshState();
+  function apply(animate){
+    const i = im(); if(!i || !st) return;
+    i.style.transition = animate ? 'transform .28s cubic-bezier(.22,1,.36,1)' : 'none';
+    i.style.transform = 'translate('+st.tx+'px,'+st.ty+'px) scale('+st.scale+')';
+  }
+  /* 打开时收集正文图片作为分页列表 */
+  function collectPages(){
+    const urls = [];
+    $$('#v16EdBody img.md-img, #v16EdScroll img.md-img').forEach(i2=>{
+      const src = i2.getAttribute('data-relpath') || i2.getAttribute('src');
+      if(src) urls.push(src);
+    });
+    st.pages = urls;
+    const cur = im() && im().getAttribute('src');
+    st.index = Math.max(0, urls.indexOf(cur));
+  }
+  const mo = new MutationObserver(()=>{
+    if(viewerEl.classList.contains('open')){ st = freshState(); collectPages(); }
+    else { st = freshState(); const i = im(); if(i) i.style.transform=''; }
+  });
+  mo.observe(viewerEl, { attributes:true, attributeFilter:['class'] });
+
+  viewerEl.addEventListener('pointerdown', (e)=>{
+    if(reduceMotion()) return;
+    st.pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    st.startX = e.clientX; st.startY = e.clientY; st.moved = 0;
+    if(st.pointers.size === 2){
+      const pts = [...st.pointers.values()];
+      st.pinchDist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+      st.pinchScale = st.scale;
+    }
+  });
+  viewerEl.addEventListener('pointermove', (e)=>{
+    if(!st.pointers.has(e.pointerId)) return;
+    const pt = st.pointers.get(e.pointerId);
+    const dx = e.clientX - pt.x, dy = e.clientY - pt.y;
+    pt.x = e.clientX; pt.y = e.clientY;
+    st.moved = Math.max(st.moved, Math.abs(e.clientX - st.startX), Math.abs(e.clientY - st.startY));
+    if(st.pointers.size === 2){                       /* 双指缩放 */
+      const pts = [...st.pointers.values()];
+      const d = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y);
+      if(st.pinchDist){
+        st.scale = Math.min(3, Math.max(1, st.pinchScale * d / st.pinchDist));
+        apply(false);
+      }
+      return;
+    }
+    if(st.scale > 1){                                /* 放大态单指平移 */
+      st.tx += dx; st.ty += dy; apply(false);
+    } else if(st.moved > 8){                        /* 左右分页（边界阻尼） */
+      let sx = dx;
+      const n = st.pages.length;
+      if(st.index === 0 && sx > 0) sx *= .35;
+      if(st.index >= n-1 && sx < 0) sx *= .35;
+      st.swipeX += sx;
+      const i = im(); if(i){ i.style.transition='none'; i.style.transform='translate('+st.swipeX.toFixed(1)+'px,0) scale(1)'; }
+    }
+  });
+  const up = (e)=>{
+    if(!st.pointers.has(e.pointerId)) return;
+    st.pointers.delete(e.pointerId);
+    if(st.pointers.size < 2) st.pinchDist = 0;
+    if(st.pointers.size > 0) return;
+    const W = window.innerWidth;
+    if(st.moved < 10){                              /* 双击缩放：任意当前档下切换 */
+      const t = performance.now();
+      if(st._lastTap && t - st._lastTap < 300){
+        st._lastTap = 0;
+        st.scale = st.scale > 1 ? 1 : 2.2;
+        st.tx = 0; st.ty = 0;
+        haptic(10); apply(true);
+      } else st._lastTap = t;
+    } else if(Math.abs(st.swipeX) > 8){
+      const n = st.pages.length;
+      if(st.swipeX < -W*.25 && st.index < n-1){      /* 下一页 */
+        st.index++; st.swipeX = 0;
+        const i = im(); if(i && st.pages[st.index]) i.src = st.pages[st.index];
+        haptic(8); apply(true);
+      } else if(st.swipeX > W*.25 && st.index > 0){ /* 上一页 */
+        st.index--; st.swipeX = 0;
+        const i = im(); if(i && st.pages[st.index]) i.src = st.pages[st.index];
+        haptic(8); apply(true);
+      } else {                                       /* 回弹 */
+        st.swipeX = 0; apply(true);
+      }
+    } else {                                        /* 放大态拖动后松手 */
+      apply(true);
+    }
+  };
+  viewerEl.addEventListener('pointerup', up);
+  viewerEl.addEventListener('pointercancel', up);
+}
+
+/* ============================================================
+   #13 Press-to-Cancel：按下后拖动超过阈值 → 抬手不触发点击
+   作用于：首页卡片 / sheet 选项 / FAB 菜单 / 设置行 / 开关
+   ============================================================ */
+function initPressCancel(){
+  const SEL = '#v16Body .v16-note-card, #v16Body .v16-folder-card, .v16-sheet-opt, .v16-fab-item, .v16-row, .v16-switch';
+  let grab = null;
+  document.addEventListener('pointerdown', (e)=>{
+    const el = e.target && e.target.closest && e.target.closest(SEL);
+    if(!el) return;
+    grab = { el, x:e.clientX, y:e.clientY, moved:false };
+    el._v16grab = grab;
+  }, true);
+  window.addEventListener('pointermove', (e)=>{
+    if(!grab || grab.moved) return;
+    if(Math.abs(e.clientX - grab.x) > 14 || Math.abs(e.clientY - grab.y) > 14) grab.moved = true;
+  });
+  document.addEventListener('click', (e)=>{
+    const el = e.target && e.target.closest && e.target.closest(SEL);
+    if(el && el._v16grab && el._v16grab.moved){
+      e.stopImmediatePropagation();
+      e.preventDefault();
+    }
+  }, true);
+  const clear = ()=>{ setTimeout(()=>{ if(grab){ grab.el._v16grab = null; grab = null; } }, 0); };
+  window.addEventListener('pointerup', clear);
+  window.addEventListener('pointercancel', clear);
+}
+
+/* ============================================================
+   #15 手风琴：设置分组展开折叠真实高度动画
+   捕获阶段记录「折叠前高度」→ 业务 toggle class 后，用 WAAPI 从旧高度过渡到目标高度。
+   ============================================================ */
+function animateHeight(el, startH, endH){
+  if(reduceMotion() || !el) return;
+  if(Math.abs(endH - startH) < 2){ el.style.height=''; el.style.overflow=''; el.style.maxHeight=''; return; }
+  el.style.overflow = 'hidden';
+  el.style.maxHeight = 'none';                 /* 中和业务 max-height 规则的瞬间夹取 */
+  el.style.height = startH + 'px';
+  requestAnimationFrame(()=>{
+    const anim = el.animate([
+      { height: startH+'px' },
+      { height: endH+'px' }
+    ], { duration: 340, easing: 'cubic-bezier(.22,1,.36,1)' });
+    anim.onfinish = ()=>{ el.style.height=''; el.style.overflow=''; el.style.maxHeight=''; };
+  });
+}
+function initAccordion(){
+  /* 设置分组：点 .v16-set-head */
+  document.addEventListener('click', (e)=>{
+    if(reduceMotion()) return;
+    const head = e.target && e.target.closest && e.target.closest('.v16-set-group > .v16-set-head');
+    if(!head) return;
+    const group = head.parentElement;
+    const body = group.querySelector('.v16-set-body');
+    if(!body) return;
+    const startH = body.offsetHeight;
+    const willOpen = !group.classList.contains('open');
+    requestAnimationFrame(()=>{
+      animateHeight(body, startH, willOpen ? body.scrollHeight : 0);
+    });
+  }, true);
+  /* 文件树：点箭头（业务会重绘抽屉，动画挂在新 children 上） */
+  document.addEventListener('click', (e)=>{
+    if(reduceMotion()) return;
+    const tw = e.target && e.target.closest && e.target.closest('.v16-tree-row .tw');
+    if(!tw) return;
+    const row = tw.closest('.v16-tree-row');
+    const children = row && row.parentElement ? row.parentElement.querySelector(':scope > .v16-children') : null;
+    if(!children) return;
+    const startH = children.offsetHeight;
+    const willOpen = !children.classList.contains('open');
+    requestAnimationFrame(()=>{
+      /* 重绘已发生；取新 children */
+      const newChildren = row && row.parentElement ? row.parentElement.querySelector(':scope > .v16-children') : null;
+      if(newChildren) animateHeight(newChildren, startH, willOpen ? newChildren.scrollHeight : 0);
+    });
+  }, true);
+}
+
+/* ============================================================
+   #16 进度条弹性收尾：.v16-progress>i 到达 100% 时 scaleX 过冲回弹
+   ============================================================ */
+function initProgress(){
+  const mo = new MutationObserver(()=>{
+    $$('.v16-progress > i').forEach(bar=>{
+      if(reduceMotion()) return;
+      const w = parseFloat(bar.style.width) || 0;
+      if(bar._v16Overshoot){
+        if(w < 98) bar._v16Overshoot = false;
+        return;
+      }
+      if(w >= 99.5){
+        bar._v16Overshoot = true;
+        bar.style.transformOrigin = 'left center';
+        bar.animate([
+          { transform:'scaleX(1)' },
+          { transform:'scaleX(1.07)', offset:.35 },
+          { transform:'scaleX(1)' }
+        ], { duration: 450, easing: 'ease-out' });
+      }
+    });
+  });
+  if(document.body) mo.observe(document.body, { attributes:true, subtree:true, attributeFilter:['style'] });
+}
+
+/* ============================================================
+   启动（脚本在 </body> 前执行，document 委托无需等待 v16root）
+   ============================================================ */
+initTilt();
+initChip();
+initDeleteFx();
+initTodoCheckFx();
+initRubber();
+initTodoDrag();
+initFontRuler();
+initNbSuggest();
+initImgViewer();
+initPressCancel();
+initAccordion();
+initProgress();
+
+window.V16Anim = { reduceMotion, haptic, version:'v16.0.0-anim' };
 })();
 
 /* ============================================================

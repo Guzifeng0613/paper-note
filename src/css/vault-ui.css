@@ -418,3 +418,24 @@
 /* 卡片按压 */
 .v16-note-card, .v16-folder-card{ transition:transform .15s, box-shadow .15s; }
 .v16-note-card:active, .v16-folder-card:active{ transform:scale(.97); }
+
+/* ============ 旧屏桥接：沿用 v15 功能屏（AI/网盘/日志/API 等）到 v16 之上 ============ */
+.screen.legacy-top{
+  z-index:70 !important; visibility:visible !important; opacity:1 !important;
+  pointer-events:auto !important; transform:none !important;
+}
+/* 旧屏在移动端本被隐藏的桌面返回键，桥接时显示，作为可见返回入口 */
+.screen.legacy-top .desk-only{ display:inline-flex !important; align-items:center; justify-content:center; }
+
+/* 旧 modal 在 v16 之上打开（字体/关于/隐私等）：提升层级，覆盖默认的 z-index:1 */
+#app > .modal.v16-lift{ z-index:90 !important; }
+
+/* ============ 颜色选择器（7 色圆点） ============ */
+.v16-colorpal{ display:flex; gap:14px; padding:16px 10px 6px; justify-content:center; flex-wrap:wrap; }
+.v16-colorpal .v16cdot{
+  width:40px; height:40px; border-radius:50%; cursor:pointer;
+  border:2px solid rgba(0,0,0,.12); box-shadow:0 1px 3px rgba(0,0,0,.18);
+  transition:transform .15s;
+}
+.v16-colorpal .v16cdot:active{ transform:scale(.9); }
+.v16-colorpal .v16cdot.sel{ border-color:var(--vp-accent); box-shadow:0 0 0 2px var(--vp-paper), 0 0 0 4px var(--vp-accent); }

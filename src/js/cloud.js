@@ -513,6 +513,7 @@ async function doCloudSync(push){
       const failWarn=r.failedFiles?('；'+r.failedFiles+' 个附件下载失败，可稍后重试恢复'):'';
       toast('恢复完成：'+arr.length+' 张便签'+(pm.added?('（合并新增 '+pm.added+'）'):'')+'；下载附件 '+(r.downloaded||0)+' 个'+failWarn);
       Logs.info('云同步','从云端恢复：'+arr.length+' 张，下载附件 '+(r.downloaded||0)+(r.failedFiles?('，失败 '+r.failedFiles+'：'+(r.failedNames||[]).join(',')):''));
+      if(typeof VaultSync!=='undefined' && VaultSync.markPending) VaultSync.markPending();
       setTimeout(()=>location.reload(),900);
     }
   }catch(e){
