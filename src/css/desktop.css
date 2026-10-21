@@ -1,0 +1,95 @@
+/* ============================================================
+   桌面端（Electron）三栏布局 —— 仅 html.platform-desktop 生效
+   ============================================================ */
+.platform-desktop body{background:var(--paper);padding:0;display:block;overflow:hidden}
+.platform-desktop .phone{max-width:none;height:100vh;border-radius:0;box-shadow:none}
+.platform-desktop .app{display:grid;grid-template-columns:228px 308px minmax(0,1fr)}
+
+/* 左栏 */
+#deskSidebar{grid-column:1;display:flex;flex-direction:column;min-height:0;
+  background:var(--paper-card);border-right:1px solid var(--line);padding:14px 12px}
+.desk-logo{display:flex;align-items:center;gap:9px;padding:4px 8px 12px}
+.desk-logo .dl-ico{width:30px;height:30px;border-radius:9px;background:var(--pine);
+  display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0}
+.desk-logo .dl-ico svg{width:18px;height:18px}
+.desk-logo b{font-size:17px;font-weight:800;letter-spacing:.5px}
+.desk-group-t{font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:1px;padding:10px 10px 5px}
+.desk-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:10px;
+  color:var(--ink-2);font-size:14px;font-weight:500;text-align:left}
+.desk-item svg{width:18px;height:18px;flex-shrink:0}
+.desk-item:hover{background:var(--soft-bg);color:var(--ink)}
+.desk-item.on{background:var(--pine-soft);color:var(--pine-d);font-weight:700}
+.desk-item .n{margin-left:auto;font-size:12px;color:var(--ink-3)}
+.desk-item.on .n{color:var(--pine-d)}
+.desk-scroll{flex:1;overflow-y:auto;min-height:0;margin:0 -4px;padding:0 4px}
+.desk-new{margin-top:10px;width:100%;padding:11px;border-radius:12px;background:var(--pine);color:#fff;
+  font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px;
+  box-shadow:0 4px 12px rgba(180,140,20,.3)}
+.desk-new svg{width:17px;height:17px}
+.desk-new:hover{background:var(--pine-d)}
+
+/* home / edit 作中、右栏常驻 */
+.platform-desktop #scr-home{grid-column:2;position:relative;inset:auto;
+  visibility:visible;opacity:1;pointer-events:auto;display:flex;
+  border-right:1px solid var(--line);background:var(--paper)}
+.platform-desktop #scr-edit{grid-column:3;position:relative;inset:auto;
+  visibility:visible;opacity:1;pointer-events:auto;display:flex;background:var(--paper)}
+.platform-desktop .screen:not(#scr-home):not(#scr-edit){position:absolute;inset:0;z-index:60}
+
+/* 中栏顶栏 / 列表 */
+.platform-desktop #homeTopbar{padding:12px 14px;gap:8px}
+.platform-desktop #openChat,.platform-desktop #openSettings,.platform-desktop #searchCancel{display:none}
+.platform-desktop .search-entry{flex:1}
+.platform-desktop #homeSearch{cursor:text}
+.platform-desktop #chipsRow{display:none}
+.platform-desktop #fab{display:none!important}
+.platform-desktop #scr-home .screen-body{padding:6px 10px 14px}
+.platform-desktop .note-card{margin:0 0 6px;padding:12px 13px;border-radius:12px;cursor:pointer;
+  box-shadow:none;border:1px solid var(--line);background:var(--paper-card)}
+.platform-desktop .note-card:hover{border-color:var(--pine);transform:none}
+.platform-desktop .note-card.current{border-color:var(--pine);background:var(--pine-soft);
+  box-shadow:inset 3px 0 0 var(--pine)}
+.platform-desktop #contextBar{padding:10px 14px}
+.platform-desktop #batchBar{position:static;transform:none;margin:8px 10px;
+  background:var(--paper-card);border:1px solid var(--line);border-radius:12px;padding:8px}
+.platform-desktop #scr-home:not(.select-mode) #contextBar,
+.platform-desktop #scr-home:not(.select-mode) #batchBar{display:none}
+
+/* 右栏顶栏 / 编辑区 */
+.platform-desktop #editTop{padding:12px 18px;order:-1}
+.platform-desktop #editBack,.platform-desktop .et-left{display:none}
+.platform-desktop .et-center{position:static;transform:none;left:auto}
+.platform-desktop .et-center .icon-btn,.platform-desktop .et-right .icon-btn{
+  background:none;box-shadow:none;width:36px;height:36px}
+.platform-desktop .et-center .icon-btn:hover,.platform-desktop .et-right .icon-btn:hover{background:var(--soft-bg)}
+.platform-desktop .et-right{margin-left:auto}
+.platform-desktop .paper-scroll{padding:16px 36px 80px;max-width:880px;width:100%;margin:0 auto;order:1}
+.platform-desktop .paper-title{font-size:30px}
+/* dock 重排为编辑区下方的第二行工具条（editTop 之后、正文之前） */
+.platform-desktop #dock{order:0;position:static;background:none;border:none;padding:4px 36px 0;
+  display:flex;gap:6px;justify-content:flex-start;max-width:880px;margin:0 auto;width:100%}
+.platform-desktop .dock-btn{width:34px;height:34px;background:none;box-shadow:none;border:1px solid transparent}
+.platform-desktop .dock-btn:hover{background:var(--soft-bg)}
+
+/* 右栏空状态 */
+#deskEditEmpty{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:14px;color:var(--ink-3);text-align:center;padding:20px}
+#deskEditEmpty .de-ico{width:56px;height:56px;opacity:.5}
+#deskEditEmpty p{font-size:15px;line-height:1.7;max-width:320px}
+.platform-desktop #app.desk-empty #deskEditEmpty{display:flex}
+.platform-desktop #app.desk-empty #paperScroll,.platform-desktop #app.desk-empty #dock,
+.platform-desktop #app.desk-empty #editTop{display:none}
+#deskEditEmpty .desk-empty-new{padding:10px 22px;border-radius:11px;background:var(--pine);color:#fff;
+  font-weight:700;font-size:14px}
+#deskEditEmpty .desk-empty-new:hover{background:var(--pine-d)}
+
+/* 覆盖层（设置/回收站/网盘等）宽屏内容居中 */
+.platform-desktop .screen:not(#scr-home):not(#scr-edit) .topbar{
+  align-self:center;width:100%;max-width:920px}
+.platform-desktop .screen:not(#scr-home):not(#scr-edit) .screen-body{
+  display:flex;justify-content:center}
+.platform-desktop .screen:not(#scr-home):not(#scr-edit) .screen-body>*{
+  width:100%;max-width:880px}
+/* 仅桌面显示的控件（如 AI 对话返回键） */
+.desk-only{display:none}
+.platform-desktop .desk-only{display:inline-flex;align-items:center;justify-content:center}

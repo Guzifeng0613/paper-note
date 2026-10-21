@@ -1,0 +1,81 @@
+/* ============ 设计变量（浅色） ============ */
+:root{
+  --font-base:system-ui,-apple-system,"Manrope","Noto Sans SC",sans-serif;
+  --paper:#E9EAF4; --paper-card:#F4F5FB;
+  --ink:#3B4454; --ink-2:#6C7686; --ink-3:#9AA3B2;
+  --line:rgba(110,122,150,.13);
+  --soft-bg:rgba(120,132,162,.1);
+  --bar-track:rgba(120,132,162,.16);
+  --pine:#D29E14; --pine-d:#B8890F; --pine-soft:#F6EACB;
+  --hi:#FFE27A;
+  --danger:#CC4B43;
+  --dk:rgba(148,156,198,.42);
+  --sh-out:7px 7px 16px var(--dk),-7px -7px 16px rgba(255,255,255,.92);
+  --sh-out-sm:1px 2px 5px var(--dk),-1px -2px 5px rgba(255,255,255,.6);
+  --sh-in:inset 4px 4px 9px rgba(146,154,196,.32),inset -4px -4px 9px rgba(255,255,255,.92);
+  --shadow:var(--sh-out-sm);
+  --shadow-lg:14px 14px 30px rgba(140,150,190,.38),-14px -14px 30px rgba(255,255,255,.85);
+  --r-lg:20px; --r-md:14px; --r-sm:10px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --c-yellow:#FFF1BF; --c-pink:#FBD9DE; --c-green:#D3EED2;
+  --c-blue:#D3E5F8; --c-purple:#E5DBF8; --c-orange:#FCE2C4; --c-cream:#F7F8FA;
+  /* ============ 动效 token（统一时长/缓动；仅动 transform/opacity/clip-path） ============ */
+  --dur-1:.12s; --dur-2:.18s; --dur-3:.26s; --dur-4:.36s; --dur-5:.52s;
+  --ease-standard:cubic-bezier(.4,0,.2,1);        /* 标准进出 */
+  --ease-decel:cubic-bezier(.22,1,.36,1);         /* easeOutQuint：减速出场（转场/扩散） */
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);     /* 轻微回弹（按钮/勾选/落位） */
+  --ease-spring-soft:cubic-bezier(.34,1.3,.64,1); /* 更克制的回弹（让位/重排） */
+  --ease-spring-back:cubic-bezier(.34,1.4,.64,1); /* 进度超调回弹 */
+  --ease-drag:cubic-bezier(.32,.72,.24,1);        /* 跟手/面板 */
+}
+/* ============ 深色主题 ============ */
+:root[data-theme="dark"],.trl[data-theme="dark"]{
+  --paper:#1A1C20; --paper-card:#24272D;
+  --ink:#E8EAED; --ink-2:#A3A9B2; --ink-3:#6E757E;
+  --line:rgba(255,255,255,.09);
+  --soft-bg:rgba(255,255,255,.10);
+  --bar-track:rgba(255,255,255,.16);
+  --pine:#E0AC38; --pine-d:#ECC25A; --pine-soft:rgba(224,172,56,.16);
+  --hi:#E0C45C;
+  --danger:#E18078;
+  --dk:rgba(0,0,0,.5);
+  --sh-out:7px 7px 16px rgba(0,0,0,.55),-7px -7px 16px rgba(255,255,255,.05);
+  --sh-out-sm:1px 2px 5px rgba(0,0,0,.45);
+  --sh-in:inset 4px 4px 9px rgba(0,0,0,.55),inset -4px -4px 9px rgba(255,255,255,.05);
+  --shadow:var(--sh-out-sm);
+  --shadow-lg:14px 14px 30px rgba(0,0,0,.6),-10px -10px 24px rgba(255,255,255,.04);
+  --c-yellow:#574E2C; --c-pink:#5A3740; --c-green:#2F4A37;
+  --c-blue:#30445E; --c-purple:#433A5B; --c-orange:#5A412C; --c-cream:#2A2E35;
+}
+/* 克隆扩散层切回浅色：在深色根下强制恢复浅色变量（与 :root 浅色块保持一致） */
+.trl[data-theme="light"]{
+  --paper:#E9EAF4; --paper-card:#F4F5FB;
+  --ink:#3B4454; --ink-2:#6C7686; --ink-3:#9AA3B2;
+  --line:rgba(110,122,150,.13);
+  --soft-bg:rgba(120,132,162,.1);
+  --bar-track:rgba(120,132,162,.16);
+  --pine:#D29E14; --pine-d:#B8890F; --pine-soft:#F6EACB;
+  --hi:#FFE27A;
+  --danger:#CC4B43;
+  --dk:rgba(148,156,198,.42);
+  --sh-out:7px 7px 16px var(--dk),-7px -7px 16px rgba(255,255,255,.92);
+  --sh-out-sm:1px 2px 5px var(--dk),-1px -2px 5px rgba(255,255,255,.6);
+  --sh-in:inset 4px 4px 9px rgba(146,154,196,.32),inset -4px -4px 9px rgba(255,255,255,.92);
+  --shadow:var(--sh-out-sm);
+  --shadow-lg:14px 14px 30px rgba(140,150,190,.38),-14px -14px 30px rgba(255,255,255,.85);
+  --c-yellow:#FFF1BF; --c-pink:#FBD9DE; --c-green:#D3EED2;
+  --c-blue:#D3E5F8; --c-purple:#E5DBF8; --c-orange:#FCE2C4; --c-cream:#F7F8FA;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:var(--font-base);
+  background:#17191D; color:var(--ink);
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+}
+:root[data-theme="dark"],.trl[data-theme="dark"] body{background:#0C0E11}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit}
+input,textarea{font-family:inherit;border:none;outline:none;background:none;color:inherit}
+ul{list-style:none}
+::selection{background:rgba(210,158,20,.30)}
+:root[data-theme="dark"],.trl[data-theme="dark"] ::selection{background:rgba(224,196,92,.4)}

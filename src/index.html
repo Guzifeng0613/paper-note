@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ECEAE2">
+<title>纸片 · 便签</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAkBklEQVR4nEV6Z7idZZX2Wuspb9vl7HNOekIgAQVCgEgRRgzqSJFRERsyFowoigVxlDZiG79R0VGsiKDDhyMOKorYwJEigyM6gygJLYYUSHJSTtv1LU9b34/3MN++9v6xf+xrr/dZ61nrXvd9Y+ABAyAIAIKFFwdf5aOB996aikNgRKE1h+CdD4GVkkIpRGRmQcp6y8EXoxEzIDIALlu2TEoVgi9GQ2NNqz0mpAIABsDn/iN4Prh/t3dWR7EQsizysshbY53hcFAVJRImaUZClkXunEnSNEsbSEJImaWZIMHBhOABmAACgmdwsPD23hX5qF+VRT7s5aNB4CCVJEAdJSqKichaCwBSambwwXlngRkRnLOAZKwdDAaIAkkkWcM7152bBQ7AjMwADBwQRD4aVFWuokhKGULw3gupEFEpJaX0zg/7veBcHCdaRVVZ9HvzZT7KBwNTlQABgBGRGQiAAQSCBCAAQhBVMZqfne735suiKIo8Hw29tSF4ANQ6ipIEEYPzAExE3jtgZgYiQYTWWgSYn5+vTE5IJOTEoiVpljF7gDp6YAAAJiEI65yTkpEQQkphq9JbyxzSNDXWzEwfkCR0FDWythC6P+iORv3p6f1VVZFQiCRIEDDAwmOAs9X8zJ652emFxGWZFBIBQmASEhGJSEoVxSkDOGMQAJg5BEIQUpKQRERCMPCzzzw7tW8vMwNimjUBkDkAMEOo68gaI6SO44Tq3wgZgjNVFYInQiFlHCdKq8GwG6koS5uNRlsJXVZlv9fdvv2vozwXRIBAgMgQmAMCz88d2De1WyndaLYaWUNKmTWaOoqFEMBMBACMAFJKqRQAcggcAgB47zkEIUQcxQgghUyybDgcVmVBSMwMQABYh47AgX2Rj6IoIRREgjkAB0AMwM45ZnbOEFGaNuK4QSQJhRKqkbWUkFEUa61nZw4GRkSSDFjXE4DQUSKlEFIJkMwcAiRJVseIRMyMCCiQkAABBFtr6wdARAAgwBACIpIgJVUUxYPhII41MyAKQABgqp+EWUqppEIk7621JgQOziOgEIqIQghxnEgVaRUF5tKUUgiSImu24jglotFwkOd51sgIOCCgqYoi79qqFEJ57xFJSiWE8MGREDqKlY5w4b8hhOC8ZWaltFAKqS4ugYQAQQhBRIGD1lE+KvK8DIH7vTlrDAKFugUFJhLOO+9cVRXWWuussw4AskYzMDKAlEoIqqrCusr6siyHwdskyaIoZoAoSeIkBQCJqE1V7tu9S2odx0mj1XbeomeiKEky52xgBoaFE0YARq2jlh4LYAeDvlQKkTgEpSPnrK8cIhISAgAhEuZ5kaRZmjYAkRkQyRg7P3sQEUPwzlkAQmQkJCGEkESUZo2izK2zgQMweOOk0s45H5xitsZ474RQSBiClwhYFoPAIThXZ9Z5a60lJC8UIgpE5hBCICEQgUjMzXd/esfNRx999Okb/3aYzzEDSgHMQoj6tgAzIQVgJSURMjMKIYUMHAhkkQ+AA5KQQiBSYMb6BSykykdDkkpJ5b0HIAQmEogklQ5V4BCsN2VRxmk6GuVFnlPwwXundRwlqZBKChVHiZQ6MFhrvHOMKKUkIiIKgSOd/eIXv/jgZR+58MKLvvilL2gVKSmFkEJIrPMuFQkiKZSQhBiYAbEYDa1zgMQQdBSrKEYhgIhINLJGq9kEgFC3BARrSkRQSmN96UkIIUgIrbV31hjT7owvXrxUK91otnFu9pmD+56Jk6zRbAkhhZSEaKoKiRAxhEBSqkgDICIhQqTibdufPuecVzvvZ2dmNr39wuuu++Jg2Gfm4B0H770HBEEqBF9VZavdabXaUHcCrGewHw6H3jkGTuNk8+bHBoPui087tSzNaDjgel4zCKkICYmCdwjsgydCABzrTMRp6oxhRh+Y0kYjyZqmyp2tAMBZ66xlgBACIAilAYADB++ZQ+CAmGx+dHOv21NKLV267N/+7davf+MbY60xQCQhrLPMARGtNSREZ3wijtMFEIEIAMggiJSUgbmRNW77wY9f/do3vuXCi//p09fu3TuVNZqIJISMk5SIhBRaaRJknDHWBIbO+GQcx8FZADCmLIsButArBgNTldZWcZIxM3NQKvIcnDFCKUQiQQBAQkgpgNUrX/XqLVu2NBoNBgjeNxvNu+6+c/GixUVZVGVpbdVqjcdRA8hLEgEYIDwHsgA4ALIpjXVea/2a157/3w8/3Gw0ilHRajX+6RMfffWrzynyIm22ACBYZ60pyrwsCwBetGhJo9FiCMEHU5lRPgQAQiDnrJAyzVpSCK01ESGi1pGQKgSupy0zOOcj1bntB9//y58fHWuPAQMhMkNeFABIRPVAcM5Za4QUgiiAB2BgruPHGik6G8VJlrU+9OEr/vTnR9qtFjM3x5qB4evfvGkwHLbGxpAIhVCRjpNU6yhJkk5nPElS5hB8KMuqKPO6p0lCKaQcDbpp1tDxQrPz3gGR1Mr5wMzIHDjoKH5297brvvS1ZrMBADrSZVF65z71qY+vWLZqmPe8dUSkdSSE4OCB6rj5ORDKAOC806o5Nz/3wQ9e9pt77u20x0IIQpBzvsgLrTUJuVBtAEAgSXQ6HQBGAmZGZGZ2zhIRMzMzWTsEYBJUlKOqygFYKYVIgQNJEccREgISA6Rxeu3nv7Bv/74kSYQg75wQdP31X7vwre80NscFYMQIWLeshbNnxoXiAeesVuPbd+x461vf+sADDy5evDhJEinEaDiqquqY9Ud/6lMfm5xcZK0hAiFIkCAiQEQkWBjnEpBICKEUAgZrJAcO3iZpw1ljTOV9UEozBAJiZgaO49gY22mO3f0fd9/5058tXbq03WrOz3eLsvjydV981Stf3xvuS+IkuOBDICIGDsEz+AX4z/XodQig1Nhdd9/5iU98stcbLF22RJCY73YR4IUnn/i2C9/yd+e8AhHzopBCMDMhECJDfW0ImDgASnTOOWcRqSqLssiljOIEghCCObWm8t4DBIHkQxAskJCB4yg+cPDA5z57bRTHY2NNDoGBv/jFL7z2vDfm5XS7MdEfzikl4yjq9nohhIVsQAAGRPTOK5kwh89/4TM33fSdOI7HOmNVVWZpdM4rzrzggjcdd/x6LaPRaMAAJOh/S47r7NV9kIGZTVXmo6ExJTNURVGUpUQgqVMOTkgppHa2Cj4ECABQpy8EH0f65z+7c2pq/8oVy6uqdM5d/42vb3zxS0blfKTT//jNrz/5T59etmTJP/zDZSeffOL+fXuYA9bYk4MPQcnx3Xu3XX755Q8++F+tZtN7PzM9c87fnXXVFVesWLEMgIoqH1YDQTXgA0Rc+Dkw1x9gYPYBinzknGVmCOyCr6qCAIAwIpEyCEYUOiYpkJCIiCF4l0bZli2P3nLLdycmxp23cRRd96XrNr74ZWXVV1LZym9+dMuTTz35+z/+8c1vftu3v/2dRYuWJEkWIAAHQVKJxq/u+vGmTW9zzrz9wjdv2rTp1FNPmZ+f37L58XvuvT8vy6IqmFlKCcAMXANDEoRIgBQAGZAD13NaCs3MIQTnXK/XTZJUBl96XxIpIWtojVLFCGXw7Dlorfv93nVf/opSKk7k6tWHXHnlVUccfmxZTaso8s4mybgPQQrZaDQJ8Ctf+fq6des2vvgM6wdSqP0HZn/+8zu63e5Xv/KNo486AkAApE9uffg/H3xw67Ztl7z3/Tt3bP/kJz9ZlMO6YohEDYsIkaEOus4CAGBVFSFw4ICI3rs4jnUUkbcuBMtgOFjgABAAJJIGYCQSKL55ww179uxpNZsbTzvta1/92hGHP9/5fhSlHFjL1uYtD33rxhvHxtrBewRI06TIRwDAIUxNTe3Zs/PMM864/CMfO/qoo6w1ed4fjKaOev6Gl7zk9OD98uXL7rnvvuGwq5Vmfq7MA3vnnfPM9faJEEKoOyYhc7BVVeQjQGi12koqstaSECQkEAISggRAIElSxVH2vVtvve/e+7RSJ5104hVXXq6UAHBEwvuALEMI1177BUJKkkQpMd+dP+mkE8848xXODxiw1WqceMJJq1evq6q5ouzXlweRmOEFG44TJIIPa9asSdOGscZ7H2kVx2kct+O4o3WL66hDYADvrDUGAb1zzhglVb0qWmtlVVVIAoCkJEQEIGYWqEDqm2++/tbv30ZCtNvtl5/x8m3bto1Gw6XLlq0+5HASEkDeeNN1W7Y8tnTpkl6vH7w/99xXfuzjH3PeAgRB+rLLPrBjx84rr7z87LPOzIshkSACFIRoN7xgQ5YlQqhBvzfKB0rpEPiprVsPHJzZuWOXdf7wtYdtfPGLANj7wACACAxFlRtTIaGQ0ntfVVVR5NJ7Z8qKhECl6ugR5MHp/R//+Md++9v7x8c7RVHNzXavuPKjeT7qjLXjOF66dOn5b/p7Zvftb//r8hXLnA3dbveS97z7sssuM7Y0VaG0quxo//4Dmzdveetb33755R+64vIrimpU17fn8sgjn7927WH79h2YmZnds3vPUUdtiKNq587dH/7IVbOzs8bafFR9/JrLr7nmH60dcWDPvt5XA3siUcNaQaSVlsDkvCuLQkhZ7+6I6h8/evUPfvCjVStXTk/PAYCUst/vK0VSCkDcuXPnFVdcbp2fGB8LgZn9ZZe9/50XfcC6nvO+BuFSyiuvuvyid1yMiP/yL9etPXzN6857Q14OlFbWurFW5/jjj9+3/66yLB76wx+lTL773Zt/ePtPqqpqt1tr165dvHjyhBM3MDMRBQgUBAHHcQaAVShtZTxhDSUkEqEgH0JRFDV2JRl35+fHOx0fPAmsSmOt2bDh+FNPPWVycnJ6evqhPzy0d+ogkRgOixD6l1zy7ndedEllRkgoiJx3iEJKdfS6I8c6Y/1eT0r1wG8ffN15b8QFoOVDwJNPPumXv7wrSLr55u/e/sPbA4dXnH0WEZ199pknvGBDlmUAMBz2dBQLKdE5YEAEaw3iAlYKIQCAJCnr7845ZiAE3Wxt3HjaPffelzWy7nx3zZrVl176/rPPfkWrOQkQnC/Ofc3vjKkajUa/333Hpre986L3AOhIawDveeCDr0dPEsftVmvQHwghFi2aDAE5+OAhSzIARURlaZix251/wxvOe/fFF8dx1Ol0EKDf7w0GfSWVc9Y5lzWaQqngvERKkqQociHRWReCDyFIxHp3QSHIeweExvTesWlTVZnbbvvByWe87DOf+efly1eP8tnB6GCWNq+6+qOPbXlicnLcmOINr3/tBy798Cgf/fu/31hW1THHHHXCC05sNtrG5cwshNBaAbLWstMZI4rSpAGQbHns4e985+b/+v3vaxCppFq1auVhhx4xHM0ba60x9TAmIcACEjrnlNJAWLfXmgcDBiRSSknvPQMKIiShlaqxf5zoyz9y5QUXvHFycjKOWqXpM0Az63zn5pvuvuvu8YlOp9O+6B2Xnv+mCwIEidnEosl3vfPdY+32aS869b3vfc/JJ59qXKGkTLOUkNIsJaIdOx+fm5v7wQ9+dM899wxHgxNO2EAkn3ziqYnJzr333n/+G9+YNTIMAaPIW+G9DcFnzZY1pgZXHIK1hjnUxBEDSmYilCRkCOysBwAlY0Z2wbODynZXrlgdwFa2b4xpNSZ+/os7rv/GDVkjXbx48SXvftc555wHYK2tZudnIqXWHLZmdnb+4Uf+cu21n7/mmo9u2HCCCyaJY6lICvXjH995/fU3labK8zxL41NOOenj13zSBfOmN705eHhm17MP/+mRs888e1QMBBFIsdA5QwAArZW3hkMgJKW0c8YaizWHyYGCd8yMAquyHA76IQQkgSSkkHk1cM4VeRFp/fgTf7nxxm8rpSbGx99z8TvPOef11g137Hz6mV3PViWsWrW6qioUYK197PGtt99+e2VLAPQ+hMCAsHv37pnZmV6v1243zz33VV++7itHHHHEmjVrjzt2vTGllOKBBx4IwTvrQghEggRJqQLXVIFz3nrv6uKpkQYwO2udsbLfnVdRZK0d9LpKiUaznaQNIWWaplLK4WAUKblt618//olPzszOaK0u2nThWWedfd/9P5+dnT/uuBccfviRhOn73v/ZqX374jhWWsY6klIJEj74qqoAkNl9+MOXHnXk+l3P7jjhBRvWHb3eBTMqelnSOe+8c5/a+tRYZ+yRPz2yZcujzz/yyLIqlVRCyuADM0upmX1wHpEAmUNAFETovXXOAoPcuePpKNJKqjTLtI6qMnfWRklWFnkUp1mWbfvrXz9w6YcOHJiWUr3ylWcZa9/1rncuX778PZe8b9XKNcZWN954LRHe/J1vb/3r1l27dq5dc+hrX/d6IZQpK2urJI6cs53xzsaNZ26EgsGNyoEQQkjpQn7KqacsX7Z8lI84hLvuunvdMcdQhfW5A6AQAgAQpFRsq8p7R4hSSmMqZiAhvbPy0MPW9Ps9BFi0eGnWaFlr8tEAgJ3jBHE4HF1+xT/uemZ3mibW2ft/+7v/e8utY63mTd++cdXK58939/zhDw+96G9Oe//7rgAIrwRgqHCBe3BFWRZlOT4+NhwOO2OdEEajoi+llFLWa6e1dtmSZS85/cX33Xs/SfHHP/7PU089tXbtmjzPldJCkPeeAwOwtRUCaq1D8NYaABBCSokVe1qxcvWhh64Zn5hk5iIfMYOQCpjbY+2tf9127mte99TWbWmWWuestXNzc8cfd6wLfPHF773llm8Oet0XnvLC4zccV5q5wfDA1P7t0zMHrDMuWAIx6A+qokySZHx8fNGiRdblRCikAGYllTHWOeuCe81rz1u1akWj0Wg2st89+KB3VgiBiD6EmkoGRK0TqbVnCIGBkTkggTGls5b2Tz07M32gKot+vzc7e9B7I6RCIaJI/+vNtzzx+FNJEleVMZVpthpXX/XhW2+95eijjhwMBp/+P5/pDgbjY0v7g96gN++9bzSaZVkcPHiAGQD0nj17vXchhKVLlqxYvrwoCmts8CFS8fTMzK6dO5M4MaZasWLFGWedpaRUWu3evWfHzmeSNPVc76VAVAs9GpGctdY5FUVJ2lRSt9udJUuX076pPf3efF1tcZIIoiROoihWUp904gkheO99PspXrlx+/de+fN65r9JKHnHEWiElAPzqV78CoDRNvHc7tj+9f9++NIkReHZmBgBGw2EcR3GcHHLIIUmiq7KsyirW6d6pqXt+85uly5bVZJv3buNLTj963dHW2hBCv9933gsSNRPJIXjnTFXko2GvOzfoDypj0jTrdMYbzZaOYtlutxvNtjHWGCsImYGI2Lu52ZkLLjj/ySe33nnnz04++QVf/cpXVx+yojfoK6U6Y2NCYKPZOHDgAABPHzh4w7duvO222ycmxtevX3fB+W848uijrB8OhgPnfVkUrXY7zVqOeaw5+djjm3/y4x9v2rSp2WgWZVEzQnEUvfRlL925ffvszPTjWx5rNJpHrTuqGI2YQ1VVZVHkw2Gz1RoMBkII5lCMRpOLFltr0iSR7bFJ5x0gKimjKAmBh4MBEeg4AeYvffEL73v/uycnJ9rNyQA2SRItxxYtWgQMwEhIed7dvXvPm//+gqmpA7/61a9n5+affnr71Vd95PSXvnTXzl1FWRrjoigmjMaai391189u+/6t7/vApctWrDC2TJLYWjcc9IL3hx166Iknn3T/vfc/8sgjzvtWq7ls2ZJ+r1+VxaDXrcmyqjJzczPHH79hNMqf2bWjqoo4Smg4GpZ5TkRK65oVLIqhUloprbUGgLWHPa/dbA1Hc6PhEAAAXAheayUkDQaDXTu3H7P+2E6n9ZKXnAYIURzPzffuu/8/IfDDf/qzNc5au379uhD42i989trPfW7jxtNbrZZzBgGNtWWRB++dc965devW6Tiene8+9NAfbv7Ov3bnu0rpfDQiImbIR3lZVQ//zyPGVDX5SYhVVVASJ2nWkFJJKUmIIs+llMBclgUi3HvfvTt2bmOWvV6v35vbvm1b4DIEr7TMsmxmZgYwVFWRpo0tjz0OCL1ub35ufnJy8sCBg49teSIEjKJkfr574dvf8t1bvve85x154MDBZrMhhPTeB++ryhhjqqrs93uLJidbzUav1x8V+QMP/u5rX/363MyMqawQKgSfF3lVFg8/8peD09NCkpQySbIkbZAgzLJGmqZZljUazVZ7rNFoDYbD7tzsls2br7r6munpGYaQZdmOHTu0VsH7ffv3ax0JIkRqNpppmvT6w8NWH3rTDV87//zXnnnWy88//4IHHvyvmZnZEMJgMLjqqmv+/OdHlyxd+sSTT5628bSVK1YXZSGl0lHUHmvHSUwkqsoA8Mte9tLg/XAwSrPsN/fe/71bv99oNMqqVFHUGR8vyurJrdt+/ou7q7Ks8dzYWEdKpZEg0VnggEgh+Jnp6bm52fHxzr986atTU/sHgz6C/fHtd6xataLdHiuKfGZmNh8VhCLLkuEob5YlAG+6aFNVlWeefZYSMUO47bYfkhDGGmNtI83SLN27d++VV3z49I1njIp5pRQAe7egJiqtiyLv9nrHrF9/9tln/ej2H2sdpWl2249+wsyb3v4WHSWE+Myu3d3e8Df33Pd3rzhzvNNRUkgpakwHURxnrZbz7uCB/f1+b8Xy5b/+zf2/feDBLGvMzMx+9jOff/LJJ//mRac99NDvnbN79u4fjkZlVVXG9vvdqizjOPbexUniQzC2uvyKqx5++JE0SwOzlMp6t3dq6hVnv/yCC9403zswGAyG/YFzDhG9D1JFNX2rlTKVOe+8Vx+7/pjZ2fmiqJqN5i3fu+1LX7m+1+0mSfzQf/9JkJiaOnDvfQ8oJZnD/NyMJKI0zZy3psgH/V5e5JOTE3v27vvq12/IsgYSfP7z15VlftNN39BaIqlrPvbJZ3Y9K5XK85wDS6mttUg0HI6EFFmaCamf3radQyCiWrXud0cnn3zilVdeIZUUTnAIs3OzQojJxUuUipxzVVkhoqnMnt27EWHTprd1+4OtT20TQjQbrR/+8I4/PfLo+vXrfv/QH6M0LvLi2Wf3xHHc7/WEFOScGY0Gz+zcvn9qj1Y6TdI4iu746c8OHDwolbTO7pnae8wx69auWTO1d2rD8cf+5dEt09PTWqsoiuI4ajSaDACAxpiqKI01guhjH/9HqZTzjkjko9FJJ5/wrW/dsGjxEuesUkpqlWYN52x3bjYfDUxVEIIxZm5+TukIUEgh337hWyYmx421Uqnx8fHtO3bd9sOfBGBrrdb6of/+028f+F2apqYyNOj3n9m1w1mbj4b7pvZYa7WOiUiQKMuSAzey7LQXnRKcdda0ms03//2bnHMEVBbFsccdu/KQQ3SUMKC1Zjgcmqqq3OiEDadcfPFFczOzZVEcc8y6G755w/JlS6uqICFIkJI6TRuN5lhRFlVVNpvtLMuMMa1Wu9MZHx8fN9YuX778skvft2zpYmuNsSZJ4s5Y23vPzNaZbrcrCEej4SjPaW52NkmyOEkAuCyLNE1G+eiNbzhv9SGryrJyzkspjz/uWGOslNJ6d/rGFy9evKgsy6VLl7zmNecyc71qZGkzjuNilAfPPuRXX331uy9+VxxFV1zxkZUrDh0WA6VUTTQnSSyk1FGcpo2qrMoy37Nnz+zsbK17x0m8ZOlSrfXhh699z3veNTk5UVVVpLX8XwWayPvw7LPP7t+/v9frUmAgQu+cFLLVajlrZ2am2+3WZZdesnhyYjgYnHXGSxtZUhS5d64qq8MPX/vBSy+ZmGh/+tOfOPqoI/c+u3PY6wKwkELHcWCenZmxzgjBn/vcP//hjw/+7d++pHJdrTU/Z7ex1oUQmIOOIpLymV27pg8eFFJUVRXHcZokHAIHnp/vrly+9EOXvueFJ72gKsvhKK8pdyWUkmKY59Y65zz+zx/uUkqlaeqcA2bvnPEhiuKJiYnde/c9tmXz85+3pjJVZ6yTJNnEoiXemsGgV1Z2+YqVo9Fo5uBUHMcTi5dLHTlrmRmYq6pcvHQJACilvHO1XsHAHBgAjDFlWSEiAA8Hg0f//GdrTLPVHJ8Yz9KMg3chVJXx3pnKjLWaDPCLX/769jt+1usPrLGtVnbeq895xVkv7/f7w8FA1upiWZZRpAlJR7EOLIiqyqw/dv2hq1fu3LE9z3MpZZqmwVlrTVlWzWarKstiNKj9Qs4ZpSNA1koDwGg0HPQHnfGOcw4BFzjyWqDjIKVMU2LGssz3PPtMno9WrFiRpUmej7QgpTSEYK1BgCSOjLVaR69/3bkv+puTn96+s9vtrli+ZMmSxUVRZFnqnJXMAVAUZeGDHxsbQ6RISB3FWsdCSiQRRbrVbAGHPB8QUVWVQlAIftDvDQY9RFRRrJUOwQGDMRUDKCm9s/CcMWXBpwMYOAQGQSilLIqyKssD+/fXcpT3QUrRHhszxvjg0jgeDgfAHgCIcHp6fxRFJ2xYH8VxCGHf3qm9+/YtW7Zs2bJlNDc/75zTStcqIkMgojRJG62mEDKKo8nJRVEUWWOV0iE4YyrmMDs7s3//1Gg4AoA4TqTSiMTeO2sxBECM42TB/sCBiAAwBM/MhEhEZVHkw34IvtPpCCE2b968d++eVrOFgErpLG3EcayUrpUbU1XB+6Io5rvdfn9QldXE5GSnM9ZqNpYvX0GrVqwQRACgtVZStRrtLGt471xlqtEw0nHtGxBSaR31+30dRYG5LAoijJMkSVPm4JxDAO99reohgtI6hECIz1UOMy9I3YN+HwDanc5YZ7wzMZ4kUaOR9nrdvVN75+dmpKQ4iZI0zrJGWRTDwQARpZA1Y+edA8QkjtcedlgSp/3uvFy8ZKm1ZpSXABBFiVJRFMVlVXpvhZD9Xm/vnt3eOSXV/n37OASttBSy1W7VhqQsbegoQgZvLdGCtI2AIXhgxbUf7P8/AeX5SEqZNRvOOma/Zu0RcRQDwJNPPimlmJyYrJ2dgqTWWikthEjTtKpKAIh0hIj9fi8fDRHA+xAaDSmVjpMsawRTGR88CVH7Bpzze/bszkeDONbWoFRyMBwCsHOu1e6E4AMHJbXWkffempIZAqCUoixLIYSOopp85QWvAtamQkKM08RUFQlZ5CPmsPqwNb1+b/99v12yZKlz7uD0tDEmSzMSQupICULEVqsthHTOFUU5GA7arVYcx0opJMJitM87v6DlICilgvckhTFmev/edmdMSlUZ453L8wIQtdJZ1lBKl+WIUCiljanKqgg+oBC1d2l8YlJK6b2vLXQ1WRtC8M6qKAIG731VltYYpVWSptbYvz71xN49u0fDYVUZqdTixYu01mmapWkshXTODQb97nw3L0ok6nTaWZLqSAOStNYiIxIJCSGEPB+QkGnUzJoR0aqqyuO0kTbEM7ueFiSzrKF15Kzz5COd1B0GELzz1tpao168bLmU0gfPC1YsqI8GEIRSHBgQqqoKwSdpWt+YOImPOnpdmsSP/uXP8/PzgYE5NJstRArBVVVFiP1+jwGzZiZISCGUVt57YwpprREkINSGQ06zhlS6FsfjJEZCAHTeRzqen59N09Q5W5kqL0Zj7Y4QhET1MfvgjS11FEshvXeIyLgwwGqhsXYdGFNx4CzLnLVIVGuTEBgYxicXj08sOnBgOlKyKssQuCiKVqtR5HmRF1LKyUWL4jjyzpVlGUeR1hqUlkKQ1toYo7SMkwRJcm3SQCYUWaNpjHGViZMkyiNrLTBYa5h5OBoopZMk44X+E4SQy5avqo8c60kLzxmFfEAiYEaGKI6Hg741pjMxSSgHg353fl5K0WqPrT7s8G1bt05OTAYOaZomWRrraNGiRbMzs4N+XylFgELretgRiThWstVqM7DWmgEACYAXLBa1iTKEENg5J4RM4gQASEgiEbyr+7q1xnuHRMAARFLpEPxz7QiBufZKAAfvvLEmjhJrLQK3x8aklAf375uePthut5csXZ4k6S/uuGNicnzxkkXGmEajkaUZAyBRZ3xcSkmElbNJFGultBRSkLVO1r2i3onqhCLQgsm8di8ZQ4QkdRSnztqqLEJwC/EBG1PWvZ8BbVXOzhycWLzYOQe80HqYWSAN8n5VjJAEMDYajSRNizzfu/uvUutVhxzSarVHw9Ev7/ypNeWy5YeOdzpJklRVpaPIOW+t884hAJFA5yKtg/d5UUprGFgGH2phPWDtakZERgQGQsKqyDkwCemCQSQppXWmLEoha0+1ZwAttSRRk8j97nyaZVGS1MI9Pmd38s5JpYWQdXeamZ2uiiJrNsfHJ6uqfOKxx5964rF9U3vWrFkrBAlBWZp474fDYaPZNtYpKamRdrs9ay1zUFJx8KM811r/P0Jy54jcVqDYAAAAAElFTkSuQmCC">
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=Noto+Serif+SC:wght@600;700&family=Manrope:wght@500;600;700;800&display=swap">
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="app" id="app">
+
+    <!-- ===== 视图：首页 ===== -->
+    <section class="screen root active" id="scr-home">
+      <header class="topbar" id="homeTopbar">
+        <button class="icon-btn ai-entry" id="openChat" aria-label="AI 对话">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6l1.9 5.1 5.1 1.9-5.1 1.9L12 16.6l-1.9-5.1L5 9.6l5.1-1.9z"/><path d="M18.6 15l.85 2.35L21.8 18.2l-2.35.85L18.6 21.4l-.85-2.35L15.4 18.2l2.35-.85z" opacity=".65"/></svg>
+        </button>
+        <div class="search-entry">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="homeSearch" placeholder="搜索" autocomplete="off" readonly>
+          <button class="mini-clear" id="miniClear" hidden aria-label="清空">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <button class="icon-btn" id="openSettings" aria-label="设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="cancel-link" id="searchCancel">取消</button>
+      </header>
+      <header class="context-bar" id="contextBar">
+        <button class="icon-btn" id="exitSelect" aria-label="退出多选">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <span class="count" id="selCount">已选 0 项</span>
+        <button class="icon-btn" id="selectAll" aria-label="全选">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+        </button>
+      </header>
+      <div class="chips-row" id="chipsRow"></div>
+      <div class="screen-body">
+        <div class="notes-wrap" id="notesWrap"></div>
+      </div>
+      <div class="batch-bar" id="batchBar">
+        <button class="bb-btn" id="bbMove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.3 3.6A2 2 0 0 0 7.6 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></svg>移动</button>
+        <button class="bb-btn" id="bbPin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l-1 7 3 3H7l3-3z"/><path d="M12 13v8"/></svg>置顶</button>
+        <button class="bb-btn" id="bbColor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c.9 0 1.6-.7 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-3.9-4-7.5-9-7.5z"/><circle cx="7.5" cy="10.5" r="1.1" fill="currentColor"/><circle cx="12" cy="7.5" r="1.1" fill="currentColor"/><circle cx="16.5" cy="10.5" r="1.1" fill="currentColor"/></svg>颜色</button>
+        <button class="bb-btn" id="bbDelete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>删除</button>
+      </div>
+      <button class="fab" id="fab" aria-label="新建">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </section>
+
+    <!-- ===== 视图：编辑 ===== -->
+    <section class="screen" id="scr-edit">
+      <header class="edit-top" id="editTop">
+        <div class="et-group et-left">
+        <button class="icon-btn" id="editBack" aria-label="返回">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        </div>
+        <div class="et-group et-center">
+        <button class="icon-btn disabled" id="editUndo" aria-label="撤销">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+        </button>
+        <button class="icon-btn disabled" id="editRedo" aria-label="重做">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg>
+        </button>
+        </div>
+        <div class="et-group et-right">
+        <button class="icon-btn note-ai-btn" id="editNoteAI" aria-label="本页智能问答">AI</button>
+        <button class="icon-btn" id="editShare" aria-label="分享">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
+        </button>
+        <button class="icon-btn" id="editMore" aria-label="更多">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>
+        </button>
+        </div>
+      </header>
+      <div class="paper-scroll" id="paperScroll">
+        <div class="paper-meta" id="paperMeta"></div>
+        <input class="paper-title" id="paperTitle" placeholder="标题" maxlength="40">
+        <div class="paper-rtbar" id="paperRtBar"></div>
+        <div class="paper-todo" id="paperTodo"></div>
+        <div class="paper-body" id="paperBody" contenteditable="true" spellcheck="false"></div>
+        <div class="paper-attach" id="paperAttach"></div>
+      </div>
+      <div class="dock" id="dock">
+        <button class="dock-btn" id="dockAI" aria-label="格式笔">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+        </button>
+        <button class="dock-btn" id="dockTodo" aria-label="待办">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16 9"/></svg>
+        </button>
+        <button class="dock-btn" id="dockAdd" aria-label="插入">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.2"/><path d="M12 8.2v7.6M8.2 12h7.6"/></svg>
+        </button>
+      </div>
+      <div id="deskEditEmpty">
+        <svg class="de-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/><path d="M9 13h6M9 17h4"/></svg>
+        <p>从左侧选择一条便签查看与编辑，<br>或点击按钮新建一张便签。</p>
+        <button class="desk-empty-new" id="deskEmptyNew">+ 新建便签</button>
+      </div>
+    </section>
+    <!-- ===== 视图：回收站 ===== -->
+    <section class="screen" id="scr-trash">
+      <header class="topbar">
+        <button class="icon-btn" id="trashBack" aria-label="返回">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h1>回收站</h1>
+        <button class="cancel-link" style="display:block" id="trashEmpty">清空</button>
+      </header>
+      <div class="screen-body"><div class="trash-list" id="trashList"></div></div>
+    </section>
+
+    <!-- ===== 视图：设置 ===== -->
+    <section class="screen" id="scr-settings">
+      <header class="topbar">
+        <button class="icon-btn" id="settingsBack" aria-label="返回">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h1>设置</h1>
+      </header>
+      <div class="screen-body"><div class="settings" id="settingsBody"></div></div>
+    </section>
+
+    <!-- ===== 视图：百度网盘 ===== -->
+    <section class="screen" id="scr-pan">
+      <header class="topbar">
+        <button class="icon-btn" id="panBack" aria-label="返回">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h1>百度网盘</h1>
+      </header>
+      <div class="screen-body"><div class="pan-settings" id="panBody"></div></div>
+    </section>
+
+    <!-- ===== 统一搜索（搜索 / 知识库 RAG / 问 AI） ===== -->
+    <section class="screen" id="scr-search">
+      <header class="topbar">
+        <button class="icon-btn" id="srBack" aria-label="返回">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <div class="sr-field">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input id="srInput" placeholder="搜索" autocomplete="off" enterkeyhint="search">
+          <button class="mini-clear" id="srClear" hidden aria-label="清空">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </header>
+      <div class="seg" id="srSeg">
+        <button data-m="search" class="on">搜索</button>
+        <button data-m="rag">知识库</button>
+      </div>
+      <div class="screen-body">
+        <div class="sr-body" id="srBody"></div>
+      </div>
+    </section>
+
+    <!-- ===== AI 对话（独立模块） ===== -->
+    <section class="screen" id="scr-chat">
+      <header class="topbar chat-top">
+        <button class="icon-btn desk-only" id="chatDeskBack" aria-label="返回">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <button class="icon-btn" id="chatMenu" aria-label="历史对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <h1 class="chat-title" id="chatTitle">AI 对话</h1>
+        <button class="icon-btn" id="chatNewTop" aria-label="新对话">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </header>
+      <div class="scope-bar" id="chatScopeBar"></div>
+      <div class="screen-body chat-body" id="chatBody"></div>
+      <div class="chat-input-bar">
+        <div class="chat-input-wrap"><textarea id="chatInput" rows="1" placeholder="请输入问题"></textarea></div>
+        <button class="chat-send" id="chatSend" aria-label="发送">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+        </button>
+      </div>
+    </section>
+    <!-- 历史对话侧边抽屉 -->
+    <div class="chat-drawer-mask" id="chatDrawerMask"></div>
+    <aside class="chat-drawer" id="chatDrawer">
+      <div class="cd-head"><span class="cd-head-sp"></span><b>历史对话</b>
+        <button class="icon-btn" id="cdClose" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="cd-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="cdSearch" placeholder="搜索对话" autocomplete="off">
+      </div>
+      <div class="cd-list" id="cdList"></div>
+    </aside>
+
+    <!-- 本页笔记智能问答 -->
+    <div class="note-ai-mask" id="noteAiMask"></div>
+    <section class="note-ai-panel" id="noteAiPanel">
+      <header class="topbar">
+        <button class="icon-btn" id="naiBack" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h1>本页问答</h1>
+      </header>
+      <div class="scope-bar" id="naiScopeBar"></div>
+      <div class="screen-body chat-body" id="naiBody"></div>
+      <div class="chat-input-bar">
+        <div class="chat-input-wrap"><textarea id="naiInput" rows="1" placeholder="针对这页笔记提问…"></textarea></div>
+        <button class="chat-send" id="naiSend" aria-label="发送">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== API 配置（ccswitch 风格） ===== -->
+    <section class="screen" id="scr-ai">
+      <header class="topbar">
+        <button class="icon-btn" id="aiListBack" aria-label="返回">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h1>API 配置</h1>
+      </header>
+      <div class="screen-body">
+        <div class="ai-list" id="aiList"></div>
+        <button class="pan-save" id="aiAdd">新增配置</button>
+      </div>
+    </section>
+
+    <!-- ===== 运行日志 ===== -->
+    <section class="screen" id="scr-log">
+      <header class="topbar">
+        <button class="icon-btn" id="logBack" aria-label="返回">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+        <h1>运行日志</h1>
+        <button class="icon-btn" id="logExport" aria-label="导出日志">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        </button>
+      </header>
+      <div class="log-filter" id="logFilter">
+        <button data-lv="all" class="on">全部</button>
+        <button data-lv="error">错误</button>
+        <button data-lv="warn">警告</button>
+        <button data-lv="info">信息</button>
+        <button id="logClear" class="lc">清空</button>
+      </div>
+      <div class="screen-body"><div class="log-list" id="logList"></div></div>
+    </section>
+
+    <!-- ===== 浮层 ===== -->
+    <div class="mask" id="mask"></div>
+    <div class="sheet" id="dynSheet">
+      <div class="sheet-grip"></div>
+      <div class="sheet-title" id="dynTitle">请选择</div>
+      <div id="dynOpts"></div>
+      <button class="sheet-cancel" id="dynCancel">取消</button>
+    </div>
+    <div class="modal" id="modal"><div class="modal-box" id="modalBox"></div></div>
+    <div class="toast" id="toast"></div>
+    <div id="syncTopBar"><i></i></div>
+    <div class="sync-overlay" id="syncOverlay"><div class="sync-card">
+      <div class="sync-ring" id="syncRing"><span id="syncPct">0%</span></div>
+      <b id="syncTitle">正在同步</b>
+      <span id="syncMsg">准备中…</span>
+    </div></div>
+    <div class="nb-picker" id="nbPicker">
+      <header class="nbp-top">
+        <button class="icon-btn" id="nbpClose" aria-label="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <span class="nbp-title" id="nbpTitle">笔记本</span>
+        <button class="icon-btn" id="nbpSort" aria-label="排序">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h12M3 12h8M3 18h4M17 4v16m0 0 3-3m-3 3-3-3"/></svg>
+        </button>
+      </header>
+      <div class="nbp-scroll">
+        <button class="nbp-all" id="nbpAll">
+          <span class="nbp-all-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M7 8h.01M7 12h.01M7 16h.01M11 8h6M11 12h6M11 16h6"/></svg>
+          </span>
+          <span class="nbp-name">全部笔记</span>
+          <span class="nbp-count" id="nbpAllCount"></span>
+          <span class="nbp-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></span>
+        </button>
+        <div class="nbp-section">
+          <span class="nbp-sec-label">我的笔记本</span>
+          <button class="nbp-new" id="nbpNew">新建</button>
+        </div>
+        <div class="nbp-card"><div id="nbpList"></div></div>
+      </div>
+    </div>
+    <input type="file" id="pickImage" accept="image/*" hidden>
+    <input type="file" id="pickFile" hidden>
+    <input type="file" id="importUnified"
+      accept=".zip,.kbpkg,.json,.jsonl,application/zip,application/json" hidden>
+
+<script src="vendor/jszip.min.js"></script>
+<script>
+/*__JS__*/
+</script>
+  </div>
+</div>
+</body>
+</html>

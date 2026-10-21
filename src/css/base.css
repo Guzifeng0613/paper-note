@@ -1,0 +1,105 @@
+/* ============ 手机外壳 ============ */
+.phone{position:relative;width:100%;height:100%;max-width:430px;background:var(--paper);
+  overflow:hidden;display:flex;flex-direction:column}
+@media(max-width:519px){body{background:var(--paper);padding:0}}
+@media(min-width:520px){
+  body{padding:24px}
+  .phone{height:min(880px,94vh);border-radius:42px;
+    box-shadow:var(--shadow-lg),0 0 0 11px #10130F,0 0 0 13px #333832}
+}
+.app{position:relative;flex:1;overflow:hidden;touch-action:pan-y}
+.screen{position:absolute;inset:0;background:var(--paper);display:flex;flex-direction:column;
+  transform:none;opacity:0;pointer-events:none;visibility:hidden;
+  transition:transform var(--dur-4) var(--ease-decel);
+  overflow:hidden;max-width:100%;z-index:0}
+.screen.active{transform:none;opacity:1;pointer-events:auto;visibility:visible;z-index:5}
+.screen.root{transform:none;visibility:visible}
+/* 编辑器全屏不透明、主页被完全遮盖：底层不做位移（位移会在返回时重建主页合成滚动图层、导致首手势卡顿），仅保持可见 */
+.screen.root.behind{transform:none;opacity:1}
+/* 导航转场（push/pop + 边缘跟手返回），只动 transform，不做缩放/位移底层 */
+.screen.nav-under{visibility:visible;opacity:1;pointer-events:none;z-index:3}
+.screen.nav-enter{transform:translateX(100%);z-index:5}
+.screen.nav-leave{transform:translateX(100%);visibility:visible;opacity:1;pointer-events:none;z-index:6}
+.screen.nav-dragging{transition:none!important;will-change:transform}
+.screen.hide-instant{transition:none!important;transform:none!important;opacity:0!important;visibility:hidden!important}
+/* 边缘返回指示：起手时左缘露出的返回微光 */
+.nav-edge-hint{position:absolute;left:0;top:0;bottom:0;width:14px;z-index:8;pointer-events:none;
+  opacity:0;background:linear-gradient(90deg,rgba(255,255,255,.28),transparent);transition:opacity var(--dur-2)}
+.nav-edge-hint.show{opacity:1}
+:root[data-theme="dark"],.trl[data-theme="dark"] .nav-edge-hint{background:linear-gradient(90deg,rgba(255,255,255,.07),transparent)}
+.screen-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;will-change:scroll-position}
+
+/* ============ 顶栏 ============ */
+.topbar{display:flex;align-items:center;gap:10px;position:relative;z-index:4;
+  padding:13px 22px 10px;
+  padding-top:max(13px,calc(env(safe-area-inset-top,0px) + 7px));
+  flex-shrink:0;min-height:62px}
+/* 边界阻尼：滚动体被下拉时确保顶栏/筛选行不被遮住 */
+#chipsRow,#contextBar{position:relative;z-index:4}
+.edit-top{z-index:4}
+.icon-btn{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;background:var(--paper-card);
+  box-shadow:var(--sh-out-sm);transition:box-shadow .2s,transform .2s}
+.icon-btn:active{box-shadow:var(--sh-in);transform:scale(.92)}
+.ai-entry{color:var(--pine)}
+.ai-entry:active{background:var(--pine-soft)}
+.icon-btn svg{width:21px;height:21px}
+.topbar h1{font-size:20px;font-weight:800;flex:1}
+.brand{font-family:"Noto Serif SC",serif}
+
+/* 首页搜索（真实输入） */
+.search-entry{flex:1;height:42px;border-radius:23px;background:var(--paper-card);
+  display:flex;align-items:center;justify-content:center;gap:9px;padding:0 14px;box-shadow:var(--sh-out-sm);
+  transition:box-shadow .2s}
+.search-entry:focus-within{box-shadow:var(--sh-in)}
+.search-entry>svg{width:18px;height:18px;flex-shrink:0;color:var(--ink-3)}
+.search-entry input{flex:0 1 auto;width:62%;font-size:14.5px;min-width:0}
+.search-entry .mini-clear{width:22px;height:22px;border-radius:50%;background:var(--soft-bg);
+  align-items:center;justify-content:center;flex-shrink:0}
+.search-entry .mini-clear:not([hidden]){display:flex}
+.search-entry .mini-clear svg{width:12px;height:12px;color:var(--ink-2)}
+.cancel-link{font-size:14.5px;font-weight:700;color:var(--pine);flex-shrink:0;padding:4px 2px;display:none}
+
+/* 分类筛选行 */
+.chips-row{display:flex;align-items:center;gap:8px;padding:4px 16px 12px;
+  overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.chips-row::-webkit-scrollbar{display:none}
+/* 首页头部：下滑自动收起、回滑展开 */
+#homeTopbar,#chipsRow{max-height:120px;
+  transition:max-height .34s cubic-bezier(.4,0,.2,1),padding .34s cubic-bezier(.4,0,.2,1),
+  opacity .26s ease,transform .34s cubic-bezier(.4,0,.2,1)}
+#chipsRow{max-height:72px}
+#scr-home.head-collapsed #homeTopbar,
+#scr-home.head-collapsed #chipsRow{
+  max-height:0;opacity:0;padding-top:0;padding-bottom:0;overflow:hidden;
+  pointer-events:none;transform:translateY(-10px)}
+.nb-filter-btn{flex-shrink:0;display:flex;align-items:center;gap:6px;height:33px;padding:0 13px;
+  border-radius:17px;background:var(--soft-bg);color:var(--ink-1);font-size:13.5px;font-weight:700;
+  position:sticky;left:0;z-index:2;max-width:150px}
+.nb-filter-btn svg{width:16px;height:16px;flex-shrink:0}
+.nb-filter-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-filter-btn.on{background:var(--pine);color:#fff}
+.chip{flex-shrink:0;height:33px;padding:0 15px;border-radius:17px;background:var(--soft-bg);
+  color:var(--ink-2);font-size:13.5px;font-weight:600;white-space:nowrap;
+  display:flex;align-items:center;gap:5px;
+  transition:background .2s var(--ease-standard),color .2s,transform .22s var(--ease-spring)}
+.chip .n{font-size:11px;opacity:.7;font-weight:700}
+.chip.on{background:var(--ink);color:var(--paper)}
+/* 选中对勾：宽度 0→13px 展开，对勾弹现；数量文字缩放同步 */
+.chip .chip-ck{width:0;overflow:hidden;display:inline-flex;align-items:center;
+  transition:width .24s var(--ease-spring-soft)}
+.chip .chip-ck svg{width:12px;height:12px;flex-shrink:0}
+.chip.on .chip-ck{width:13px}
+.chip.on .chip-ck svg{animation:pop .28s var(--ease-spring)}
+@keyframes chipPop{0%{transform:scale(.85)}50%{transform:scale(1.08)}100%{transform:scale(1)}}
+.chip.chip-pop{animation:chipPop .3s var(--ease-spring)}
+.chip .n{transform-origin:center}
+.chip.n-bump .n{animation:chipPop .28s var(--ease-spring)}
+.view-toggle{flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--paper-card);
+  box-shadow:var(--sh-out-sm);display:flex;align-items:center;justify-content:center}
+.view-toggle svg{width:17px;height:17px;color:var(--ink-2)}
+.view-toggle.on{background:var(--pine)} .view-toggle.on svg{color:#fff}
+.nb-add{flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--paper-card);
+  box-shadow:var(--sh-out-sm);display:flex;align-items:center;justify-content:center;color:var(--ink-2)}
+.nb-add svg{width:17px;height:17px}
+.nb-add:active{transform:scale(.86)}
