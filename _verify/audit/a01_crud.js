@@ -104,8 +104,8 @@ const path = require('path');
   await page.waitForTimeout(500);
   const trashItems = await page.$$eval('.v16-trash-item', els=>els.map(e=>e.textContent.trim().slice(0,80)));
   log('回收站条目:', trashItems);
-  /* 点"恢复" */
-  await page.evaluate(()=>{const b=document.querySelector('.v16-trash-item .b-restore'); if(b)b.click();});
+  /* 点"恢复"（定位到 AAA 条目，避免误恢复 seed 条目） */
+  await page.evaluate(()=>{const items=[...document.querySelectorAll('.v16-trash-item')]; const t=items.find(i=>i.textContent.includes('审计测试笔记AAA'))||items[0]; if(t){const b=t.querySelector('.b-restore'); if(b)b.click();}});
   await page.waitForTimeout(500);
   const trashAfterRestore = await page.$$eval('.v16-trash-item', els=>els.length);
   log('恢复后回收站条目数:', trashAfterRestore);
@@ -124,8 +124,8 @@ const path = require('path');
   await page.waitForTimeout(400);
   const afterManual = await page.evaluate(()=>!!document.querySelector('.v16-note-card[data-path*="审计测试笔记AAA"]'));
   log('手动 renderHome 后卡片可见?', afterManual);
-  /* 再删一次进回收站，然后彻底删除 */
-  await page.click('#v16TrashBack');
+  /* 再删一次进回收站，然后彻底删除（导航前置：直接切回首页，不依赖 trash 返回按钮可见性） */
+  await page.evaluate(()=>{ window.VUI.show('home'); window.VUI.renderHome(); });
   await page.waitForTimeout(300);
   await page.evaluate(()=>{const c=[...document.querySelectorAll('.v16-note-card')].find(x=>x.dataset.path.includes('审计测试笔记AAA')); if(c)c.click();});
   await page.waitForSelector('#v16EdBody', {timeout:5000});
@@ -182,8 +182,10 @@ const path = require('path');
   log('点"重命名"后 toast:', toastAfterRename);
 
   log('\n=== A3.2 移动笔记（编辑器"移动到…"） ===');
-  /* 进入 工作/产品灵感记录.md */
-  await page.evaluate(()=>{[...document.querySelectorAll('.v16-folder-card')].find(f=>f.dataset.folder==='工作').click();});
+  /* 进入 工作/产品灵感记录.md（先回首页，A3.1 后可能在抽屉/设置屏） */
+  await page.evaluate(()=>{ window.VUI.show('home'); window.VUI.renderHome(); });
+  await page.waitForTimeout(400);
+  await page.evaluate(()=>{const c=[...document.querySelectorAll('.v16-folder-card')].find(f=>f.dataset.folder==='工作'); if(c)c.click();});
   await page.waitForTimeout(400);
   await page.evaluate(()=>{const c=[...document.querySelectorAll('.v16-note-card')].find(x=>x.dataset.path.includes('产品灵感记录')); if(c)c.click();});
   await page.waitForSelector('#v16EdBody', {timeout:5000});

@@ -152,3 +152,70 @@ Serving HTTP on 0.0.0.0 port 8765 (http://0.0.0.0:8765/) ...
 127.0.0.1 - - [21/Oct/2026 13:59:58] "GET /index.html HTTP/1.1" 200 -
 127.0.0.1 - - [21/Oct/2026 13:59:58] code 404, message File not found
 127.0.0.1 - - [21/Oct/2026 13:59:58] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:01:33] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:02:57] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:02:58] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:02:58] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:04:39] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:04:39] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:04:39] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:06:03] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:06:03] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:06:03] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:06:31] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:06:31] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:06:31] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:07:08] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:07:08] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:07:08] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:07:32] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:07:33] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:07:33] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:07:58] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:07:58] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:07:58] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:08:46] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:08:46] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:08:46] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:09:13] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:09:13] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:09:13] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:10:14] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:10:14] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:10:14] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:10:48] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:10:48] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:10:48] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:10:53] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:10:53] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:10:53] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:11:10] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:11:10] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:11:10] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:12:57] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:12:57] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:12:57] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:13:27] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:13:27] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:13:27] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:14:11] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:14:11] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:14:11] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:14:39] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:14:39] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:14:39] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:14:43] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:14:43] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:14:43] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:15:02] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:15:02] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:15:02] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:15:22] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:15:22] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:15:22] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:15:28] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:15:28] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:15:28] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
+127.0.0.1 - - [21/Oct/2026 14:15:36] "GET /index.html HTTP/1.1" 200 -
+127.0.0.1 - - [21/Oct/2026 14:15:36] code 404, message File not found
+127.0.0.1 - - [21/Oct/2026 14:15:36] "GET /vendor/jszip.min.js HTTP/1.1" 404 -
