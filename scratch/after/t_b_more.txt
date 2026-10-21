@@ -1,0 +1,6 @@
+PASS: #2 多选模式下不触发倾斜
+（无笔记本，跳过 chip 切换）
+PASS: #3 新笔记本 chip 出现（FLIP 让位代码已就位）
+PASS: 进入编辑器正常
+errors: 0
+PASS: 全程无 pageerror

@@ -1,0 +1,5 @@
+{
+ "base": "0.36s",
+ "longhand": "0.36s",
+ "important": "0.36s"
+}

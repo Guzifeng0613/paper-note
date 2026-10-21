@@ -1,0 +1,16 @@
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+page.evaluate: TypeError: Cannot read properties of undefined (reading 'length')
+    at cardHTML (file:///home/user/Doubao/chats/38447785792052226/notes-app/.worktrees/md-vault/index.html:2720:23)
+    at Array.map (<anonymous>)
+    at Object.renderNotes (file:///home/user/Doubao/chats/38447785792052226/notes-app/.worktrees/md-vault/index.html:2642:14)
+    at eval (eval at evaluate (:303:30), <anonymous>:7:9)
+    at UtilityScript.evaluate (<anonymous>:305:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at /home/user/Doubao/chats/38447785792052226/notes-app/.worktrees/md-vault/_verify/t_b6d.js:11:22 {
+  log: []
+}
+
+Node.js v22.23.2

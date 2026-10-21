@@ -1,0 +1,12 @@
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+browserType.launch: Pass userDataDir parameter to 'browserType.launchPersistentContext(userDataDir, options)' instead of specifying '--user-data-dir' argument
+    at /home/user/Doubao/chats/38447785792052226/notes-app/.worktrees/md-vault/_verify/t_b_clean.js:6:26
+    at Object.<anonymous> (/home/user/Doubao/chats/38447785792052226/notes-app/.worktrees/md-vault/_verify/t_b_clean.js:15:3) {
+  log: [],
+  name: 'Error'
+}
+
+Node.js v22.23.2

@@ -1,0 +1,4 @@
+t=30 {"cls":"screen active","transform":"matrix(1, 0, 0, 1, 78.0324, 0)","trans":"0.36s","vis":"visible"}
+t=80 {"cls":"screen active","transform":"matrix(1, 0, 0, 1, 78.0324, 0)","trans":"0.36s","vis":"visible"}
+t=160 {"cls":"screen active","transform":"matrix(1, 0, 0, 1, 20.6867, 0)","trans":"0.36s","vis":"visible"}
+t=300 {"cls":"screen active","transform":"none","trans":"0.36s","vis":"visible"}

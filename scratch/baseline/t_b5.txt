@@ -1,0 +1,3 @@
+after enterSelect: {"sel":6,"cards":6,"vis":6,"selectedSize":"n/a"}
+@50ms: {"on":3,"allBtn":"icon-btn on"}
+@450ms: {"on":6}

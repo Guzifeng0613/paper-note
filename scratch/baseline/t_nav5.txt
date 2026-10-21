@@ -1,0 +1,11 @@
+{
+ "rm": false,
+ "dur": "0.36s",
+ "prop": "transform",
+ "rules": [
+  ".screen.nav-dragging => 0s",
+  ".screen.hide-instant => 0s",
+  ".screen => var(--dur-4)",
+  ".trl .trl-screen .screen-body => 0s"
+ ]
+}

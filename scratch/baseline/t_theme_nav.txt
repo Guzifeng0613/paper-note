@@ -1,0 +1,3 @@
+PASS: 触控点「dark」后仍在设置页（#/settings）
+PASS: 触控点「light」后仍在设置页（#/settings）
+PASS: 触控点「auto」后仍在设置页（#/settings）

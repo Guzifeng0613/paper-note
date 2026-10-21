@@ -1,0 +1,6 @@
+[ev] pointerdown 195 734
+--- now real click ---
+[ev] pointerdown 195 734
+[ev] pointerup 195 734
+[ev] click el
+state: { hash: '#/home', mask: false, trashed: true }

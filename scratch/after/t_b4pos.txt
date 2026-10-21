@@ -1,0 +1,6 @@
+target center: {"x":327.75,"y":798.5}
+@50ms: [{"l":22,"t":200,"w":172,"h":155,"opacity":"0.998023","anims":[{"name":"wa","prog":"running"}],"play":33},{"l":201,"t":195,"w":173,"h":156,"opacity":"0.999638","anims":[{"name":"wa","prog":"running"}],"play":33}]
+@150ms: [{"l":62,"t":243,"w":159,"h":144,"opacity":"0.984404","anims":[{"name":"wa","prog":"running"}],"play":133},{"l":210,"t":227,"w":164,"h":148,"opacity":"0.9894","anims":[{"name":"wa","prog":"running"}],"play":133}]
+@250ms: [{"l":159,"t":346,"w":122,"h":113,"opacity":"0.952749","anims":[{"name":"wa","prog":"running"}],"play":233},{"l":236,"t":313,"w":135,"h":124,"opacity":"0.962825","anims":[{"name":"wa","prog":"running"}],"play":233}]
+@350ms: [{"l":187,"t":414,"w":107,"h":99,"opacity":"0.829741","anims":[{"name":"wa","prog":"running"}],"play":350},{"l":255,"t":391,"w":112,"h":104,"opacity":"0.877404","anims":[{"name":"wa","prog":"running"}],"play":350}]
+@450ms: [{"l":264,"t":636,"w":56,"h":54,"opacity":"0.385206","anims":[{"name":"wa","prog":"running"}],"play":450},{"l":279,"t":547,"w":77,"h":73,"opacity":"0.561552","anims":[{"name":"wa","prog":"running"}],"play":450}]

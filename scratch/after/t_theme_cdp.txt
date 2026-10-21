@@ -1,0 +1,2 @@
+PASS: 真实触控点「dark」左缘（带抖动）后仍在设置（#/settings）
+PASS: 真实触控点「light」左缘（带抖动）后仍在设置（#/settings）

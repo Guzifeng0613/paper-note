@@ -1,0 +1,1 @@
+{"light":{"left":29,"right":114},"auto":{"left":206,"right":291},"innerW":320}

@@ -1,0 +1,24 @@
+PASS: #8 准备：5 条待办行（实际 5）
+PASS: #8 勾选圆圈加 tc-pop 弹动类
+PASS: #8 进度数字 2/5 · 40%（实际 2/40）
+PASS: #8 进度条播放超调 WAAPI（动画数 1）
+PASS: #8 取消勾选：回弹动画 + 数字回到 20%
+PASS: #7 开始拖动：落点槽张开（{"h":51.25,"open":true}）
+PASS: #7 提升行 fixed 跟手
+PASS: #7 拖到底部后顺序落库（["第二条待办","第三条待办","第四条待办","第五条待办","第一条待办"]）
+PASS: #7 松手后槽位与提升态清理干净
+PASS: #12 删除时行加 row-collapse 收拢
+PASS: #12 收拢后行被移除（5→4）
+PASS: #10 输入 # 弹出联想（3 项）
+PASS: #10 关键词过滤 + 新建项（["#工作0","新建笔记本「工」"]）
+PASS: #10 选中后插入标签（#工作）
+PASS: #10 笔记本数据存在
+PASS: #9 刻度尺 10 档 + 居中光标 + 高亮（{"ticks":10,"on":true,"cursor":true,"num":"100"}）
+PASS: #9 吸附到 85% 并持久化（{"zoom":"0.85","prefs":0.85,"num":"85"}）
+PASS: #9 重置回 100%
+PASS: #13 操作面板存在 danger 项
+PASS: #13 按下时 danger 显示确认态
+PASS: #13 滑出按钮后确认态消失
+PASS: #13 滑出抬手：取消删除，面板保留（{"mask":true,"stillEdit":true,"exists":true}）
+PASS: #13 原位抬手：正常执行删除（{"home":true,"trashed":true}）
+errors: 0

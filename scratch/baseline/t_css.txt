@@ -1,0 +1,22 @@
+[
+ {
+  "sel": ".note-card::after",
+  "css": "content: \"\"; position: absolute; inset: 0px; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 0.18s; background: radial-gradient(200px circle at var(--px) var(--py),rgba(2"
+ },
+ {
+  "sel": ".note-card.pressing",
+  "css": "transform: perspective(820px) rotateX(var(--rx)) rotateY(var(--ry)) scale(.982); transition: transform 0.08s; box-shadow: var(--shadow-lg);"
+ },
+ {
+  "sel": ".note-card.pressing::after",
+  "css": "opacity: 0.9;"
+ },
+ {
+  "sel": ":root[data-theme=\"dark\"], .trl[data-theme=\"dark\"] .note-card::after",
+  "css": "background: radial-gradient(200px circle at var(--px) var(--py),rgba(255,255,255,.18),rgba(255,255,255,.04) 42%,rgba(255,255,255,0) 68%);"
+ },
+ {
+  "sel": ".note-card:active:not(.pressing)",
+  "css": "transform: scale(0.97);"
+ }
+]

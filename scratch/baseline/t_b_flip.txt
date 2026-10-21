@@ -1,0 +1,3 @@
+PASS: #4 删除按钮 target-hit 承接动画
+PASS: #4 FLIP 补位：其余卡片有补位 transform
+PASS: #4 补位结束后 transform 清理

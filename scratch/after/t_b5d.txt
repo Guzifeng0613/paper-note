@@ -1,0 +1,5 @@
+{
+ "fatal": "reduceMotion is not defined",
+ "stack": "ReferenceError: reduceMotion is not defined\n    at eval (eval at evaluate (:303:30), <anonymous>:3:16)\n    at UtilityScript.evaluate (<anonymous>:305:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+}
+@500 on: 1

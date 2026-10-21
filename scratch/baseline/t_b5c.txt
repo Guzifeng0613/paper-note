@@ -1,0 +1,3 @@
+selCount text before: 已选 1 项
+@10ms: { on: 1, txt: '已选 6 项', btn: 'icon-btn on' }
+@510ms: { on: 6, txt: '已选 6 项' }

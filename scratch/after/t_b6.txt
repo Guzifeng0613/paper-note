@@ -1,0 +1,6 @@
+FAIL: 首页列表可滚动（非短页）
+PASS: #6 首页下拉阻尼生效（translateY(42px)）
+PASS: #6 松手后回弹复位（transform=""）
+FAIL: #6 非边界（scrollTop=300）不误触发
+PASS: #6 编辑器底部上拉阻尼生效（translateY(-46.2px)）
+errors: 0

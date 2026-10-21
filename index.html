@@ -8242,84 +8242,622 @@ window.addEventListener('pageshow',()=>window.__forceRepaint());
 
 boot().catch(e=>console.warn('boot failed',e));
 /* ============================================================
-   md-mini.js —— 纸片 v16 最小 Markdown 引擎（M1 内置版）
-   全局名 MD。M3 将被完整 markdown.js 替换，方法签名遵循 docs/VAULT-INTERFACE.md 第3节。
-   方言 = Obsidian 兼容子集：##标题 / **粗** / *斜* / ==高亮== / <u>下划</u> /
-   ~~删除~~ / `行内码` / ```代码块``` / >引用 / - / 1. / --- /
-   - [ ] / - [x]（优先级 #p/high #p/low） / ![[图]] / ![](图) / [名](文件) / [[双链]] / #标签
+   vault-fs.js —— 纸片 v16 VaultFS（M2）
+   全局名 VaultFS。低层文件系统抽象：仅做目录/文件操作，不做业务索引。
+   三后端：native（AndroidBridge vault* 方法）/ opfs（OPFS）/ idb（IndexedDB 虚拟 FS）。
+   路径一律 vault 相对 POSIX 路径（'/' 分隔），根目录用 ''（空串）表示。
+   契约：docs/VAULT-INTERFACE.md 第 1 节。方法签名/返回结构不得变更。
    ============================================================ */
 (function(){
 'use strict';
 
-/* ---------- frontmatter ---------- */
+/* ---------- 纯函数：POSIX 路径规范化（全部后端共用，node 可直接测） ---------- */
+const util = {
+  /* 规范化：去前后斜杠、压缩重复斜杠、解析 . 与 ..；根目录返回 '' */
+  norm(p){
+    if(!p) return '';
+    p = String(p).replace(/\\/g,'/').trim();
+    if(!p || p==='/' ) return '';
+    const out=[];
+    for(const seg of p.split('/')){
+      if(!seg || seg==='.') continue;
+      if(seg==='..'){ out.pop(); continue; }
+      out.push(seg);
+    }
+    return out.join('/');
+  },
+  join(...parts){ return util.norm(parts.filter(x=>x!=null&&x!=='').map(String).join('/')); },
+  base(p){ p=util.norm(p); if(!p) return ''; const i=p.lastIndexOf('/'); return i<0?p:p.slice(i+1); },
+  dirOf(p){ p=util.norm(p); if(!p) return ''; const i=p.lastIndexOf('/'); return i<0?'':p.slice(0,i); },
+  stripExt(p){ const b=util.base(p); const i=b.lastIndexOf('.'); return i<=0?b:b.slice(0,i); },
+  /* 重名加序号：周会纪要.md → 周会纪要 2.md（existing 为目标目录已有文件名集合） */
+  dedupeName(existing, name){
+    existing = new Set(existing||[]);
+    if(!existing.has(name)) return name;
+    const i=name.lastIndexOf('.');
+    const base = i>0 ? name.slice(0,i) : name;
+    const ext  = i>0 ? name.slice(i) : '';
+    let n=2; while(existing.has(base+' '+n+ext)) n++;
+    return base+' '+n+ext;
+  },
+  /* 回收站映射：工作/周会纪要.md → .trash/工作/周会纪要.md */
+  trashOf(p){ return util.join('.trash', p); },
+  /* 回收路径还原：.trash/工作/周会纪要.md → 工作/周会纪要.md */
+  restoreOf(trashP){ const n=util.norm(trashP); return n.indexOf('.trash/')===0 ? n.slice(7) : n; },
+  /* 附件落目录：attachments/<笔记名>/（笔记路径传 '工作/周会纪要.md' → attachments/周会纪要/） */
+  attachDir(notePath){ notePath=util.norm(notePath||''); return util.join('attachments', notePath?util.stripExt(notePath):'未命名'); },
+  /* 原子写临时名：工作/周会纪要.md → 工作/.周会纪要.md.tmp（同父目录隐藏文件，写完 rename） */
+  tmpPath(p){ p=util.norm(p); const d=util.dirOf(p), b=util.base(p); return util.join(d, '.'+b+'.tmp'); }
+};
+
+/* ---------- 浏览器字节工具（node 单测不会触达） ---------- */
+function b64ToBlob(b64, type){
+  const bin=atob(b64); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:type||'application/octet-stream'});
+}
+function blobToB64(blob){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>res(String(fr.result).split(',')[1]||'');
+    fr.onerror=()=>rej(new Error('二进制读取失败'));
+    fr.readAsDataURL(blob);
+  });
+}
+function envNative(){ return !!(typeof window!=='undefined' && window.AndroidBridge && window.AndroidBridge.post); }
+function envOpfs(){ return !!(typeof navigator!=='undefined' && navigator.storage && navigator.storage.getDirectory); }
+function err(msg){ return new Error(msg); }
+
+/* ============================================================
+   后端 A：native（经 Native.call 调原生 vault* 方法）
+   ============================================================ */
+const nativeBE = {
+  _call(method, payload){
+    if(typeof Native==='undefined' || !Native.call) return Promise.reject(err('原生桥不可用'));
+    return Native.call(method, payload==null?{}:payload);
+  },
+  root(){ return this._call('vaultRoot'); },
+  list(rel){ return this._call('vaultList',{path:rel||''}); },
+  read(rel){ return this._call('vaultRead',{path:rel}); },
+  async write(rel, text){ await this._call('vaultWrite',{path:rel, text:String(text==null?'':text)}); return rel; },
+  async mkdir(rel){ await this._call('vaultMkdir',{path:rel}); return rel; },
+  async rename(rel, newRel){ await this._call('vaultRename',{path:rel, newPath:newRel}); return newRel; },
+  /* 移动到文件夹：原生自行拼接目标并返回新路径 */
+  async move(rel, dirRel){ return this._call('vaultMove',{path:rel, dirPath:dirRel}); },
+  async trash(rel){ const r=await this._call('vaultTrash',{path:rel}); return r.trashPath; },
+  async restore(rel){ const r=await this._call('vaultRestore',{path:rel}); return r.path; },
+  listTrash(){ return this._call('vaultListTrash'); },
+  async delete(rel){ await this._call('vaultDelete',{path:rel}); },
+  async readBlob(rel){
+    const r=await this._call('vaultReadBlob',{path:rel});
+    return b64ToBlob(r.b64||'', r.type||'application/octet-stream');
+  },
+  async writeAttachment(name, blob, notePath){
+    const b64=await blobToB64(blob);
+    return this._call('vaultWriteAttachment',{notePath:notePath||'', name:name||'附件', b64});
+  },
+  importFile(uri, dirRel){ return this._call('vaultImportFile',{uri:uri, dirPath:dirRel||''}); },
+  bindFolder(){ return this._call('vaultBindFolder'); },
+  exportZip(){ return this._call('vaultExport',{}); }
+};
+
+/* ============================================================
+   后端 B：opfs（navigator.storage.getDirectory）—— 浏览器预览/验收用
+   ============================================================ */
+const opfsBE = {
+  async _root(){ return navigator.storage.getDirectory(); },
+  async _resolve(rel, create){
+    let d=await this._root();
+    if(!rel) return d;
+    for(const part of rel.split('/')){
+      if(!part) continue;
+      d=await d.getDirectoryHandle(part, {create:!!create});
+    }
+    return d;
+  },
+  async _parentOf(rel, create){
+    return this._resolve(util.dirOf(rel), create);
+  },
+  root(){ return this._root().then(()=>({type:'opfs', path:'opfs://vault'})); },
+  async list(rel){
+    const d=await this._resolve(rel);
+    const out=[];
+    for await (const [name, handle] of d.entries()){
+      if(!rel && name==='.trash') continue;
+      const isDir=handle.kind==='directory';
+      let size=0, mtime=0;
+      if(!isDir){ const f=await handle.getFile(); size=f.size; mtime=f.lastModified; }
+      out.push({name, type:isDir?'folder':'file', size, mtime});
+    }
+    return out;
+  },
+  async read(rel){
+    const d=await this._parentOf(rel);
+    const h=await d.getFileHandle(util.base(rel));
+    return (await h.getFile()).text();
+  },
+  async _writeBytes(rel, bytes){
+    const parent=await this._parentOf(rel, true);
+    const name=util.base(rel);
+    /* 原子写：先写 .name.tmp，再 move 覆盖目标 */
+    const tmp=await parent.getFileHandle('.'+name+'.tmp',{create:true});
+    const tw=await tmp.createWritable(); await tw.write(bytes); await tw.close();
+    try{ await parent.removeEntry(name); }catch(e){}
+    try{ await tmp.move(parent, name); }
+    catch(e){
+      const f=await tmp.getFile();
+      const h=await parent.getFileHandle(name,{create:true});
+      const w=await h.createWritable(); await w.write(await f.arrayBuffer()); await w.close();
+      await parent.removeEntry('.'+name+'.tmp');
+    }
+  },
+  async write(rel, text){ await this._writeBytes(rel, new TextEncoder().encode(String(text==null?'':text))); return rel; },
+  async mkdir(rel){ await this._resolve(rel, true); return rel; },
+  async moveRaw(srcRel, dstRel){
+    const sParent=await this._parentOf(srcRel);
+    const dParent=await this._parentOf(dstRel, true);
+    const sName=util.base(srcRel), dName=util.base(dstRel);
+    let handle;
+    try{ handle=await sParent.getDirectoryHandle(sName); }
+    catch(e){ handle=await sParent.getFileHandle(sName); }
+    try{ await handle.move(dParent, dName); return; }
+    catch(e){ /* 兜底：拷贝 + 删除（目录递归） */ }
+    await this._copyTree(handle, dParent, dName);
+    await sParent.removeEntry(sName, {recursive:true});
+  },
+  async _copyTree(srcHandle, dstParent, dstName){
+    if(srcHandle.kind==='file'){
+      const h=await dstParent.getFileHandle(dstName,{create:true});
+      const w=await h.createWritable(); await w.write(await srcHandle.getFile()); await w.close();
+      return;
+    }
+    const nd=await dstParent.getDirectoryHandle(dstName,{create:true});
+    for await (const [name, child] of srcHandle.entries()) await this._copyTree(child, nd, name);
+  },
+  async rename(rel, newRel){ await this.moveRaw(rel, newRel); return newRel; },
+  async delete(rel){
+    const parent=await this._parentOf(rel);
+    await parent.removeEntry(util.base(rel), {recursive:true});
+  },
+  async readBlob(rel){
+    const d=await this._parentOf(rel);
+    const h=await d.getFileHandle(util.base(rel));
+    return h.getFile();
+  },
+  async writeBlob(rel, blob){ await this._writeBytes(rel, await blob.arrayBuffer()); return rel; },
+  importFile(){ return Promise.reject(err('浏览器预览端不支持外部 uri 导入')); },
+  bindFolder(){ return Promise.reject(err('浏览器预览端不支持绑定 SAF 目录')); },
+  exportZip(){ return Promise.reject(err('浏览器预览端不支持整库导出（请用原生端）')); }
+};
+
+/* ============================================================
+   后端 C：idb（IndexedDB 虚拟 FS）—— 兜底
+   ============================================================ */
+const idbBE = {
+  db:null, NAME:'zhipian-vaultfs',
+  async init(){
+    this.db=await new Promise((res,rej)=>{
+      const rq=indexedDB.open(this.NAME,1);
+      rq.onupgradeneeded=e=>{ const db=e.target.result;
+        if(!db.objectStoreNames.contains('files')) db.createObjectStore('files'); };
+      rq.onsuccess=e=>res(e.target.result);
+      rq.onerror=()=>rej(rq.error);
+    });
+    return this.db;
+  },
+  _store(mode){ return this.db.transaction('files',mode).objectStore('files'); },
+  _op(mode, fn){
+    return new Promise((res,rej)=>{
+      const st=this._store(mode); const r=fn(st);
+      r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+    });
+  },
+  _get(k){ return this._op('readonly',s=>s.get(k)); },
+  _put(k,v){ return this._op('readwrite',s=>s.put(v,k)); },
+  _del(k){ return this._op('readwrite',s=>s.delete(k)); },
+  _keys(){ return this._op('readonly',s=>s.getAllKeys()); },
+  root(){ return Promise.resolve({type:'idb', path:'idb://'+this.NAME}); },
+  async list(rel){
+    const keys=await this._keys();
+    const prefix=rel?rel+'/':'';
+    const out=[];
+    for(const k of keys){
+      if(!k.startsWith(prefix)) continue;
+      const rest=k.slice(prefix.length);
+      if(!rest || rest.indexOf('/')>=0) continue;
+      if(!rel && rest==='.trash') continue;
+      const e=await this._get(k);
+      out.push({name:rest, type:e.kind, size:e.blob?e.blob.size:0, mtime:e.mtime||0});
+    }
+    return out;
+  },
+  async read(rel){
+    const e=await this._get(rel);
+    if(!e) throw err('文件不存在：'+rel);
+    return e.blob.text();
+  },
+  async write(rel, text){
+    await this._put(rel, {kind:'file', blob:new Blob([String(text==null?'':text)],{type:'text/plain'}), mtime:Date.now()});
+    return rel;
+  },
+  async mkdir(rel){
+    if(!rel) return rel;
+    const segs=rel.split('/'); let acc='';
+    for(const s of segs){ acc=acc?acc+'/'+s:s; await this._put(acc,{kind:'folder', mtime:Date.now()}); }
+    return rel;
+  },
+  async moveRaw(srcRel, dstRel){
+    const keys=await this._keys();
+    const moved=[];
+    for(const k of keys){
+      if(k===srcRel || k.indexOf(srcRel+'/')===0){
+        const nk=util.join(dstRel, k.slice(srcRel.length));
+        const e=await this._get(k);
+        moved.push([k,nk,e]);
+      }
+    }
+    if(!moved.length) throw err('移动源不存在：'+srcRel);
+    for(const [k,nk,e] of moved){ await this._put(nk,e); await this._del(k); }
+  },
+  async rename(rel,newRel){ await this.moveRaw(rel,newRel); return newRel; },
+  async delete(rel){
+    const keys=await this._keys();
+    for(const k of keys) if(k===rel || k.indexOf(rel+'/')===0) await this._del(k);
+  },
+  async readBlob(rel){
+    const e=await this._get(rel);
+    if(!e) throw err('文件不存在：'+rel);
+    return e.blob;
+  },
+  async writeBlob(rel,blob){
+    await this._put(rel,{kind:'file', blob, mtime:Date.now()});
+    return rel;
+  },
+  importFile(){ return Promise.reject(err('浏览器预览端不支持外部 uri 导入')); },
+  bindFolder(){ return Promise.reject(err('浏览器预览端不支持绑定 SAF 目录')); },
+  exportZip(){ return Promise.reject(err('浏览器预览端不支持整库导出（请用原生端）')); }
+};
+
+/* ---------- 回收站/恢复/附件 的通用算法（opfs/idb 后端用；native 由原生实现） ---------- */
+async function genericTrash(be, rel){
+  await be.mkdir(util.dirOf(util.trashOf(rel)));
+  const parent=util.dirOf(util.trashOf(rel));
+  const names=(await be.list(parent)).map(e=>e.name);
+  const target=util.join(parent, util.dedupeName(names, util.base(util.trashOf(rel))));
+  await be.moveRaw(rel, target);
+  return target;
+}
+async function genericRestore(be, trashRel){
+  if(!util.restoreOf(trashRel)) throw err('不是回收站路径：'+trashRel);
+  const orig=util.restoreOf(trashRel);
+  const parent=util.dirOf(orig);
+  if(parent) await be.mkdir(parent);
+  const names=(await be.list(parent)).map(e=>e.name);
+  const target=util.join(parent, util.dedupeName(names, util.base(orig)));
+  await be.moveRaw(trashRel, target);
+  return target;
+}
+async function genericListTrash(be){
+  const out=[];
+  async function walk(rel){
+    let entries=[];
+    try{ entries=await be.list(rel); }catch(e){ return; }
+    for(const e of entries){
+      const full=util.join(rel, e.name);
+      if(e.type==='folder') await walk(full);
+      out.push({name:e.name, type:e.type, size:e.size, mtime:e.mtime,
+                originalPath:util.restoreOf(full)});
+    }
+  }
+  await walk('.trash');
+  return out;
+}
+async function genericWriteAttachment(be, name, blob, notePath){
+  const dir=util.attachDir(notePath);
+  await be.mkdir(dir);
+  const names=(await be.list(dir)).map(e=>e.name);
+  const finalName=util.dedupeName(names, name||'附件');
+  await be.writeBlob(util.join(dir, finalName), blob);
+  return util.join(dir, finalName);
+}
+
+/* ============================================================
+   VaultFS 对外门面
+   ============================================================ */
+const VaultFS = {
+  _be:null, _name:null,
+  /* 后端自动选择：native > opfs > idb；force 仅供测试/开发强制指定 */
+  async init(force){
+    this._name = force || (envNative()?'native':(envOpfs()?'opfs':'idb'));
+    if(this._name==='native') this._be=nativeBE;
+    else if(this._name==='opfs') this._be=opfsBE;
+    else { this._be=idbBE; await idbBE.init(); }
+    return this._name;
+  },
+  backend(){ return this._name || (envNative()?'native':(envOpfs()?'opfs':'idb')); },
+  root(){ return this._be.root(); },
+  list(path){ return this._be.list(util.norm(path)); },
+  read(path){ return this._be.read(util.norm(path)); },
+  write(path, text){ return this._be.write(util.norm(path), text); },
+  mkdir(path){ return this._be.mkdir(util.norm(path)); },
+  rename(path, newPath){ return this._be.rename(util.norm(path), util.norm(newPath)); },
+  async move(path, dirPath){
+    path=util.norm(path); dirPath=util.norm(dirPath);
+    if(this._be.move) return this._be.move(path, dirPath);
+    const newPath=util.join(dirPath, util.base(path));
+    await this._be.rename(path, newPath);
+    return newPath;
+  },
+  trash(path){
+    path=util.norm(path);
+    if(this._name==='native') return this._be.trash(path);
+    return genericTrash(this._be, path);
+  },
+  restore(trashPath){
+    trashPath=util.norm(trashPath);
+    if(this._name==='native') return this._be.restore(trashPath);
+    return genericRestore(this._be, trashPath);
+  },
+  listTrash(){
+    if(this._name==='native') return this._be.listTrash();
+    return genericListTrash(this._be);
+  },
+  delete(path){ return this._be.delete(util.norm(path)); },
+  readBlob(path){ return this._be.readBlob(util.norm(path)); },
+  writeAttachment(name, blob, notePath){
+    notePath=util.norm(notePath||'');
+    if(this._name==='native') return this._be.writeAttachment(name, blob, notePath);
+    return genericWriteAttachment(this._be, name, blob, notePath);
+  },
+  importFile(uri, dirPath){ return this._be.importFile(uri, util.norm(dirPath||'')); },
+  bindFolder(){ return this._be.bindFolder(); },
+  exportZip(uri){ return this._be.exportZip(uri||''); },
+  /* 暴露纯函数工具，供 node 单测与 Vault 业务层复用 */
+  util
+};
+
+/* 浏览器内挂全局；node 测试环境导出（浏览器内不报错） */
+if(typeof window!=='undefined') window.VaultFS=VaultFS;
+if(typeof module!=='undefined' && module.exports) module.exports=VaultFS;
+})();
+
+/* ============================================================
+   markdown.js —— 纸片 v16 完整 Markdown 引擎（M3）
+   全局名 MD。方法签名严格遵循 docs/VAULT-INTERFACE.md 第 3 节。
+   方言 = Obsidian 兼容子集：
+     标题 ##~######（# 不用于正文标题） / **粗** / *斜* / ==高亮== /
+     <u>下划</u> / ~~删除~~ / `行内码` / ```代码块``` / >引用 /
+     - 无序列表 / 1. 有序列表 / ---分割线（frontmatter 之外） /
+     - [ ] / - [x] 待办（#p/high #p/low 优先级，缩进子任务） /
+     图片 ![](path) 与 ![[path]] / 其他附件 [名](path) /
+     双链 [[名]]（支持 [[名|显示]]） / 行内标签 #标签。
+   浏览器经典脚本挂载 window.MD；node 下 module.exports=MD 便于单测。
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------------- 工具 ---------------- */
+function esc(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function escAttr(s){
+  return esc(s).replace(/"/g,'&quot;');
+}
+function decodeEntities(s){
+  return String(s==null?'':s)
+    .replace(/&nbsp;/g,' ')
+    .replace(/&quot;/g,'"')
+    .replace(/&#39;/g,"'")
+    .replace(/&lt;/g,'<')
+    .replace(/&gt;/g,'>')
+    .replace(/&amp;/g,'&');
+}
+
+/* ================= frontmatter =================
+   parseFrontmatter(text) → {fm:Object|null, body:string}
+   无 frontmatter 时 fm=null，body 原样返回。 */
 function parseFrontmatter(text){
   if(!text) return { fm:null, body:'' };
-  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  const m = text.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n?---[ \t]*\r?\n?/);
   if(!m) return { fm:null, body:text };
   const raw = m[1];
   const body = text.slice(m[0].length);
   const fm = {};
   raw.split(/\r?\n/).forEach(line=>{
-    const mm = line.match(/^\s*([\w.-]+)\s*:\s*(.*)$/);
+    if(!line.trim()) return;
+    const mm = line.match(/^\s*([A-Za-z_][\w.-]*)\s*:\s*(.*)$/);
     if(!mm) return;
-    let key = mm[1], val = mm[2].trim();
+    const key = mm[1];
+    let val = mm[2].trim();
+    if(val === ''){ fm[key] = ''; return; }
     if(val.startsWith('[') && val.endsWith(']')){
-      val = val.slice(1,-1).split(',').map(s=>s.trim().replace(/^["']|["']$/g,'')).filter(Boolean);
+      val = val.slice(1,-1);
+      fm[key] = val ? val.split(',').map(s=>unquote(s.trim())).filter(s=>s!=='') : [];
     } else {
-      val = val.replace(/^["']|["']$/g,'');
-      if(val==='true') val=true;
-      else if(val==='false') val=false;
-      else if(val!=='' && !isNaN(Number(val))) val=Number(val);
+      fm[key] = parseScalar(val);
     }
-    fm[key]=val;
   });
-  return { fm, body };
+  return { fm, body, _headerStr: m[0] };
 }
+function unquote(s){ return s.replace(/^["']|["']$/g,''); }
+function parseScalar(val){
+  const v = unquote(val);
+  if(val.startsWith('"') || val.startsWith("'")) return v; // 显式引号一律按字符串
+  if(v === 'true') return true;
+  if(v === 'false') return false;
+  if(v === 'null' || v === '~') return null;
+  if(v !== '' && !isNaN(Number(v))) return Number(v);
+  return v;
+}
+
+/* stringifyFrontmatter(fm) → YAML 头部（含首尾 ---）；空 fm 返回 '' */
+const FM_ORDER = ['id','created','updated','color','pinned','tags','type'];
 function stringifyFrontmatter(fm){
   const keys = Object.keys(fm||{});
   if(!keys.length) return '';
-  const lines = keys.map(k=>{
-    let v = fm[k];
-    if(Array.isArray(v)) v = '[' + v.join(', ') + ']';
-    else if(typeof v === 'string') v = v;
-    else v = String(v);
-    return k+': '+v;
+  const ordered = keys.slice().sort((a,b)=>{
+    const ia = FM_ORDER.indexOf(a), ib = FM_ORDER.indexOf(b);
+    return (ia<0?99:ia) - (ib<0?99:ib);
   });
-  return '---\n'+lines.join('\n')+'\n---\n';
+  const lines = ordered.map(k=>{
+    let v = fm[k];
+    if(v == null) v = '';
+    if(Array.isArray(v)){
+      v = '[' + v.map(x=>yamlScalar(x)).join(', ') + ']';
+    } else {
+      v = yamlScalar(v);
+    }
+    return k + ': ' + v;
+  });
+  return '---\n' + lines.join('\n') + '\n---\n';
 }
-
-/* ---------- 行内渲染 ---------- */
-function inline(t){
-  let s = esc(t);
-  /* 图片 ![[alt]] 与 ![](url) —— 先抓，避免内部被当文本 */
-  s = s.replace(/!\[\[([^\]]*)\]\]/g, (_,alt)=>'<img class="md-img" src="attachments/'+encodeURIComponent(alt)+'" alt="'+esc(alt)+'">');
-  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_,alt,url)=>'<img class="md-img" src="'+url+'" alt="'+esc(alt)+'">');
-  /* 附件链接 [名](path) */
-  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_,txt,url)=>'<a class="md-link" href="'+url+'">'+txt+'</a>');
-  /* 双链 [[名]] */
-  s = s.replace(/\[\[([^\]]+)\]\]/g, '<span class="md-wiki">[[ $1 ]]</span>');
-  /* 下划线 <u>..</u>（HTML 已被 esc 转义，需还原） */
-  s = s.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g, '<u>$1</u>');
-  /* 代码块在行内场景不处理；行内码 `x` */
-  s = s.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
-  /* 高亮 ==x== */
-  s = s.replace(/==([^=]+)==/g, '<mark class="md-hl">$1</mark>');
-  /* 删除线 ~~x~~ */
-  s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-  /* 加粗 **x** */
-  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  /* 斜体 *x* */
-  s = s.replace(/(^|\W)\*([^*\n]+)\*(\W|$)/g, '$1<em>$2</em>$3');
-  /* 标签 #标签（汉字/字母/数字） */
-  s = s.replace(/(^|\s)#([\u4e00-\u9fa5\w-]+)/g, '$1<span class="md-tag">#$2</span>');
+function yamlScalar(v){
+  if(typeof v === 'boolean') return v ? 'true' : 'false';
+  if(typeof v === 'number') return String(v);
+  const s = String(v);
+  // 含冒号/井号/以特殊符起头/留空含义的值需要引号
+  if(s === '' || /[:#\[\]{}&*!|>'"%@`,]/.test(s) || /^(true|false|null|~)$/i.test(s) || /^\s|\s$/.test(s)){
+    return '"' + s.replace(/"/g,'\\"') + '"';
+  }
   return s;
 }
 
-/* ---------- 块级渲染 ---------- */
+/* ================= 行内渲染（MD→HTML） ================= */
+function inline(t){
+  const stash = [];
+  const put = html => { stash.push(html); return '\u0001' + (stash.length-1) + '\u0002'; };
+
+  // 1) 行内码 `x`（先抽，内部不再解析任何标记）
+  t = t.replace(/`([^`]*)`/g, (m,c)=> put('<code class="md-code">'+esc(c)+'</code>'));
+  // 2) 原始 HTML 下划线 <u>x</u>
+  t = t.replace(/<u>([\s\S]*?)<\/u>/gi, (m,c)=> put('<u>'+esc(c)+'</u>'));
+  // 3) Obsidian 内嵌图片 ![[path]]
+  t = t.replace(/!\[\[([^\]]*)\]\]/g, (m,a)=>
+    put('<img class="md-img" src="attachments/'+encodeURI(a)+'" alt="'+escAttr(a)+'">'));
+  // 4) 标准图片 ![alt](url)
+  t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m,a,url)=>
+    put('<img class="md-img" src="'+escAttr(url)+'" alt="'+escAttr(a)+'">'));
+  // 5) 链接 [文字](url)（文字允许嵌套行内标记，递归解析）
+  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m,txt,url)=>
+    put('<a class="md-link" href="'+escAttr(url)+'">'+inline(txt)+'</a>'));
+  // 6) 双链 [[名]] / [[名|显示]]
+  t = t.replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g, (m,name,disp)=>
+    put('<span class="md-wiki" data-target="'+escAttr(name)+'">'+esc(disp||name)+'</span>'));
+
+  // 7) 其余文本转义
+  t = esc(t);
+  // 8) 高亮 ==x==
+  t = t.replace(/==([^=\s][^=]*)==/g, '<mark class="md-hl">$1</mark>');
+  // 9) 删除线 ~~x~~
+  t = t.replace(/~~([\s\S]+?)~~/g, '<del>$1</del>');
+  // 10) 加粗 **x**（先于斜体，避免吃掉星号）
+  t = t.replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>');
+  // 11) 斜体 *x*（紧贴非单词边界）
+  t = t.replace(/(^|[^\w*])\*([^*\s][^*]*?)\*(?=[^\w*]|$)/g, '$1<em>$2</em>');
+  // 12) 行内标签 #标签（跳过优先级 #p/high #p/low 与 URL 残留）
+  t = t.replace(/(^|\s)#([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9_/-]*)/g, (m,pre,tag)=>{
+    if(/^(p\/high|p\/low)$/.test(tag)) return m;
+    return pre + '<span class="md-tag">#' + tag + '</span>';
+  });
+
+  // 13) 还原占位
+  t = t.replace(/\u0001(\d+)\u0002/g, (m,i)=>stash[+i]);
+  return t;
+}
+
+/* 待办行展示 HTML（剥离优先级标签后渲染文本） */
+function todoRowHTML(indent, done, text){
+  const pr = (text.match(/#p\/(high|low)/)||[])[1] || '';
+  const clean = text.replace(/#p\/(high|low)/g,'').trim();
+  return '<div class="md-todo'+(done?' done':'')+(pr?' p-'+pr:'')+'" data-done="'+(done?1:0)+'" style="margin-left:'+(indent*2)+'em">'
+    +'<span class="md-todo-box">'+(done
+        ?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+        :'')+'</span>'
+    +'<span class="md-todo-text">'+inline(clean)+'</span></div>';
+}
+
+/* ================= 块级：parse(md) → {fm, blocks} ================= */
+function parse(md){
+  const { fm, body } = parseFrontmatter(md||'');
+  const lines = body.split(/\r?\n/);
+  const blocks = [];
+  let i = 0;
+  while(i < lines.length){
+    let line = lines[i];
+
+    // 代码块 ```lang
+    const fence = line.match(/^```([\w+-]*)\s*$/);
+    if(fence){
+      const code = []; i++;
+      while(i < lines.length && !/^```\s*$/.test(lines[i])){ code.push(lines[i]); i++; }
+      i++; // 跳过收尾 ```
+      blocks.push({ type:'code', lang:fence[1]||'', text:code.join('\n') });
+      continue;
+    }
+    // 分割线 ---（frontmatter 已剥离，此处一定是 hr）
+    if(/^\s{0,3}---\s*$/.test(line)){ blocks.push({ type:'hr' }); i++; continue; }
+    // 引用 >
+    if(/^>\s?/.test(line)){
+      const items = [];
+      while(i < lines.length && /^>\s?/.test(lines[i])){ items.push(lines[i].replace(/^>\s?/,'')); i++; }
+      blocks.push({ type:'quote', items });
+      continue;
+    }
+    // 标题 ##~######
+    const h = line.match(/^(#{2,6})\s+(.*)$/);
+    if(h){ blocks.push({ type:'heading', level:h[1].length, text:h[2].trim() }); i++; continue; }
+    // 待办 - [ ] / - [x]
+    const td = line.match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
+    if(td){
+      const priority = /#p\/high/.test(td[3]) ? 'high' : /#p\/low/.test(td[3]) ? 'low' : 'normal';
+      blocks.push({ type:'todo', indent:td[1].length, done:td[2].toLowerCase()==='x', priority, text:td[3] });
+      i++; continue;
+    }
+    // 无序列表（非待办的 - ）
+    const ul = line.match(/^(\s*)-\s+(.*)$/);
+    if(ul){
+      const items = [{ indent:ul[1].length, text:ul[2] }]; i++;
+      while(i < lines.length){
+        const m2 = lines[i].match(/^(\s*)-\s+(.*)$/);
+        if(!m2) break;
+        items.push({ indent:m2[1].length, text:m2[2] }); i++;
+      }
+      blocks.push({ type:'ul', items });
+      continue;
+    }
+    // 有序列表 1.
+    const ol = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
+    if(ol){
+      const items = [{ indent:ol[1].length, num:Number(ol[2]), text:ol[3] }]; i++;
+      while(i < lines.length){
+        const m2 = lines[i].match(/^(\s*)(\d+)\.\s+(.*)$/);
+        if(!m2) break;
+        items.push({ indent:m2[1].length, num:Number(m2[2]), text:m2[3] }); i++;
+      }
+      blocks.push({ type:'ol', items });
+      continue;
+    }
+    // 空行
+    if(!line.trim()){ i++; continue; }
+    // 独立成行的附件/图片 → attach 块
+    if(/^\s*!?\[\[?[^\]]*\]\(?[^)\s]*\)?\s*$/.test(line) && /(!?\[[^\]]*\]\(|<img|!\[\[)/.test(line)){
+      blocks.push({ type:'attach', refs:extractAttachRefs(line) });
+      i++; continue;
+    }
+    // 普通段落
+    blocks.push({ type:'para', text:line });
+    i++;
+  }
+  return { fm, blocks };
+}
+
+/* ================= MD → HTML ================= */
 function toHTML(md){
   const { fm, body } = parseFrontmatter(md||'');
   const lines = body.split(/\r?\n/);
-  let html = '', i = 0;
+  let html = '';
+  let i = 0;
   const flushList = (buf, ordered) => {
     if(!buf.length) return;
     html += (ordered?'<ol>':'<ul>') + buf.map(li=>'<li>'+li+'</li>').join('') + (ordered?'</ol>':'</ul>');
@@ -8327,19 +8865,17 @@ function toHTML(md){
   };
   let ulBuf = [], olBuf = [];
   while(i < lines.length){
-    let line = lines[i];
-    /* 代码块 ``` */
-    const fence = line.match(/^```(\w*)\s*$/);
+    const line = lines[i];
+    const fence = line.match(/^```([\w+-]*)\s*$/);
     if(fence){
+      flushList(ulBuf); flushList(olBuf,true);
       const code = []; i++;
       while(i < lines.length && !/^```\s*$/.test(lines[i])){ code.push(lines[i]); i++; }
       i++;
-      html += '<pre class="md-pre"><code>'+esc(code.join('\n'))+'</code></pre>';
+      html += '<pre class="md-pre"'+(fence[1]?' data-lang="'+escAttr(fence[1])+'"':'')+'><code>'+esc(code.join('\n'))+'</code></pre>';
       continue;
     }
-    /* 分割线 ---（需独立成行且非 frontmatter） */
-    if(/^---\s*$/.test(line)){ flushList(ulBuf); flushList(olBuf,true); html+='<hr class="md-hr">'; i++; continue; }
-    /* 引用 > */
+    if(/^\s{0,3}---\s*$/.test(line)){ flushList(ulBuf); flushList(olBuf,true); html+='<hr class="md-hr">'; i++; continue; }
     if(/^>\s?/.test(line)){
       flushList(ulBuf); flushList(olBuf,true);
       const q = [];
@@ -8347,27 +8883,20 @@ function toHTML(md){
       html += '<blockquote class="md-quote">'+q.map(l=>'<p>'+inline(l)+'</p>').join('')+'</blockquote>';
       continue;
     }
-    /* 标题 ##~###### */
     const h = line.match(/^(#{2,6})\s+(.*)$/);
     if(h){ flushList(ulBuf); flushList(olBuf,true);
       const lv = h[1].length; html += '<h'+lv+' class="md-h">'+inline(h[2])+'</h'+lv+'>'; i++; continue; }
-    /* 待办 */
-    const todo = line.match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
-    if(todo){
+    const td = line.match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
+    if(td){
       flushList(ulBuf); flushList(olBuf,true);
-      const indent = todo[1].length, done = todo[2].toLowerCase()==='x';
-      html += todoRowHTML(line, indent, done, todo[3]);
+      html += todoRowHTML(td[1].length, td[2].toLowerCase()==='x', td[3]);
       i++; continue;
     }
-    /* 无序列表 */
     const ul = line.match(/^(\s*)-\s+(.*)$/);
     if(ul){ olBuf.length && flushList(olBuf,true); ulBuf.push(inline(ul[2])); i++; continue; }
-    /* 有序列表 */
     const ol = line.match(/^(\s*)\d+\.\s+(.*)$/);
     if(ol){ ulBuf.length && flushList(ulBuf); olBuf.push(inline(ol[2])); i++; continue; }
-    /* 空行 */
     if(!line.trim()){ flushList(ulBuf); flushList(olBuf,true); i++; continue; }
-    /* 普通段落 */
     flushList(ulBuf); flushList(olBuf,true);
     html += '<p class="md-p">'+inline(line)+'</p>';
     i++;
@@ -8376,75 +8905,755 @@ function toHTML(md){
   return html || '<p class="md-p md-empty">（空笔记）</p>';
 }
 
-/* 待办行 HTML（M1 只读展示用；可勾选在 VUI 层处理） */
-function todoRowHTML(orig, indent, done, text){
-  const pr = (text.match(/#p\/(high|low)/)||[])[1] || '';
-  const clean = text.replace(/#p\/(high|low)/g,'').trim();
-  return '<div class="md-todo'+(done?' done':'')+(pr?' p-'+pr:'')+'" data-done="'+(done?1:0)+'">'
-    +'<span class="md-todo-box">'+(done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>':'')+'</span>'
-    +'<span class="md-todo-text">'+inline(clean)+'</span></div>';
+/* ================= 编辑器 HTML → MD =================
+   覆盖富文本工具栏全元素：h1~h6 / p / strong|b / em|i / u /
+   del|s|strike / mark / 行内码 / pre 代码块 / blockquote / ul|ol+li /
+   li 内 checkbox（待办） / hr / img / a / span.md-wiki / <br> */
+function htmlToMD(html){
+  if(!html) return '';
+  let s = String(html);
+  s = s.replace(/<!--[\s\S]*?-->/g,'');
+  s = s.replace(/<br\s*\/?>/gi,'\n');
+
+  let out = '';
+  const stack = [];                 // 块级上下文栈：'ul'|'ol'|'quote'|'wiki'
+  const linkStack = [];            // {href, buf}
+  let pendingLi = null;             // {type, indent, isTodo, checked}
+  let preActive = false, preLang = '', preBuf = [];
+
+  /* 输出目标：若在链接内则写入链接缓冲，否则写入主输出 */
+  const emit = txt => {
+    if(!txt) return;
+    if(linkStack.length){ linkStack[linkStack.length-1].buf += txt; return; }
+    out += txt;
+  };
+  /* 块间换行：引用块内换行后补 '> ' */
+  const br = () => emit(stack.includes('quote') ? '\n> ' : '\n');
+  const pushText = txt => {
+    if(!txt) return;
+    if(preActive){ preBuf.push(decodeEntities(txt)); return; }
+    let t = decodeEntities(txt);
+    if(stack.includes('quote')) t = t.replace(/\n/g,'\n> ');
+    // 列表项首次有内容时，补出 - / 1. / - [ ] 前缀
+    if(pendingLi){
+      const indent = '  '.repeat(pendingLi.indent);
+      const sep = out.endsWith('\n') ? '' : '\n';
+      emit(sep + indent +
+        (pendingLi.isTodo
+          ? '- ['+(pendingLi.checked?'x':' ')+'] '
+          : (pendingLi.type==='ol' ? '1. ' : '- ')));
+      pendingLi = null;
+    }
+    emit(t);
+  };
+
+  const tagRe = /<\/?([a-zA-Z][a-zA-Z0-9-]*)((?:[^<>]*?))\s*(\/?)>/g;
+  let lastIdx = 0, m;
+  while((m = tagRe.exec(s))){
+    pushText(s.slice(lastIdx, m.index));
+    lastIdx = tagRe.lastIndex;
+    const isClose = m[0][1] === '/';
+    const tag = m[1].toLowerCase();
+    const attrs = m[2]||'';
+    const getAttr = name => {
+      const a = attrs.match(new RegExp(name+'\\s*=\\s*"([^"]*)"','i')) || attrs.match(new RegExp(name+"\\s*=\\s*'([^']*)'",'i'));
+      return a ? a[1] : null;
+    };
+
+    if(preActive){
+      if(tag === 'pre' && isClose){
+        preActive = false;
+        const inner = preBuf.join('').replace(/<\/?code[^>]*>/gi,'');
+        out += '\n```'+preLang+'\n'+inner.replace(/\n+$/,'')+'\n```\n';
+      } else {
+        preBuf.push(m[0]); // pre 内部标签原样保留
+      }
+      continue;
+    }
+
+    switch(tag){
+      case 'p': case 'div':
+        if(isClose) br();
+        break;
+      case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6': {
+        let lv = Number(tag[1]);
+        lv = Math.max(2, Math.min(6, lv)); // 方言：# 不用于正文标题，h1→##
+        if(!isClose){ if(out && !out.endsWith('\n')) br(); emit('#'.repeat(lv)+' '); }
+        else br();
+        break;
+      }
+      case 'ul': case 'ol':
+        if(!isClose) stack.push(tag);
+        else { const k=stack.lastIndexOf(tag); if(k>=0)stack.splice(k,1); br(); }
+        break;
+      case 'li': {
+        if(!isClose){
+          const depth = stack.filter(x=>x==='ul'||x==='ol').length;
+          const type = stack[stack.length-1]==='ol' ? 'ol' : 'ul';
+          pendingLi = { type, indent: Math.max(0, depth-1), isTodo:false, checked:false };
+        } else {
+          if(pendingLi){ // 空 li
+            const indent = '  '.repeat(pendingLi.indent);
+            emit('\n' + indent +
+              (pendingLi.isTodo ? '- ['+(pendingLi.checked?'x':' ')+'] '
+                                : (pendingLi.type==='ol' ? '1. ' : '- ')));
+            pendingLi = null;
+          }
+          br();
+        }
+        break;
+      }
+      case 'input': {
+        if(pendingLi && (getAttr('type')||'checkbox').toLowerCase() === 'checkbox'){
+          pendingLi.isTodo = true;
+          pendingLi.checked = /checked/i.test(attrs);
+        }
+        break;
+      }
+      case 'blockquote':
+        if(!isClose){ stack.push('quote'); emit('\n> '); }
+        else { const k=stack.lastIndexOf('quote'); if(k>=0)stack.splice(k,1); emit('\n'); }
+        break;
+      case 'pre':
+        if(!isClose){ preActive = true; preBuf = []; preLang = getAttr('data-lang')||getAttr('class')||'';
+          const lm = preLang.match(/language-([\w+-]+)/); if(lm) preLang = lm[1]; }
+        break;
+      case 'code':
+        emit(isClose ? '`' : '`');
+        break;
+      case 'strong': case 'b':           emit('**'); break;
+      case 'em': case 'i':               emit('*');  break;
+      case 'u':                          emit(isClose ? '</u>' : '<u>'); break;
+      case 'del': case 's': case 'strike': emit('~~'); break;
+      case 'mark': case 'highlight':      emit('==');  break;
+      case 'hr': emit('\n---\n'); break;      case 'img': {
+        const src = getAttr('src')||'', alt = getAttr('alt')||'';
+        if(pendingLi){ pendingLi = null; } // 图片直接成项
+        emit('!['+alt+']('+src+')');
+        break;
+      }
+      case 'a':
+        if(!isClose){ linkStack.push({ href:getAttr('href')||'', buf:'' }); }
+        else {
+          const lk = linkStack.pop();
+          if(lk) emit('['+lk.buf+']('+lk.href+')');
+        }
+        break;
+      case 'span':
+        if(!isClose && /md-wiki/.test(attrs)){ stack.push('wiki'); emit('[['); }
+        else if(isClose && stack[stack.length-1]==='wiki'){ stack.pop(); emit(']]'); }
+        break;
+      default: break;
+    }
+  }
+  pushText(s.slice(lastIdx));
+
+  // 归一化：去掉空的引用行、压缩空行
+  out = out
+    .split('\n')
+    .filter(l => l.trim() !== '>' && l.trim() !== '> ')
+    .join('\n')
+    .replace(/\n{3,}/g,'\n\n')
+    .replace(/[ \t]+\n/g,'\n')
+    .trim();
+  return out ? out + '\n' : '';
 }
 
-/* ---------- 待办行抽取 / 回写 ---------- */
+/* ================= AST → MD ================= */
+function serialize(blocks, fm){
+  // 每个块渲染成一段文本，块间空行分隔
+  const seg = [];
+  (blocks||[]).forEach(b=>{
+    let s2 = '';
+    switch(b.type){
+      case 'heading': s2 = '#'.repeat(b.level) + ' ' + b.text; break;
+      case 'para': s2 = b.text; break;
+      case 'ul':
+        s2 = b.items.map(it=>'  '.repeat(it.indent||0)+'- '+it.text).join('\n');
+        break;
+      case 'ol':
+        s2 = b.items.map(it=>'  '.repeat(it.indent||0)+(it.num||1)+'. '+it.text).join('\n');
+        break;
+      case 'todo':
+        s2 = '  '.repeat(b.indent||0)+'- ['+(b.done?'x':' ')+'] '+b.text;
+        break;
+      case 'quote':
+        s2 = b.items.map(l=>'> '+(l||'')).join('\n');
+        break;
+      case 'code':
+        s2 = '```'+(b.lang||'')+'\n'+b.text+'\n```';
+        break;
+      case 'hr': s2 = '---'; break;
+      case 'attach':
+        s2 = (b.refs||[]).map(r=>r.embed
+          ? (r.link.startsWith('attachments/') ? '!['+r.alt+']('+r.link+')' : '![['+r.link+']]')
+          : '['+r.alt+']('+r.link+')').join('\n');
+        break;
+    }
+    if(s2) seg.push(s2);
+  });
+  const body = seg.join('\n\n') + (seg.length ? '\n' : '');
+  return (fm && Object.keys(fm).length ? stringifyFrontmatter(fm) : '') + body;
+}
+
+/* ================= 待办行抽取 / 回写 ================= */
 function todoLines(md){
-  const { body } = parseFrontmatter(md||'');
+  md = md||'';
+  const parsed = parseFrontmatter(md);
+  const { body } = parsed;
+  const bodyStart = md.length - body.length;
   const out = [];
+  let offset = 0;
   body.split(/\r?\n/).forEach((line, idx)=>{
     const m = line.match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
-    if(!m) return;
-    const pr = (m[3].match(/#p\/(high|low)/)||[])[1] || 'normal';
-    out.push({ key:String(idx), indent:m[1].length, done:m[2].toLowerCase()==='x',
-      priority:pr, text:m[3], start:0, end:line.length });
+    if(m){
+      const priority = /#p\/high/.test(m[3]) ? 'high' : /#p\/low/.test(m[3]) ? 'low' : 'normal';
+      out.push({
+        key: String(idx),
+        indent: m[1].length,
+        done: m[2].toLowerCase()==='x',
+        priority,
+        text: m[3],
+        start: bodyStart + offset,
+        end: bodyStart + offset + line.length
+      });
+    }
+    offset += line.length + 1;
   });
   return out;
 }
 function setTodoLine(md, key, patch){
-  const { fm, body } = parseFrontmatter(md||'');
-  const lines = body.split(/\r?\n/);
+  md = md||'';
+  const parsed = parseFrontmatter(md);
+  const lines = parsed.body.split(/\r?\n/);
   const idx = Number(key);
-  const m = lines[idx] && lines[idx].match(/^(\s*)- \[[ xX]\]\s+(.*)$/);
+  const m = lines[idx] && lines[idx].match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
   if(!m) return md;
-  const done = (patch && patch.done!=null) ? patch.done : (m[2].toLowerCase()==='x');
+  const done = (patch && patch.done!=null) ? !!patch.done : (m[2].toLowerCase()==='x');
   lines[idx] = m[1]+'- ['+(done?'x':' ')+'] '+m[3];
-  return stringifyFrontmatter(fm) + lines.join('\n');
+  // 保留原头部（含原始格式），仅拼接新正文
+  const headerStr = parsed._headerStr || '';
+  return headerStr + lines.join('\n');
 }
 
-/* ---------- 索引辅助 ---------- */
+/* ================= 索引辅助 ================= */
 function extractTags(md){
-  const { body } = parseFrontmatter(md||'');
+  const { fm, body } = parseFrontmatter(md||'');
   const set = new Set();
-  const fm = parseFrontmatter(md).fm;
   if(fm && Array.isArray(fm.tags)) fm.tags.forEach(t=>set.add(t));
-  (body.match(/#([\u4e00-\u9fa5\w-]+)/g)||[]).forEach(t=>set.add(t.slice(1)));
+  (body.match(/(^|\s)#([\u4e00-\u9fa5A-Za-z][\u4e00-\u9fa5A-Za-z0-9_/-]*)/g)||[])
+    .forEach(tok=>{
+      const t = tok.trim();
+      const tag = t.slice(1);
+      if(/^(p\/high|p\/low)$/.test(tag)) return;   // 优先级不是标签
+      set.add(tag);
+    });
   return Array.from(set);
 }
 function extractSummary(md){
   const { body } = parseFrontmatter(md||'');
   const text = body
     .replace(/```[\s\S]*?```/g,' ')
-    .replace(/^#{1,6}\s+/gm,'')
-    .replace(/[*_`>#=-]/g,' ')
     .replace(/!\[\[[^\]]*\]\]/g,'[图]')
     .replace(/!\[[^\]]*\]\([^)]*\)/g,'[图]')
-    .replace(/\s+/g,' ').trim();
+    .replace(/\[[^\]]*\]\(([^)]*)\)/g,'$1')
+    .replace(/\[\[([^\]|]*)(?:\|([^\]]*))?\]\]/g, (m,n,d)=> d||n)
+    .replace(/^#{1,6}\s+/gm,'')
+    .replace(/^>\s?/gm,'')
+    .replace(/^- \[[ xX]\]\s?/gm,'')
+    .replace(/#p\/(high|low)/g,'')
+    .replace(/^[-*+]\s?/gm,'')
+    .replace(/^\d+\.\s?/gm,'')
+    .replace(/[*_`~=]/g,'')
+    .replace(/\s+/g,' ')
+    .trim();
   return text.slice(0,120);
 }
+function extractAttachRefs(md){
+  const { body } = parseFrontmatter(md||'');
+  const found = [];
+  let lm;
+  const reEmbed = /!\[\[([^\]]*)\]\]|!\[([^\]]*)\]\(([^)\s]+)\)/g;
+  while((lm = reEmbed.exec(body))){
+    if(lm[1] != null) found.push({ pos:lm.index, alt:lm[1], link:lm[1], embed:true });
+    else found.push({ pos:lm.index, alt:lm[2], link:lm[3], embed:true });
+  }
+  const reLink = /\[([^\]]*)\]\(([^)\s]+)\)/g;
+  while((lm = reLink.exec(body))){
+    if(body[lm.index-1] === '!') continue;
+    found.push({ pos:lm.index, alt:lm[1], link:lm[2], embed:false });
+  }
+  found.sort((a,b)=>a.pos-b.pos);
+  return found.map(({pos, ...r})=>r);
+}
 
-window.MD = {
-  parseFrontmatter, stringifyFrontmatter, toHTML,
-  todoLines, setTodoLine, extractTags, extractSummary,
-  extractAttachRefs(md){
-    const { body } = parseFrontmatter(md||'');
-    const refs = [];
-    (body.match(/!\[\[([^\]]*)\]\]/g)||[]).forEach(s=>{ const a=s.slice(3,-2); refs.push({alt:a,link:a,embed:true}); });
-    (body.match(/!\[([^\]]*)\]\(([^)\s]+)\)/g)||[]).forEach(s=>{
-      const m=s.match(/!\[([^\]]*)\]\(([^)\s]+)\)/); refs.push({alt:m[1],link:m[2],embed:true}); });
-    (body.match(/\[([^\]]+)\]\(([^)\s]+)\)/g)||[]).forEach(s=>{
-      const m=s.match(/\[([^\]]+)\]\(([^)\s]+)\)/);
-      if(m && !s.startsWith('!')) refs.push({alt:m[1],link:m[2],embed:false}); });
-    return refs;
+/* ================= 导出 ================= */
+const MD = {
+  parseFrontmatter, stringifyFrontmatter,
+  parse, toHTML, htmlToMD, serialize,
+  todoLines, setTodoLine,
+  extractTags, extractSummary, extractAttachRefs
+};
+if(typeof window!=='undefined') window.MD = MD;
+if(typeof module!=='undefined' && module.exports) module.exports = MD;
+})();
+
+/* ============================================================
+   vault.js —— 纸片 v16 RealVault（M2 真实 CRUD，M3 源码模式）
+   全局名 Vault。业务层：索引 / 搜索 / 树 / 写盘调度。
+   建立在 VaultFS（低层文件系统）+ MD（Markdown 引擎）之上。
+   严格实现 docs/VAULT-INTERFACE.md 第 2 节全部方法。
+   路径一律 vault 相对 POSIX 路径，根目录用 ''（空串）。
+   ============================================================ */
+(function(){
+'use strict';
+
+/* 纯函数工具（VaultFS.util 在浏览器拼接时已就绪；node 单测时由测试文件注入 global.VaultFS） */
+const U = (typeof VaultFS!=='undefined' && VaultFS.util) ? VaultFS.util : {
+  norm(p){ if(!p) return ''; p=String(p).replace(/\\/g,'/').trim(); if(!p||p==='/') return '';
+    const out=[]; for(const seg of p.split('/')){ if(!seg||seg==='.') continue;
+      if(seg==='..'){ out.pop(); continue; } out.push(seg); } return out.join('/'); },
+  join(...parts){ return U.norm(parts.filter(x=>x!=null&&x!=='').map(String).join('/')); },
+  base(p){ p=U.norm(p); if(!p) return ''; const i=p.lastIndexOf('/'); return i<0?p:p.slice(i+1); },
+  dirOf(p){ p=U.norm(p); if(!p) return ''; const i=p.lastIndexOf('/'); return i<0?'':p.slice(0,i); },
+  stripExt(p){ const b=U.base(p); const i=b.lastIndexOf('.'); return i<=0?b:b.slice(0,i); }
+};
+
+/* ---------- 内部索引 ----------
+   _entries: Map<path, Entry>  非回收站的全部 .md
+   _trash:   Map<trashPath, {entry, originalPath}>
+   _folders: Set<dirPath>      全部非隐藏目录（含嵌套）
+   _attach:  Map<notePath, [{name, kind, url}> 附件缓存（objectURL） */
+const _entries = new Map();
+const _trash  = new Map();
+const _folders = new Set();
+const _attach = new Map();
+const _saveTimers = {};   // path -> timer（save 防抖）
+
+/* ---------- 由 md 全文构造 Entry ---------- */
+function makeEntry(path, md){
+  const parsed = MD.parseFrontmatter(md||'');
+  const fm = parsed.fm;
+  const name = U.base(path);
+  const folder = U.dirOf(path);
+  const title = U.stripExt(name);
+  const todos = MD.todoLines(md||'');
+  const now = Date.now();
+  return {
+    path, name, folder, title,
+    type: (fm && fm.type) || 'note',
+    color: (fm && fm.color) || null,
+    pinned: !!(fm && fm.pinned),
+    tags: (fm && Array.isArray(fm.tags)) ? fm.tags : MD.extractTags(md||''),
+    summary: MD.extractSummary(md||''),
+    id: (fm && fm.id) || path,
+    created: fm && fm.created ? Date.parse(fm.created) || now : now,
+    updated: fm && fm.updated ? Date.parse(fm.updated) || now : now,
+    mtime: fm && fm.updated ? Date.parse(fm.updated) || now : now,
+    todoTotal: todos.length,
+    todoDone: todos.filter(t=>t.done).length
+  };
+}
+
+/* 重写 frontmatter（保留正文原文） */
+function rewriteFM(md, newFm){
+  const parsed = MD.parseFrontmatter(md||'');
+  const body = parsed.body || md || '';
+  return MD.stringifyFrontmatter(newFm) + body;
+}
+function cleanFm(fm){
+  const out = {};
+  Object.keys(fm||{}).forEach(k=>{ if(fm[k]==null || fm[k]==='') return; out[k]=fm[k]; });
+  return out;
+}
+
+/* ---------- 递归扫描建索引（一次遍历，避免重复 list） ---------- */
+async function scanDir(dirPath){
+  let items = [];
+  try{ items = await VaultFS.list(dirPath); }catch(e){ return; }
+  for(const it of items){
+    if(it.name.startsWith('.')) continue;   // 隐藏文件（.trash/.tmp）跳过
+    const full = U.join(dirPath, it.name);
+    if(it.type==='folder'){
+      _folders.add(full);
+      await scanDir(full);
+    } else if(/\.md$/i.test(it.name)){
+      let md='';
+      try{ md = await VaultFS.read(full); }catch(e){ continue; }
+      _entries.set(full, makeEntry(full, md));
+    }
+  }
+}
+async function scanTrash(){
+  let list=[];
+  try{ list = await VaultFS.listTrash(); }catch(e){ return; }
+  for(const it of list){
+    if(!/\.md$/i.test(it.name)) continue;
+    const full = it.originalPath ? U.join('.trash', it.originalPath) : it.name;
+    let md='';
+    try{ md = await VaultFS.read(full); }catch(e){ continue; }
+    const entry = makeEntry(full, md);
+    _trash.set(full, { entry, originalPath: it.originalPath || U.stripExt(it.name) });
+  }
+}
+
+/* ---------- 索引辅助 ---------- */
+function subDirs(folder){
+  const out = [];
+  for(const d of _folders){
+    if(folder===''){ if(U.dirOf(d)==='') out.push(d); }
+    else if(U.dirOf(d)===folder) out.push(d);
+  }
+  return out.sort();
+}
+/* 该目录下（含所有子目录）的笔记数 */
+function notesUnder(dir){
+  let n=0;
+  for(const p of _entries.keys()){
+    const d = U.dirOf(p);
+    if(dir==='') n++;
+    else if(d===dir || d.indexOf(dir+'/')===0) n++;
+  }
+  return n;
+}
+function existingNames(folder){
+  const set = new Set();
+  for(const p of _entries.keys()){ if(U.dirOf(p)===folder) set.add(U.base(p)); }
+  for(const d of _folders){ if(U.dirOf(d)===folder) set.add(U.base(d)); }
+  return set;
+}
+
+/* ============================================================
+   Vault 对外门面
+   ============================================================ */
+const Vault = {
+  /* ---- 初始化 ---- */
+  async init(){
+    await VaultFS.init();
+    _entries.clear(); _trash.clear(); _folders.clear(); _attach.clear();
+    await scanDir('');
+    await scanTrash();
+    /* 首次启动：vault 为空则落 v15 示例 seed，保证首屏非空 */
+    if(!_entries.size && !_trash.size){
+      await this._seedV15();
+      /* 重新扫描 seed 落盘后的文件 */
+      _entries.clear(); _folders.clear();
+      await scanDir('');
+    }
+    return true;
+  },
+
+  /* ---- v15.4.4 示例 seed（转 md 落盘，按 工作/生活 分文件夹） ---- */
+  async _seedV15(){
+    const now = Date.now(), D = 864e5;
+    const notes = [
+      { folder:'工作', name:'本周采购清单.md', color:'yellow', pinned:true, type:'todo',
+        created:now-2*D, updated:now-36e5,
+        body:'## 本周采购清单\n\n- [x] 咖啡豆 200g\n- [x] 牛奶、鸡蛋 #p/high\n- [ ] 厨房纸巾\n- [ ] 洗衣液 #p/low\n- [ ] 周末的水果' },
+      { folder:'工作', name:'纸片 App 1.0 清单.md', color:'green', pinned:false, type:'todo',
+        created:now-6*D, updated:now-2*36e5,
+        body:'## 纸片 App 1.0 清单\n\n- [x] 新建笔记与待办\n- [x] 富文本：加粗 / 下划线 / 高亮 #p/high\n- [x] 笔记本分类整理\n- [ ] 实时搜索\n- [ ] 数据备份与恢复 #p/low' },
+      { folder:'工作', name:'产品灵感记录.md', color:'blue', pinned:false, type:'note',
+        created:now-4*D, updated:now-8*36e5,
+        body:'## 产品灵感记录\n\n便签的**字号调节**要像真实书写一样顺手；==搜索结果里高亮关键词==，让人一眼定位。\n\n待办卡片上直接显示完成进度条，比红点提醒更安静。' },
+      { folder:'生活', name:'读书笔记 ·《夜晚的潜水艇》.md', color:'pink', pinned:false, type:'note',
+        created:now-5*D, updated:now-5*D,
+        body:'## 读书笔记 ·《夜晚的潜水艇》\n\n陈春成的短篇，文字像**浸在水里**，<u>辽阔又克制</u>。\n\n==最喜欢《竹峰寺》==——一个人如何把一块石碑，连同自己的心事，妥帖地藏进山里。\n\n下次读他的新书前，可以先看看访谈。' },
+      { folder:'生活', name:'周末徒步路线.md', color:'purple', pinned:false, type:'note',
+        created:now-3*D, updated:now-3*D,
+        body:'## 周末徒步路线\n\n西山国家森林公园，<u>东门进、沿盘山步道上行</u>，约 6 公里。\n\n带 1.5L 水、帽子和干粮；==下午四点前下山==，赶上日落前的光线。' },
+      { folder:'生活', name:'随手记.md', color:'cream', pinned:false, type:'note',
+        created:now-D, updated:now-D,
+        body:'## 随手记\n\n便利店新出的桂花拿铁不错，**秋天的味道**。' }
+    ];
+    for(const n of notes){
+      await VaultFS.mkdir(n.folder);
+      const fm = cleanFm({
+        id: 'seed-'+Math.random().toString(16).slice(2,10),
+        created: new Date(n.created).toISOString(),
+        updated: new Date(n.updated).toISOString(),
+        color: n.color, pinned: n.pinned || undefined, type: n.type, tags: []
+      });
+      await VaultFS.write(U.join(n.folder, n.name), MD.stringifyFrontmatter(fm) + n.body);
+    }
+  },
+
+  /* ---- 当前文件夹内容：文件夹置顶，其后 md（pinned 在前） ---- */
+  entries(folderPath){
+    folderPath = folderPath || '';
+    const folders = subDirs(folderPath).map(d=>({
+      type:'folder', name:U.base(d)+'/', path:d,
+      title:U.base(d), count:notesUnder(d)
+    }));
+    const notes = Array.from(_entries.values())
+      .filter(e=>e.folder===folderPath)
+      .sort((a,b)=> (b.pinned-a.pinned) || (b.updated-a.updated));
+    return Promise.resolve({ folders, notes });
+  },
+
+  /* ---- 全量嵌套树 ---- */
+  tree(){
+    const build = (dir)=>{
+      const node = { name: dir==='' ? '资料库' : U.base(dir), path:dir, type:'folder', children:[], count:notesUnder(dir) };
+      subDirs(dir).forEach(d=>node.children.push(build(d)));
+      return node;
+    };
+    return build('');
+  },
+
+  /* ---- 读单篇 ---- */
+  async get(path){
+    let md='';
+    try{ md = await VaultFS.read(path); }catch(e){ throw new Error('笔记不存在：'+path); }
+    const entry = makeEntry(path, md);
+    const parsed = MD.parseFrontmatter(md);
+    return { entry, md, frontmatter:parsed.fm, html:MD.toHTML(md) };
+  },
+
+  /* ---- 搜索：标题/正文/标签 ---- */
+  search(q){
+    q = (q||'').trim().toLowerCase();
+    if(!q) return Promise.resolve([]);
+    const hits = Array.from(_entries.values()).filter(e=>{
+      if(e.title.toLowerCase().includes(q)) return true;
+      if(e.summary.toLowerCase().includes(q)) return true;
+      if((e.tags||[]).some(t=>t.toLowerCase().includes(q))) return true;
+      return false;
+    });
+    return Promise.resolve(hits);
+  },
+
+  /* ---- 新建文件夹 ---- */
+  async createFolder(parentDir, name){
+    name = (name||'').trim() || '新文件夹';
+    parentDir = parentDir || '';
+    let path = U.join(parentDir, name);
+    /* 重名加序号 */
+    const existing = existingNames(parentDir);
+    if(existing.has(name+'.md') || _folders.has(path)){
+      let n=2;
+      while(existing.has(name+' '+n+'.md') || _folders.has(U.join(parentDir, name+' '+n))) n++;
+      name = name+' '+n;
+      path = U.join(parentDir, name);
+    }
+    await VaultFS.mkdir(path);
+    _folders.add(path);
+    return path;
+  },
+
+  /* ---- 新建并落盘 ---- */
+  async create({ title, folder, type, content }){
+    title = (title||'').trim() || '未命名';
+    folder = folder || '';
+    if(folder) await VaultFS.mkdir(folder);
+    const name = U.base(U.join(folder, title+'.md'));
+    const finalName = VaultFS.util ? VaultFS.util.dedupeName(existingNames(folder), name) : name;
+    const path = U.join(folder, finalName);
+    const fm = cleanFm({
+      id: Math.random().toString(16).slice(2,10),
+      created: new Date().toISOString(), updated: new Date().toISOString(),
+      type: type||'note', tags: []
+    });
+    const md = MD.stringifyFrontmatter(fm) + (content||'');
+    await VaultFS.write(path, md);
+    _entries.set(path, makeEntry(path, md));
+    /* 更新 _folders（若 folder 是新目录） */
+    if(folder){
+      let acc='';
+      for(const seg of folder.split('/')){ acc = acc?acc+'/'+seg:seg; _folders.add(acc); }
+    }
+    return path;
+  },
+
+  /* ---- 保存（防抖 500ms，原子写 + 更新索引） ---- */
+  save(path, md){
+    if(_saveTimers[path]) clearTimeout(_saveTimers[path]);
+    return new Promise(resolve=>{
+      _saveTimers[path] = setTimeout(async ()=>{
+        delete _saveTimers[path];
+        try{
+          await VaultFS.write(path, md);
+          _entries.set(path, makeEntry(path, md));
+        }catch(e){ console.warn('save failed', e); }
+        resolve(path);
+      }, 500);
+    });
+  },
+
+  /* ---- 强制刷盘（退出编辑器时调用） ---- */
+  async flushSave(path){
+    if(_saveTimers[path]){ clearTimeout(_saveTimers[path]); delete _saveTimers[path]; }
+    /* 最近一次 md 已在内存；若有未刷盘的，这里直接写 */
+    /* 由 UI 在退出前调用 Vault.save 后再调 flush */
+  },
+
+  /* ---- 重命名（改标题=改文件名，重名加序号） ---- */
+  async rename(path, title){
+    title = (title||'').trim() || '未命名';
+    const folder = U.dirOf(path);
+    const newName = U.base(U.join(folder, title+'.md'));
+    const existing = new Set(existingNames(folder));
+    existing.delete(U.base(path));   // 自身不算冲突
+    const finalName = VaultFS.util ? VaultFS.util.dedupeName(existing, newName) : newName;
+    const newPath = U.join(folder, finalName);
+    if(newPath===path) return path;
+    let md='';
+    try{ md = await VaultFS.read(path); }catch(e){ return path; }
+    await VaultFS.rename(path, newPath);
+    _entries.delete(path);
+    _entries.set(newPath, makeEntry(newPath, md));
+    /* 附件目录随迁（M4 完整实现；M2 仅处理 md） */
+    return newPath;
+  },
+
+  /* ---- 移动到文件夹 ---- */
+  async move(path, dirPath){
+    dirPath = dirPath || '';
+    if(dirPath) await VaultFS.mkdir(dirPath);
+    const newPath = await VaultFS.move(path, dirPath);
+    let md='';
+    try{ md = await VaultFS.read(newPath); }catch(e){}
+    _entries.delete(path);
+    if(md) _entries.set(newPath, makeEntry(newPath, md));
+    if(dirPath){
+      let acc='';
+      for(const seg of dirPath.split('/')){ acc = acc?acc+'/'+seg:seg; _folders.add(acc); }
+    }
+    return newPath;
+  },
+
+  /* ---- 删除（进回收站） ---- */
+  async remove(path){
+    const md = _entries.get(path);
+    const trashPath = await VaultFS.trash(path);
+    _entries.delete(path);
+    let bodyMd='';
+    try{ bodyMd = await VaultFS.read(trashPath); }catch(e){ bodyMd = md? MD.stringifyFrontmatter(md) : ''; }
+    const entry = makeEntry(trashPath, bodyMd);
+    _trash.set(trashPath, { entry, originalPath: path });
+    return trashPath;
+  },
+
+  /* ---- 回收站列表 ---- */
+  trashList(){
+    const list = Array.from(_trash.values()).map(v=>({ entry:v.entry, originalPath:v.originalPath }));
+    return Promise.resolve(list);
+  },
+
+  /* ---- 恢复 ---- */
+  async restore(trashPath){
+    const orig = await VaultFS.restore(trashPath);
+    let md='';
+    try{ md = await VaultFS.read(orig); }catch(e){}
+    _trash.delete(trashPath);
+    if(md) _entries.set(orig, makeEntry(orig, md));
+    return orig;
+  },
+
+  /* ---- 彻底删除 ---- */
+  async deleteForever(trashPath){
+    try{ await VaultFS.delete(trashPath); }catch(e){}
+    _trash.delete(trashPath);
+    return true;
+  },
+
+  /* ---- 待办勾选回写（只改该行，立即写盘） ---- */
+  async toggleTodo(path, rowKey){
+    let md='';
+    try{ md = await VaultFS.read(path); }catch(e){ return null; }
+    const lines = MD.todoLines(md);
+    const cur = lines.find(t=>t.key===String(rowKey));
+    const newMd = MD.setTodoLine(md, rowKey, { done: !(cur && cur.done) });
+    await VaultFS.write(path, newMd);
+    _entries.set(path, makeEntry(path, newMd));
+    const nl = MD.todoLines(newMd).find(t=>t.key===String(rowKey));
+    return nl ? { done: nl.done, key: rowKey } : null;
+  },
+
+  /* ---- 改颜色（仅改 frontmatter，立即写盘） ---- */
+  async setColor(path, color){
+    let md='';
+    try{ md = await VaultFS.read(path); }catch(e){ return path; }
+    const parsed = MD.parseFrontmatter(md);
+    const fm = cleanFm(parsed.fm || {});
+    if(color) fm.color = color; else delete fm.color;
+    const newMd = rewriteFM(md, fm);
+    await VaultFS.write(path, newMd);
+    _entries.set(path, makeEntry(path, newMd));
+    return path;
+  },
+
+  /* ---- 置顶（仅改 frontmatter，立即写盘） ---- */
+  async setPin(path, pinned){
+    let md='';
+    try{ md = await VaultFS.read(path); }catch(e){ return path; }
+    const parsed = MD.parseFrontmatter(md);
+    const fm = cleanFm(parsed.fm || {});
+    fm.pinned = !!pinned;
+    const newMd = rewriteFM(md, fm);
+    await VaultFS.write(path, newMd);
+    _entries.set(path, makeEntry(path, newMd));
+    return path;
+  },
+
+  /* ---- 面包屑 ---- */
+  crumbs(path){
+    const parts = [];
+    const dir = U.dirOf(path||'');
+    parts.push({name:'资料库', path:''});
+    let acc='';
+    dir.split('/').forEach(seg=>{ if(!seg) return; acc = acc?acc+'/'+seg:seg; parts.push({name:seg, path:acc}); });
+    return parts;
+  },
+
+  /* ---- 统计 ---- */
+  async stats(){
+    let bytes=0;
+    for(const e of _entries.values()){ bytes += (e.summary||'').length; }
+    return { notes:_entries.size, folders:_folders.size, attachments:_attach.size, bytes };
+  },
+
+  /* ---- 附件（M2 基础实现：从 md 提取引用，尝试 objectURL） ---- */
+  async attachments(path){
+    if(_attach.has(path)) return _attach.get(path);
+    let md='';
+    try{ md = await VaultFS.read(path); }catch(e){ return []; }
+    const refs = MD.extractAttachRefs(md);
+    const list = [];
+    for(const r of refs){
+      const name = U.base(r.link);
+      let url = null, kind = 'file';
+      if(r.embed){
+        kind = /\.(jpe?g|png|gif|webp)$/i.test(name) ? 'image' : 'file';
+        try{
+          const blob = await VaultFS.readBlob(r.link);
+          if(blob && typeof URL!=='undefined' && URL.createObjectURL) url = URL.createObjectURL(blob);
+        }catch(e){}
+      }
+      list.push({ name, kind, url });
+    }
+    _attach.set(path, list);
+    return list;
+  },
+  async attachmentUrl(path, name){
+    const list = await this.attachments(path);
+    const f = list.find(a=>a.name===name);
+    return f ? f.url : null;
+  },
+
+  /* ---- 清空回收站 ---- */
+  async emptyTrash(){
+    for(const trashPath of Array.from(_trash.keys())){
+      try{ await VaultFS.delete(trashPath); }catch(e){}
+    }
+    _trash.clear();
+    return true;
   }
 };
+
+/* 浏览器挂全局；node 测试环境导出 */
+if(typeof window!=='undefined') window.Vault = Vault;
+if(typeof module!=='undefined' && module.exports) module.exports = Vault;
 })();
 
 /* ============================================================
@@ -9003,7 +10212,10 @@ const S = {
 };
 
 let root = null;
-const Vault = MockVault;   /* M2 换 RealVault：const Vault = useMock ? MockVault : RealVault */
+const APP_VERSION = '16.0.0-alpha.2';
+/* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
+const USE_MOCK = false;
+const Vault = USE_MOCK ? MockVault : window.Vault;
 
 /* ---------- 工具 ---------- */
 const fmtDate = (ts)=>{ const d=new Date(ts); const p=n=>String(n).padStart(2,'0');
@@ -9312,8 +10524,41 @@ function renderEditor(){
   }
   $('#v16EdScroll').innerHTML = body;
 
-  /* 标题联动 */
-  $('#v16EdTitle').oninput = (ev)=>{ /* M2 真实重命名；M1 仅 toast 提示防抖 */ };
+  /* 标题联动文件名（防抖 600ms 调 Vault.rename） */
+  let titleTimer=null;
+  $('#v16EdTitle').oninput = (ev)=>{
+    clearTimeout(titleTimer);
+    const newTitle = ev.target.value.trim() || '未命名';
+    titleTimer = setTimeout(async ()=>{
+      if(newTitle === e.title) return;
+      try{
+        const newPath = await Vault.rename(e.path, newTitle);
+        if(newPath !== e.path){
+          S.curNote = newPath; e.path = newPath; e.title = newTitle;
+          S._cur = await Vault.get(newPath);
+          renderCrumbs();
+          toast('已重命名为「'+newTitle+'」');
+        }
+      }catch(err){ console.warn('rename failed', err); }
+    }, 600);
+  };
+
+  /* 源码模式：textarea 可编辑，防抖 500ms 保存；切回渲染时刷新 html */
+  if(S.sourceMode){
+    const ta = $('#v16SourceTa');
+    let srcTimer=null;
+    ta.oninput = ()=>{
+      clearTimeout(srcTimer);
+      srcTimer = setTimeout(async ()=>{
+        const newMd = ta.value;
+        try{ await Vault.save(e.path, newMd); }catch(err){ console.warn('save failed', err); }
+        S._cur.md = newMd;
+        S._cur.html = MD.toHTML(newMd);
+        /* 同步更新 entry 的 summary/todo 计数 */
+        S._cur.entry = (await Vault.get(e.path)).entry;
+      }, 500);
+    };
+  }
   /* 待办勾选 */
   $('#v16EdScroll').querySelectorAll('.v16-todo').forEach(row=>{
     row.onclick = async ()=>{
@@ -9369,7 +10614,7 @@ async function renderSettings(){
     + g('g-more','更多',I.settings, `
       <div class="v16-row" data-row="ai"><span class="rl">AI 服务与模型</span><span class="rv">OpenAI 兼容</span></div>
       <div class="v16-row" data-row="log"><span class="rl">运行日志</span>${I.export.replace('stic','rgo')}</div>
-      <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v16.0.0-alpha.1</span></div>
+      <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v${APP_VERSION}</span></div>
       <div class="v16-row"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
     `);
 
@@ -9385,7 +10630,7 @@ async function renderSettings(){
       const a = r.dataset.row;
       if(a==='theme'){ toggleTheme(true); }
       else if(a==='migrate'){ toast('迁移旧库 · M4 接入'); }
-      else if(a==='about'){ toast('纸片 v16.0.0-alpha.1'); }
+      else if(a==='about'){ toast('纸片 v'+APP_VERSION); }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };
   });
@@ -9483,21 +10728,50 @@ function bind(){
       renderHome();
     };
   });
-  /* FAB */
+  /* FAB：长按展开菜单；菜单内真实新建 */
   const fab = $('#v16Fab'), menu = $('#v16FabMenu');
-  fab.onclick = ()=>{ if(S.fabOpen){ /* 单击新建笔记 */ menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false; toast('新建笔记 · M2 接入'); } };
+  fab.onclick = ()=>{ if(S.fabOpen){ menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false; } };
   bindLongPress(fab, ()=>{ S.fabOpen=true; menu.classList.add('open'); fab.classList.add('open'); });
   menu.querySelectorAll('.v16-fab-item').forEach(it=>{
-    it.onclick = ()=>{
+    it.onclick = async ()=>{
       menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false;
-      if(it.dataset.f==='note') toast('新建笔记 · M2 接入');
-      else if(it.dataset.f==='folder') toast('新建文件夹 · M2 接入');
-      else toast('导入文件 · M4 接入');
+      try{
+        if(it.dataset.f==='note'){
+          const path = await Vault.create({ title:'未命名', folder:S.curFolder, type:'note' });
+          await renderHome();
+          await openNote(path);
+        } else if(it.dataset.f==='folder'){
+          /* 新建文件夹：先在当前目录建一个"新文件夹" */
+          const nm = '新文件夹';
+          const path = await Vault.createFolder ? await Vault.createFolder(S.curFolder, nm) : null;
+          toast('已新建文件夹'); renderHome();
+        } else toast('导入文件 · M4 接入');
+      }catch(e){ console.warn('create failed', e); toast('新建失败'); }
     };
   });
   /* 编辑器 */
-  $('#v16EdBack').onclick = ()=>{ show('home'); renderHome(); };
-  $('#v16EdSource').onclick = ()=>{ S.sourceMode=!S.sourceMode; renderEditor(); };
+  $('#v16EdBack').onclick = async ()=>{
+    /* 退出前：若源码模式 textarea 有未保存内容，立即落盘 */
+    if(S.sourceMode && S._cur){
+      const ta = $('#v16SourceTa');
+      if(ta && ta.value !== S._cur.md){
+        try{ await Vault.save(S._cur.entry.path, ta.value); }catch(e){}
+      }
+    }
+    show('home'); renderHome();
+  };
+  $('#v16EdSource').onclick = async ()=>{
+    /* 从源码切回渲染：先保存 textarea 最新内容，再用最新 md 重新渲染 */
+    if(S.sourceMode && S._cur){
+      const ta = $('#v16SourceTa');
+      if(ta){
+        try{ await Vault.save(S._cur.entry.path, ta.value); }catch(e){}
+        S._cur = await Vault.get(S._cur.entry.path);
+      }
+    }
+    S.sourceMode = !S.sourceMode;
+    renderEditor();
+  };
   $('#v16EdMore').onclick = ()=>openSheet('笔记操作', [
     {icon:I.move, label:'移动到…', fn:()=>toast('移动到… · M2 接入')},
     {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ await Vault.remove(S._cur.entry.path); toast('已移入回收站'); show('home'); renderHome(); } }},
@@ -9521,11 +10795,29 @@ function bind(){
   /* 图片查看器 */
   $('#v16ImgClose').onclick = ()=>$('#v16ImgViewer').classList.remove('open');
   $('#v16ImgViewer').onclick = (e)=>{ if(e.target.id==='v16ImgViewer') e.currentTarget.classList.remove('open'); };
-  /* 抽屉新建 */
-  $('#v16DrawerNew').onclick = ()=>toast('新建文件夹 · M2 接入');
-  /* 多选操作条 */
+  /* 抽屉新建文件夹 */
+  $('#v16DrawerNew').onclick = async ()=>{
+    try{ await Vault.createFolder(S.curFolder, '新文件夹'); toast('已新建文件夹'); renderDrawer(); renderHome(); }
+    catch(e){ console.warn(e); toast('新建文件夹失败'); }
+  };
+  /* 多选操作条：批量删除真实，其余单篇操作已在编辑器更多里支持 */
   $('#v16Selbar').querySelectorAll('button').forEach(b=>{
-    b.onclick = ()=>{ toast('批量'+b.dataset.a+' · M2 接入'); S.selecting=false; S.selected=new Set(); renderHome(); };
+    b.onclick = async ()=>{
+      const action = b.dataset.a;
+      const paths = Array.from(S.selected);
+      if(action==='del'){
+        for(const p of paths){ try{ await Vault.remove(p); }catch(e){} }
+        toast('已移入回收站');
+      } else if(action==='pin'){
+        for(const p of paths){ try{ await Vault.setPin(p, true); }catch(e){} }
+        toast('已置顶');
+      } else if(action==='color'){
+        toast('批量颜色 · 单篇可在编辑器里设置');
+      } else if(action==='move'){
+        toast('批量移动 · 单篇可在编辑器"移动到…"');
+      }
+      S.selecting=false; S.selected=new Set(); renderHome();
+    };
   });
 }
 

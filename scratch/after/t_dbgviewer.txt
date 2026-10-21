@@ -1,0 +1,2 @@
+PASS: 查看器打开
+PASS: 离开编辑器后大图查看器被收走（commitEditor 清理）

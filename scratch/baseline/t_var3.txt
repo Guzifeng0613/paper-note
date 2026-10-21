@@ -1,0 +1,13 @@
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+page.evaluate: SecurityError: Failed to read the 'cssRules' property from 'CSSStyleSheet': Cannot access rules
+    at eval (eval at evaluate (:303:30), <anonymous>:13:74)
+    at UtilityScript.evaluate (<anonymous>:305:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at /home/user/Doubao/chats/38447785792052226/notes-app/.worktrees/md-vault/_verify/t_var3.js:10:22 {
+  log: []
+}
+
+Node.js v22.23.2

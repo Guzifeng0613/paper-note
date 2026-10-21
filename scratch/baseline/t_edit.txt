@@ -1,0 +1,14 @@
+hash: #/home editor class: screen
+node:internal/process/promises:394
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+page.evaluate: ReferenceError: id is not defined
+    at eval (eval at evaluate (:303:30), <anonymous>:1:33)
+    at UtilityScript.evaluate (<anonymous>:305:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+    at /home/user/Doubao/chats/38447785792052226/notes-app/.worktrees/md-vault/_verify/t_edit.js:24:14 {
+  log: []
+}
+
+Node.js v22.23.2

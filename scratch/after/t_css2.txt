@@ -1,0 +1,6 @@
+{
+ "baseTransform": "matrix(1, 0, 0, 1, 0, 0)",
+ "pressingTransform": "matrix(1, 0, 0, 1, 0, 0)",
+ "shadow": "rgba(140, 150, 190, 0.38) 14px 14px 30px",
+ "inlineTransform": "matrix(1, 0, 0, 1, 0, 0)"
+}

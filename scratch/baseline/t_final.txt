@@ -1,0 +1,13 @@
+PASS: 降级：主题直接切换无扩散层
+PASS: 降级：过渡时长被压到 1e-05s
+errors: 0
+PASS: 回归：textarea 输入正常，拖拽未拦截（待办A补充文字）
+PASS: 回归：回车新增待办行（3）
+PASS: #7 从 textarea 起手不触发拖拽
+PASS: #10 Esc 关闭联想
+PASS: #10 触发条件失效（空格后）自动收起
+PASS: #13 清空回收站按钮纳入 Press-to-Cancel 选择器
+PASS: #13 清空按钮按下有确认态
+PASS: 深色主题编辑器待办区可见（{"bg":"rgba(0, 0, 0, 0)","visible":true}）
+PASS: 深色下 #8 勾选动画正常
+errors: 0

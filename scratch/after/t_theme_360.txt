@@ -1,0 +1,26 @@
+{
+ "light": {
+  "left": 29,
+  "right": 127,
+  "top": 116,
+  "bottom": 150
+ },
+ "dark": {
+  "left": 131,
+  "right": 229,
+  "top": 116,
+  "bottom": 150
+ },
+ "auto": {
+  "left": 233,
+  "right": 331,
+  "top": 116,
+  "bottom": 150
+ },
+ "back": {
+  "left": 22,
+  "right": 62,
+  "top": 13,
+  "bottom": 53
+ }
+}

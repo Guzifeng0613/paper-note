@@ -1,0 +1,3 @@
+back btn point: { x: 32, y: 33 }
+hash: #/settings
+

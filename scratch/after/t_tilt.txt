@@ -1,0 +1,6 @@
+{
+ "cls": "note-card pressing",
+ "transform": "matrix(1, 0, 0, 1, 0, 0)",
+ "afterOpacity": "0",
+ "afterBg": "radial-gradient(200px at 23.1% 25.4%, rgba(255, 255, 255, 0."
+}

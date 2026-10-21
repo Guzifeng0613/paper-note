@@ -365,12 +365,123 @@ class Bridge {
                     a.cbData(callId, new JSONObject());
                     break;
                 }
+                /* ---------- v16 Vault：目录式 Markdown 资料库 ---------- */
+                case "vaultRoot": {
+                    a.cbData(callId, Storage.vaultRootDesc(a));
+                    break;
+                }
+                case "vaultList": {
+                    JSONObject p = vaultPayload(payload);
+                    a.cbData(callId, Storage.vaultList(a, p.optString("path", "")));
+                    break;
+                }
+                case "vaultRead": {
+                    JSONObject p = vaultPayload(payload);
+                    a.cbData(callId, Storage.vaultRead(a, p.optString("path", "")));
+                    break;
+                }
+                case "vaultWrite": {
+                    JSONObject p = vaultPayload(payload);
+                    Storage.vaultWrite(a, p.optString("path", ""), p.optString("text", ""));
+                    a.cbData(callId, new JSONObject().put("path", p.optString("path", "")));
+                    break;
+                }
+                case "vaultMkdir": {
+                    JSONObject p = vaultPayload(payload);
+                    Storage.vaultMkdir(a, p.optString("path", ""));
+                    a.cbData(callId, new JSONObject().put("path", p.optString("path", "")));
+                    break;
+                }
+                case "vaultRename": {
+                    JSONObject p = vaultPayload(payload);
+                    Storage.vaultRename(a, p.optString("path", ""), p.optString("newPath", ""));
+                    a.cbData(callId, new JSONObject().put("newPath", p.optString("newPath", "")));
+                    break;
+                }
+                case "vaultMove": {
+                    JSONObject p = vaultPayload(payload);
+                    String rel = p.optString("path", "");
+                    String dir = p.optString("dirPath", "");
+                    String base = vaultBaseOf(rel);
+                    String target = (dir.isEmpty() ? "" : dir + "/") + base;
+                    Storage.vaultRename(a, rel, target);
+                    a.cbData(callId, target);
+                    break;
+                }
+                case "vaultTrash": {
+                    JSONObject p = vaultPayload(payload);
+                    String t = Storage.vaultTrash(a, p.optString("path", ""));
+                    a.cbData(callId, new JSONObject().put("trashPath", t));
+                    break;
+                }
+                case "vaultRestore": {
+                    JSONObject p = vaultPayload(payload);
+                    String o = Storage.vaultRestore(a, p.optString("path", ""));
+                    a.cbData(callId, new JSONObject().put("path", o));
+                    break;
+                }
+                case "vaultListTrash": {
+                    a.cbData(callId, Storage.vaultListTrash(a));
+                    break;
+                }
+                case "vaultDelete": {
+                    JSONObject p = vaultPayload(payload);
+                    Storage.vaultDelete(a, p.optString("path", ""));
+                    a.cbData(callId, new JSONObject());
+                    break;
+                }
+                case "vaultReadBlob": {
+                    JSONObject p = vaultPayload(payload);
+                    byte[] bytes = Storage.vaultReadBlobBytes(a, p.optString("path", ""));
+                    JSONObject r = new JSONObject();
+                    r.put("b64", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP));
+                    r.put("type", Storage.mimeOf(Storage.vaultBase(p.optString("path", ""))));
+                    a.cbData(callId, r);
+                    break;
+                }
+                case "vaultWriteAttachment": {
+                    JSONObject p = vaultPayload(payload);
+                    byte[] bytes = android.util.Base64.decode(p.optString("b64", ""), android.util.Base64.DEFAULT);
+                    String rel = Storage.vaultWriteAttachment(a, p.optString("notePath", ""),
+                            p.optString("name", "附件"), bytes);
+                    a.cbData(callId, new JSONObject().put("path", rel));
+                    break;
+                }
+                case "vaultImportFile": {
+                    JSONObject p = vaultPayload(payload);
+                    a.cbData(callId, Storage.vaultImportFile(a,
+                            p.optString("uri", ""), p.optString("dirPath", "")));
+                    break;
+                }
+                case "vaultBindFolder": {
+                    a.launch(callId, new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE),
+                            MainActivity.RC_VAULT_BIND);
+                    break;
+                }
+                case "vaultExport": {
+                    Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.setType("application/zip");
+                    i.putExtra(Intent.EXTRA_TITLE, "zhipian-vault-"
+                            + new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date()) + ".zip");
+                    a.launch(callId, i, MainActivity.RC_VAULT_EXPORT);
+                    break;
+                }
                 default:
                     a.cbErr(callId, "未知方法：" + method);
             }
         } catch (Exception e) {
             a.cbErr(callId, e.getMessage());
         }
+    }
+
+    /* payload 容错：无参方法传来空串时给空 JSONObject */
+    static JSONObject vaultPayload(String payload) throws Exception {
+        return (payload == null || payload.length() == 0) ? new JSONObject() : new JSONObject(payload);
+    }
+    static String vaultBaseOf(String rel) {
+        int i = rel.lastIndexOf('/');
+        return i < 0 ? rel : rel.substring(i + 1);
     }
 
     void openFile(final String callId, final String id) {

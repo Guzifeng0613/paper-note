@@ -1,0 +1,12 @@
+{
+ "wrapClass": "notes-wrap grid ready",
+ "cardAnim": "none",
+ "cardAnimDur": "0s",
+ "transform": "matrix(1, 0, 0, 1, 0, 0)",
+ "afterOpacity": "0",
+ "pressedRuleMatch": true,
+ "vars": {
+  "rx": "2.21deg",
+  "ry": "-2.96deg"
+ }
+}

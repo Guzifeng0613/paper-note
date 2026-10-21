@@ -58,7 +58,10 @@ const S = {
 };
 
 let root = null;
-const Vault = MockVault;   /* M2 换 RealVault：const Vault = useMock ? MockVault : RealVault */
+const APP_VERSION = '16.0.0-alpha.2';
+/* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
+const USE_MOCK = false;
+const Vault = USE_MOCK ? MockVault : window.Vault;
 
 /* ---------- 工具 ---------- */
 const fmtDate = (ts)=>{ const d=new Date(ts); const p=n=>String(n).padStart(2,'0');
@@ -367,8 +370,41 @@ function renderEditor(){
   }
   $('#v16EdScroll').innerHTML = body;
 
-  /* 标题联动 */
-  $('#v16EdTitle').oninput = (ev)=>{ /* M2 真实重命名；M1 仅 toast 提示防抖 */ };
+  /* 标题联动文件名（防抖 600ms 调 Vault.rename） */
+  let titleTimer=null;
+  $('#v16EdTitle').oninput = (ev)=>{
+    clearTimeout(titleTimer);
+    const newTitle = ev.target.value.trim() || '未命名';
+    titleTimer = setTimeout(async ()=>{
+      if(newTitle === e.title) return;
+      try{
+        const newPath = await Vault.rename(e.path, newTitle);
+        if(newPath !== e.path){
+          S.curNote = newPath; e.path = newPath; e.title = newTitle;
+          S._cur = await Vault.get(newPath);
+          renderCrumbs();
+          toast('已重命名为「'+newTitle+'」');
+        }
+      }catch(err){ console.warn('rename failed', err); }
+    }, 600);
+  };
+
+  /* 源码模式：textarea 可编辑，防抖 500ms 保存；切回渲染时刷新 html */
+  if(S.sourceMode){
+    const ta = $('#v16SourceTa');
+    let srcTimer=null;
+    ta.oninput = ()=>{
+      clearTimeout(srcTimer);
+      srcTimer = setTimeout(async ()=>{
+        const newMd = ta.value;
+        try{ await Vault.save(e.path, newMd); }catch(err){ console.warn('save failed', err); }
+        S._cur.md = newMd;
+        S._cur.html = MD.toHTML(newMd);
+        /* 同步更新 entry 的 summary/todo 计数 */
+        S._cur.entry = (await Vault.get(e.path)).entry;
+      }, 500);
+    };
+  }
   /* 待办勾选 */
   $('#v16EdScroll').querySelectorAll('.v16-todo').forEach(row=>{
     row.onclick = async ()=>{
@@ -424,7 +460,7 @@ async function renderSettings(){
     + g('g-more','更多',I.settings, `
       <div class="v16-row" data-row="ai"><span class="rl">AI 服务与模型</span><span class="rv">OpenAI 兼容</span></div>
       <div class="v16-row" data-row="log"><span class="rl">运行日志</span>${I.export.replace('stic','rgo')}</div>
-      <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v16.0.0-alpha.1</span></div>
+      <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v${APP_VERSION}</span></div>
       <div class="v16-row"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
     `);
 
@@ -440,7 +476,7 @@ async function renderSettings(){
       const a = r.dataset.row;
       if(a==='theme'){ toggleTheme(true); }
       else if(a==='migrate'){ toast('迁移旧库 · M4 接入'); }
-      else if(a==='about'){ toast('纸片 v16.0.0-alpha.1'); }
+      else if(a==='about'){ toast('纸片 v'+APP_VERSION); }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };
   });
@@ -538,21 +574,50 @@ function bind(){
       renderHome();
     };
   });
-  /* FAB */
+  /* FAB：长按展开菜单；菜单内真实新建 */
   const fab = $('#v16Fab'), menu = $('#v16FabMenu');
-  fab.onclick = ()=>{ if(S.fabOpen){ /* 单击新建笔记 */ menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false; toast('新建笔记 · M2 接入'); } };
+  fab.onclick = ()=>{ if(S.fabOpen){ menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false; } };
   bindLongPress(fab, ()=>{ S.fabOpen=true; menu.classList.add('open'); fab.classList.add('open'); });
   menu.querySelectorAll('.v16-fab-item').forEach(it=>{
-    it.onclick = ()=>{
+    it.onclick = async ()=>{
       menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false;
-      if(it.dataset.f==='note') toast('新建笔记 · M2 接入');
-      else if(it.dataset.f==='folder') toast('新建文件夹 · M2 接入');
-      else toast('导入文件 · M4 接入');
+      try{
+        if(it.dataset.f==='note'){
+          const path = await Vault.create({ title:'未命名', folder:S.curFolder, type:'note' });
+          await renderHome();
+          await openNote(path);
+        } else if(it.dataset.f==='folder'){
+          /* 新建文件夹：先在当前目录建一个"新文件夹" */
+          const nm = '新文件夹';
+          const path = await Vault.createFolder ? await Vault.createFolder(S.curFolder, nm) : null;
+          toast('已新建文件夹'); renderHome();
+        } else toast('导入文件 · M4 接入');
+      }catch(e){ console.warn('create failed', e); toast('新建失败'); }
     };
   });
   /* 编辑器 */
-  $('#v16EdBack').onclick = ()=>{ show('home'); renderHome(); };
-  $('#v16EdSource').onclick = ()=>{ S.sourceMode=!S.sourceMode; renderEditor(); };
+  $('#v16EdBack').onclick = async ()=>{
+    /* 退出前：若源码模式 textarea 有未保存内容，立即落盘 */
+    if(S.sourceMode && S._cur){
+      const ta = $('#v16SourceTa');
+      if(ta && ta.value !== S._cur.md){
+        try{ await Vault.save(S._cur.entry.path, ta.value); }catch(e){}
+      }
+    }
+    show('home'); renderHome();
+  };
+  $('#v16EdSource').onclick = async ()=>{
+    /* 从源码切回渲染：先保存 textarea 最新内容，再用最新 md 重新渲染 */
+    if(S.sourceMode && S._cur){
+      const ta = $('#v16SourceTa');
+      if(ta){
+        try{ await Vault.save(S._cur.entry.path, ta.value); }catch(e){}
+        S._cur = await Vault.get(S._cur.entry.path);
+      }
+    }
+    S.sourceMode = !S.sourceMode;
+    renderEditor();
+  };
   $('#v16EdMore').onclick = ()=>openSheet('笔记操作', [
     {icon:I.move, label:'移动到…', fn:()=>toast('移动到… · M2 接入')},
     {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ await Vault.remove(S._cur.entry.path); toast('已移入回收站'); show('home'); renderHome(); } }},
@@ -576,11 +641,29 @@ function bind(){
   /* 图片查看器 */
   $('#v16ImgClose').onclick = ()=>$('#v16ImgViewer').classList.remove('open');
   $('#v16ImgViewer').onclick = (e)=>{ if(e.target.id==='v16ImgViewer') e.currentTarget.classList.remove('open'); };
-  /* 抽屉新建 */
-  $('#v16DrawerNew').onclick = ()=>toast('新建文件夹 · M2 接入');
-  /* 多选操作条 */
+  /* 抽屉新建文件夹 */
+  $('#v16DrawerNew').onclick = async ()=>{
+    try{ await Vault.createFolder(S.curFolder, '新文件夹'); toast('已新建文件夹'); renderDrawer(); renderHome(); }
+    catch(e){ console.warn(e); toast('新建文件夹失败'); }
+  };
+  /* 多选操作条：批量删除真实，其余单篇操作已在编辑器更多里支持 */
   $('#v16Selbar').querySelectorAll('button').forEach(b=>{
-    b.onclick = ()=>{ toast('批量'+b.dataset.a+' · M2 接入'); S.selecting=false; S.selected=new Set(); renderHome(); };
+    b.onclick = async ()=>{
+      const action = b.dataset.a;
+      const paths = Array.from(S.selected);
+      if(action==='del'){
+        for(const p of paths){ try{ await Vault.remove(p); }catch(e){} }
+        toast('已移入回收站');
+      } else if(action==='pin'){
+        for(const p of paths){ try{ await Vault.setPin(p, true); }catch(e){} }
+        toast('已置顶');
+      } else if(action==='color'){
+        toast('批量颜色 · 单篇可在编辑器里设置');
+      } else if(action==='move'){
+        toast('批量移动 · 单篇可在编辑器"移动到…"');
+      }
+      S.selecting=false; S.selected=new Set(); renderHome();
+    };
   });
 }
 

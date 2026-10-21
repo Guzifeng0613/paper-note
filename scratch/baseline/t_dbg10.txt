@@ -1,0 +1,6 @@
+{
+ "html": "标签 #",
+ "sel": "#text",
+ "sug": "null",
+ "active": "paperBody"
+}

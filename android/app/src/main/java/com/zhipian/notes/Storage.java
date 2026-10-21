@@ -1009,4 +1009,422 @@ class Storage {
         return "data:image/jpeg;base64," +
                 android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP);
     }
+
+    /* ================================================================
+       v16 Vault：目录式 Markdown 资料库（files/vault/ 私有目录为默认根；
+       可选 SAF 绑定目录。旧 files/library 与 library.json 保持只读不变。）
+       ================================================================ */
+    static final String VAULT_DIR = "vault";
+    static final String SP_VAULT_TREE = "vault_tree";
+
+    static File vaultRootDir(Context c) { File f = new File(c.getFilesDir(), VAULT_DIR); f.mkdirs(); return f; }
+    static boolean vaultHasSaf(Context c) { return sp(c).getString(SP_VAULT_TREE, null) != null; }
+    static DocumentFile vaultSafRoot(Context c) {
+        return DocumentFile.fromTreeUri(c, Uri.parse(sp(c).getString(SP_VAULT_TREE, "")));
+    }
+    static JSONObject vaultRootDesc(Context c) throws Exception {
+        JSONObject r = new JSONObject();
+        if (vaultHasSaf(c)) {
+            r.put("type", "saf");
+            r.put("path", sp(c).getString(SP_VAULT_TREE, ""));
+        } else {
+            r.put("type", "private");
+            r.put("path", vaultRootDir(c).getAbsolutePath());
+        }
+        return r;
+    }
+
+    /* ---- 路径工具（私有 File 后端） ---- */
+    static File vaultFile(Context c, String rel) {
+        File root = vaultRootDir(c);
+        if (rel == null || rel.trim().isEmpty()) return root;
+        String n = rel.replace('\\', '/').trim();
+        while (n.startsWith("/")) n = n.substring(1);
+        for (String seg : n.split("/"))
+            if (seg.equals("..")) throw new SecurityException("非法路径：" + rel);
+        return new File(root, n);
+    }
+    static String vaultParent(String rel) { int i = rel.lastIndexOf('/'); return i < 0 ? "" : rel.substring(0, i); }
+    static String vaultBase(String rel) { int i = rel.lastIndexOf('/'); return i < 0 ? rel : rel.substring(i + 1); }
+    static void copyFileBytes(File s, File d) throws IOException {
+        try (FileInputStream in = new FileInputStream(s);
+             FileOutputStream o = new FileOutputStream(d)) {
+            byte[] buf = new byte[65536]; int n;
+            while ((n = in.read(buf)) > 0) o.write(buf, 0, n);
+        }
+    }
+    /* 同目录重名加序号：周会纪要.md → 周会纪要 2.md */
+    static String vaultDedupe(File dir, String name) {
+        java.util.Set<String> have = new java.util.HashSet<>();
+        File[] ls = dir.listFiles();
+        if (ls != null) for (File x : ls) have.add(x.getName());
+        if (!have.contains(name)) return name;
+        int i = name.lastIndexOf('.');
+        String b = i > 0 ? name.substring(0, i) : name;
+        String e = i > 0 ? name.substring(i) : "";
+        int n = 2;
+        while (have.contains(b + " " + n + e)) n++;
+        return b + " " + n + e;
+    }
+    static String dedupeStr(java.util.Set<String> have, String name) {
+        if (!have.contains(name)) return name;
+        int i = name.lastIndexOf('.');
+        String b = i > 0 ? name.substring(0, i) : name, e = i > 0 ? name.substring(i) : "";
+        int n = 2;
+        while (have.contains(b + " " + n + e)) n++;
+        return b + " " + n + e;
+    }
+    static String stripVaultExt(String b) { int i = b.lastIndexOf('.'); return i > 0 ? b.substring(0, i) : b; }
+
+    /* ---- 私有 File 后端实现 ---- */
+    static JSONArray vaultListFile(Context c, String rel) throws Exception {
+        File d = vaultFile(c, rel);
+        if (!d.isDirectory()) throw new IOException("目录不存在：" + rel);
+        JSONArray arr = new JSONArray();
+        for (File x : d.listFiles()) {
+            if (rel.isEmpty() && x.getName().equals(".trash")) continue; // 根目录隐藏回收站
+            JSONObject o = new JSONObject();
+            o.put("name", x.getName());
+            o.put("type", x.isDirectory() ? "folder" : "file");
+            o.put("size", x.length());
+            o.put("mtime", x.lastModified());
+            arr.put(o);
+        }
+        return arr;
+    }
+    static String vaultReadFile(Context c, String rel) throws Exception {
+        File f = vaultFile(c, rel);
+        if (!f.isFile()) throw new IOException("文件不存在：" + rel);
+        return new String(readAll(f), StandardCharsets.UTF_8);
+    }
+    /* 原子写：先写 .<name>.tmp 并 fsync，再 rename 覆盖；杀进程不留半截文件 */
+    static void vaultWriteFile(Context c, String rel, String text) throws Exception {
+        File f = vaultFile(c, rel);
+        File parent = f.getParentFile();
+        parent.mkdirs();
+        File tmp = new File(parent, "." + f.getName() + ".tmp");
+        try (FileOutputStream o = new FileOutputStream(tmp)) {
+            o.write(text.getBytes(StandardCharsets.UTF_8));
+            o.getFD().sync();
+        }
+        if (f.exists()) f.delete();
+        if (!tmp.renameTo(f)) { copyFileBytes(tmp, f); tmp.delete(); }
+    }
+    static void vaultRenameFile(Context c, String rel, String newRel) throws Exception {
+        File src = vaultFile(c, rel);
+        if (!src.exists()) throw new IOException("不存在：" + rel);
+        File dst = vaultFile(c, newRel);
+        dst.getParentFile().mkdirs();
+        if (dst.exists()) deleteRecursively(dst);
+        if (!src.renameTo(dst)) { copyTree(src, dst); deleteRecursively(src); }
+    }
+    static String vaultTrashFile(Context c, String rel) throws Exception {
+        File src = vaultFile(c, rel);
+        if (!src.exists()) throw new IOException("不存在：" + rel);
+        String trashRel = ".trash/" + rel;               // 保留相对结构
+        File parent = vaultFile(c, vaultParent(trashRel));
+        parent.mkdirs();
+        String name = vaultDedupe(parent, vaultBase(trashRel)); // 重名加序号
+        String target = (vaultParent(trashRel).isEmpty() ? "" : vaultParent(trashRel) + "/") + name;
+        vaultRenameFile(c, rel, target);
+        return target;
+    }
+    static String vaultRestoreFile(Context c, String trashRel) throws Exception {
+        if (!trashRel.startsWith(".trash/")) throw new IOException("不是回收站路径：" + trashRel);
+        String orig = trashRel.substring(7);
+        File src = vaultFile(c, trashRel);
+        if (!src.exists()) throw new IOException("回收站条目不存在：" + trashRel);
+        File parent = vaultFile(c, vaultParent(orig));
+        parent.mkdirs();
+        String name = vaultDedupe(parent, vaultBase(orig)); // 原路径被占用则加序号
+        String target = (vaultParent(orig).isEmpty() ? "" : vaultParent(orig) + "/") + name;
+        vaultRenameFile(c, trashRel, target);
+        return target;
+    }
+    static void walkTrash(File base, String relPrefix, JSONArray arr) throws Exception {
+        File d = new File(base, relPrefix);
+        File[] kids = d.listFiles();
+        if (kids == null) return;
+        for (File x : kids) {
+            String rel = relPrefix + "/" + x.getName();
+            if (x.isDirectory()) { walkTrash(base, rel, arr); continue; }
+            JSONObject o = new JSONObject();
+            o.put("name", x.getName());
+            o.put("type", "file");
+            o.put("size", x.length());
+            o.put("mtime", x.lastModified());
+            o.put("originalPath", rel.substring(7));     // 剥 .trash/ 前缀
+            arr.put(o);
+        }
+    }
+    static JSONArray vaultListTrashFile(Context c) throws Exception {
+        JSONArray arr = new JSONArray();
+        File t = vaultFile(c, ".trash");
+        if (t.isDirectory()) walkTrash(vaultRootDir(c), ".trash", arr);
+        return arr;
+    }
+
+    /* ---- SAF DocumentFile 后端（绑定外部目录为 vault 时） ---- */
+    static JSONArray vaultListSaf(Context c, String rel) throws Exception {
+        DocumentFile d = findRel(vaultSafRoot(c), rel);
+        if (d == null || !d.isDirectory()) throw new IOException("目录不存在：" + rel);
+        JSONArray arr = new JSONArray();
+        for (DocumentFile x : d.listFiles()) {
+            if (rel.isEmpty() && ".trash".equals(x.getName())) continue;
+            JSONObject o = new JSONObject();
+            o.put("name", x.getName());
+            o.put("type", x.isDirectory() ? "folder" : "file");
+            o.put("size", x.length());
+            o.put("mtime", x.lastModified());
+            arr.put(o);
+        }
+        return arr;
+    }
+    static String vaultReadSaf(Context c, String rel) throws Exception {
+        DocumentFile f = findRel(vaultSafRoot(c), rel);
+        if (f == null || !f.isFile()) throw new IOException("文件不存在：" + rel);
+        try (InputStream in = c.getContentResolver().openInputStream(f.getUri())) {
+            return new String(readAll(in), StandardCharsets.UTF_8);
+        }
+    }
+    /* SAF 原子写：父目录建 .<name>.tmp，写完删旧文件再 renameTo 同名 */
+    static void vaultWriteSaf(Context c, String rel, String text) throws Exception {
+        DocumentFile parent = ensureRelDir(vaultSafRoot(c), vaultParent(rel));
+        String name = vaultBase(rel);
+        DocumentFile old = parent.findFile(name);
+        DocumentFile tmp = createFileRobust(parent, "text/markdown", "." + name + ".tmp");
+        try (OutputStream o = c.getContentResolver().openOutputStream(tmp.getUri())) {
+            o.write(text.getBytes(StandardCharsets.UTF_8));
+        }
+        if (old != null) old.delete();
+        if (!tmp.renameTo(name)) {
+            DocumentFile f = createFileRobust(parent, "text/markdown", name);
+            try (OutputStream o = c.getContentResolver().openOutputStream(f.getUri())) {
+                o.write(text.getBytes(StandardCharsets.UTF_8));
+            }
+            tmp.delete();
+        }
+    }
+    static void vaultRenameSaf(Context c, String rel, String newRel) throws Exception {
+        DocumentFile src = findRel(vaultSafRoot(c), rel);
+        if (src == null) throw new IOException("不存在：" + rel);
+        DocumentFile dstParent = ensureRelDir(vaultSafRoot(c), vaultParent(newRel));
+        String newName = vaultBase(newRel);
+        /* 同目录重命名；跨目录 DocumentFile 无 move API → 拷贝 + 删除兜底 */
+        if (vaultParent(rel).equals(vaultParent(newRel)) && src.renameTo(newName)) return;
+        {
+            DocumentFile target = src.isFile()
+                    ? createFileRobust(dstParent, "application/octet-stream", newName)
+                    : ensureRelDir(vaultSafRoot(c), newRel);
+            if (src.isFile()) {
+                try (InputStream in = c.getContentResolver().openInputStream(src.getUri());
+                     OutputStream o = c.getContentResolver().openOutputStream(target.getUri())) {
+                    byte[] buf = new byte[65536]; int n;
+                    while ((n = in.read(buf)) > 0) o.write(buf, 0, n);
+                }
+            } else {
+                copySafTree(c, src, target);
+            }
+            src.delete();
+        }
+    }
+    /* SAF 目录递归拷贝（DocumentFile 无 move 时的兜底） */
+    static void copySafTree(Context c, DocumentFile src, DocumentFile dst) throws Exception {
+        for (DocumentFile x : src.listFiles()) {
+            if (x.isDirectory()) {
+                DocumentFile nd = dst.createDirectory(x.getName());
+                copySafTree(c, x, nd);
+            } else {
+                DocumentFile f = createFileRobust(dst, mimeOf(x.getName()), x.getName());
+                try (InputStream in = c.getContentResolver().openInputStream(x.getUri());
+                     OutputStream o = c.getContentResolver().openOutputStream(f.getUri())) {
+                    byte[] buf = new byte[65536]; int n;
+                    while ((n = in.read(buf)) > 0) o.write(buf, 0, n);
+                }
+            }
+        }
+    }
+    static String vaultTrashSaf(Context c, String rel) throws Exception {
+        String trashRel = ".trash/" + rel;
+        DocumentFile parent = ensureRelDir(vaultSafRoot(c), vaultParent(trashRel));
+        java.util.Set<String> have = new java.util.HashSet<>();
+        for (DocumentFile k : parent.listFiles()) have.add(k.getName());
+        String name = vaultBase(trashRel);
+        name = dedupeStr(have, name);
+        String target = (vaultParent(trashRel).isEmpty() ? "" : vaultParent(trashRel) + "/") + name;
+        vaultRenameSaf(c, rel, target);
+        return target;
+    }
+    static String vaultRestoreSaf(Context c, String trashRel) throws Exception {
+        if (!trashRel.startsWith(".trash/")) throw new IOException("不是回收站路径：" + trashRel);
+        String orig = trashRel.substring(7);
+        DocumentFile parent = ensureRelDir(vaultSafRoot(c), vaultParent(orig));
+        java.util.Set<String> have = new java.util.HashSet<>();
+        for (DocumentFile k : parent.listFiles()) have.add(k.getName());
+        String name = dedupeStr(have, vaultBase(orig));
+        String target = (vaultParent(orig).isEmpty() ? "" : vaultParent(orig) + "/") + name;
+        vaultRenameSaf(c, trashRel, target);
+        return target;
+    }
+    static void walkTrashSaf(Context c, DocumentFile d, String relPrefix, JSONArray arr) throws Exception {
+        for (DocumentFile x : d.listFiles()) {
+            String rel = relPrefix + "/" + x.getName();
+            if (x.isDirectory()) { walkTrashSaf(c, x, rel, arr); continue; }
+            JSONObject o = new JSONObject();
+            o.put("name", x.getName());
+            o.put("type", "file");
+            o.put("size", x.length());
+            o.put("mtime", x.lastModified());
+            o.put("originalPath", rel.substring(7));
+            arr.put(o);
+        }
+    }
+    static JSONArray vaultListTrashSaf(Context c) throws Exception {
+        JSONArray arr = new JSONArray();
+        DocumentFile t = vaultSafRoot(c).findFile(".trash");
+        if (t != null && t.isDirectory()) walkTrashSaf(c, t, ".trash", arr);
+        return arr;
+    }
+
+    /* ---- Vault 统一分发（Bridge 调这些） ---- */
+    static JSONArray vaultList(Context c, String rel) throws Exception {
+        return vaultHasSaf(c) ? vaultListSaf(c, rel) : vaultListFile(c, rel);
+    }
+    static String vaultRead(Context c, String rel) throws Exception {
+        return vaultHasSaf(c) ? vaultReadSaf(c, rel) : vaultReadFile(c, rel);
+    }
+    static void vaultWrite(Context c, String rel, String text) throws Exception {
+        if (vaultHasSaf(c)) vaultWriteSaf(c, rel, text); else vaultWriteFile(c, rel, text);
+    }
+    static void vaultMkdir(Context c, String rel) {
+        if (vaultHasSaf(c)) ensureRelDir(vaultSafRoot(c), rel);
+        else vaultFile(c, rel).mkdirs();
+    }
+    static void vaultRename(Context c, String rel, String newRel) throws Exception {
+        if (vaultHasSaf(c)) vaultRenameSaf(c, rel, newRel); else vaultRenameFile(c, rel, newRel);
+    }
+    static String vaultTrash(Context c, String rel) throws Exception {
+        return vaultHasSaf(c) ? vaultTrashSaf(c, rel) : vaultTrashFile(c, rel);
+    }
+    static String vaultRestore(Context c, String trashRel) throws Exception {
+        return vaultHasSaf(c) ? vaultRestoreSaf(c, trashRel) : vaultRestoreFile(c, trashRel);
+    }
+    static JSONArray vaultListTrash(Context c) throws Exception {
+        return vaultHasSaf(c) ? vaultListTrashSaf(c) : vaultListTrashFile(c);
+    }
+    static void vaultDelete(Context c, String rel) {
+        if (vaultHasSaf(c)) {
+            DocumentFile d = findRel(vaultSafRoot(c), rel);
+            if (d != null) deleteDoc(d);
+        } else deleteRecursively(vaultFile(c, rel));
+    }
+    static byte[] vaultReadBlobBytes(Context c, String rel) throws Exception {
+        if (vaultHasSaf(c)) {
+            DocumentFile f = findRel(vaultSafRoot(c), rel);
+            if (f == null || !f.isFile()) throw new IOException("文件不存在：" + rel);
+            try (InputStream in = c.getContentResolver().openInputStream(f.getUri())) { return readAll(in); }
+        }
+        File f = vaultFile(c, rel);
+        if (!f.isFile()) throw new IOException("文件不存在：" + rel);
+        return readAll(f);
+    }
+    /* 附件落 attachments/<笔记名>/（笔记路径推导，重名加序号），返回相对路径 */
+    static String vaultWriteAttachment(Context c, String notePath, String name, byte[] bytes) throws Exception {
+        String nm = (notePath == null || notePath.trim().isEmpty()) ? "未命名" : stripVaultExt(vaultBase(notePath));
+        String dirRel = "attachments/" + nm;
+        String finalName;
+        if (vaultHasSaf(c)) {
+            DocumentFile dir = ensureRelDir(vaultSafRoot(c), dirRel);
+            java.util.Set<String> have = new java.util.HashSet<>();
+            for (DocumentFile k : dir.listFiles()) have.add(k.getName());
+            finalName = dedupeStr(have, sanitize(name));
+            DocumentFile f = createFileRobust(dir, mimeOf(finalName), finalName);
+            try (OutputStream o = c.getContentResolver().openOutputStream(f.getUri())) { o.write(bytes); }
+        } else {
+            File dir = vaultFile(c, dirRel);
+            dir.mkdirs();
+            finalName = vaultDedupe(dir, sanitize(name));
+            File out = new File(dir, finalName);
+            File tmp = new File(dir, "." + finalName + ".tmp");
+            try (FileOutputStream o = new FileOutputStream(tmp)) { o.write(bytes); o.getFD().sync(); }
+            out.delete();
+            tmp.renameTo(out);
+        }
+        return dirRel + "/" + finalName;
+    }
+    /* 外部 uri 导入 vault 目标目录，返回 {path,name,size,type} */
+    static JSONObject vaultImportFile(Context c, String uri, String dirPath) throws Exception {
+        Uri u = Uri.parse(uri);
+        String dn = displayName(c, u);
+        if (dn == null || dn.trim().isEmpty()) dn = "文件";
+        byte[] bytes;
+        try (InputStream in = c.getContentResolver().openInputStream(u)) { bytes = readAll(in); }
+        String rel;
+        if (vaultHasSaf(c)) {
+            DocumentFile dir = ensureRelDir(vaultSafRoot(c), dirPath == null ? "" : dirPath);
+            java.util.Set<String> have = new java.util.HashSet<>();
+            for (DocumentFile k : dir.listFiles()) have.add(k.getName());
+            String fn = dedupeStr(have, sanitize(dn));
+            DocumentFile f = createFileRobust(dir, mimeOf(fn), fn);
+            try (OutputStream o = c.getContentResolver().openOutputStream(f.getUri())) { o.write(bytes); }
+            rel = (dirPath == null || dirPath.isEmpty() ? "" : dirPath + "/") + fn;
+        } else {
+            File dir = vaultFile(c, dirPath == null ? "" : dirPath);
+            dir.mkdirs();
+            String fn = vaultDedupe(dir, sanitize(dn));
+            try (FileOutputStream o = new FileOutputStream(new File(dir, fn))) { o.write(bytes); }
+            rel = (dirPath == null || dirPath.isEmpty() ? "" : dirPath + "/") + fn;
+        }
+        JSONObject r = new JSONObject();
+        r.put("path", rel);
+        r.put("name", dn);
+        r.put("size", bytes.length);
+        r.put("type", mimeOf(dn));
+        return r;
+    }
+    /* 整 vault 导出 zip 到 SAF 目标 uri，返回字节数 */
+    static long vaultExportZip(Context c, Uri target) throws Exception {
+        final long[] total = {0};
+        try (OutputStream os = c.getContentResolver().openOutputStream(target);
+             ZipOutputStream z = new ZipOutputStream(os)) {
+            JSONObject m = new JSONObject();
+            m.put("app", "zhipian-notes"); m.put("format", "vault");
+            m.put("exportedAt", new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss")
+                    .format(new java.util.Date()));
+            z.putNextEntry(new ZipEntry("manifest.json"));
+            z.write(m.toString().getBytes(StandardCharsets.UTF_8));
+            z.closeEntry();
+            if (vaultHasSaf(c)) zipSaf(c, z, vaultSafRoot(c), "", total);
+            else zipFile(z, vaultRootDir(c), "", total);
+        }
+        return total[0];
+    }
+    static void zipFile(ZipOutputStream z, File dir, String prefix, long[] total) throws IOException {
+        File[] kids = dir.listFiles();
+        if (kids == null) return;
+        for (File x : kids) {
+            if (x.getName().endsWith(".tmp")) continue;
+            String entry = prefix.isEmpty() ? x.getName() : prefix + "/" + x.getName();
+            if (x.isDirectory()) { zipFile(z, x, entry, total); continue; }
+            z.putNextEntry(new ZipEntry(entry));
+            byte[] b = readAll(x);
+            z.write(b);
+            total[0] += b.length;
+            z.closeEntry();
+        }
+    }
+    static void zipSaf(Context c, ZipOutputStream z, DocumentFile d, String prefix, long[] total) throws Exception {
+        for (DocumentFile x : d.listFiles()) {
+            if (x.getName().endsWith(".tmp")) continue;
+            String entry = prefix.isEmpty() ? x.getName() : prefix + "/" + x.getName();
+            if (x.isDirectory()) { zipSaf(c, z, x, entry, total); continue; }
+            try (InputStream in = c.getContentResolver().openInputStream(x.getUri())) {
+                byte[] b = readAll(in);
+                z.putNextEntry(new ZipEntry(entry));
+                z.write(b);
+                total[0] += b.length;
+                z.closeEntry();
+            }
+        }
+    }
 }

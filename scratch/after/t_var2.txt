@@ -1,0 +1,7 @@
+{
+ "out": [
+  "(prefers-reduced-motion: reduce) | .screen | 0.01ms | media=false"
+ ],
+ "inlineDur": "0.36s",
+ "rootDur": ".36s"
+}

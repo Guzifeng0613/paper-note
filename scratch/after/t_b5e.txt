@@ -1,0 +1,10 @@
+timers scheduled at click: 6
+on: 6
+class log: [
+  'sel-circle on', 'sel-circle',
+  'sel-circle',    'sel-circle',
+  'sel-circle',    'sel-circle',
+  'sel-circle on', 'sel-circle on',
+  'sel-circle on', 'sel-circle on',
+  'sel-circle on', 'sel-circle on'
+]

@@ -1,0 +1,15 @@
+PASS: #15 分组被包装成折叠组（5 组）
+PASS: #15 每组标题带折叠箭头
+PASS: #15 折叠后行高收到 0 且状态持久化（{"collapsed":true,"grid":"0px","persisted":true}）
+PASS: #15 再点展开恢复（415.781px）
+PASS: #14 切换瞬间出现圆形克隆层（新主题界面已在圈内）（{"clip":"circle(290.703px at 195px 133px)","theme":"dark","bg":"rgb(26, 28, 32)","hasClone":true,"darkInk":"rgb(232, 234, 237)"}）
+PASS: #14 克隆层底色为深色主题页底色（非纯黑）（rgb(26, 28, 32)）
+PASS: #14 深色主题落库并移除扩散层（{"theme":"dark","prefs":"dark","gone":true}）
+PASS: #14 可切回浅色
+PASS: #14 初始非深色（基线正常）
+PASS: #16 收尾时顶部条播放弹性动画（1）
+PASS: #16 收尾动画后顶部条淡出
+PASS: #16 失败时直接淡出无弹性动画
+PASS: #16 圆环 100% 弹性收尾（{"cls":true,"pct":"100%"}）
+PASS: #16 进度回退时圆环重新就绪
+errors: 0

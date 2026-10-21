@@ -51,7 +51,8 @@ public class MainActivity extends AppCompatActivity {
             RC_BIND_TREE = 103, RC_OPEN_TREE = 104,
             RC_CREATE_ZIP = 105, RC_OPEN_ZIP = 106,
             RC_CAPTURE_PNG = 107, RC_CAPTURE_PDF = 108,
-            RC_EXPORT_KB = 109, RC_IMPORT_DATA = 110;
+            RC_EXPORT_KB = 109, RC_IMPORT_DATA = 110,
+            RC_VAULT_BIND = 111, RC_VAULT_EXPORT = 113;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -471,7 +472,7 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception ignore) {}
             }
         }
-        if (rc == RC_BIND_TREE || rc == RC_OPEN_TREE) {
+        if (rc == RC_BIND_TREE || rc == RC_OPEN_TREE || rc == RC_VAULT_BIND) {
             try {
                 getContentResolver().takePersistableUriPermission(data.getData(),
                         Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
@@ -620,6 +621,20 @@ public class MainActivity extends AppCompatActivity {
                                 .openOutputStream(data.getData()));
                         bmp.recycle();
                         cbData(callId, new JSONObject());
+                        break;
+                    }
+                    case RC_VAULT_BIND: {
+                        Uri tree = data.getData();
+                        Storage.sp(MainActivity.this).edit()
+                                .putString("vault_tree", tree.toString()).apply();
+                        cbData(callId, Storage.vaultRootDesc(MainActivity.this));
+                        break;
+                    }
+                    case RC_VAULT_EXPORT: {
+                        long bytes = Storage.vaultExportZip(this, data.getData());
+                        JSONObject r = new JSONObject();
+                        r.put("ok", true); r.put("bytes", bytes);
+                        cbData(callId, r);
                         break;
                     }
                     default:

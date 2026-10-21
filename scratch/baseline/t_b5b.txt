@@ -1,0 +1,1 @@
+manual stagger: {"fired":[0,1,2,3,4,5],"on":6,"cards":6}

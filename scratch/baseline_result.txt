@@ -1,0 +1,2 @@
+PASS_FILES=70 FAIL_FILES=7
+FAILED: _verify/t_b6d.js _verify/t_b6.js _verify/t_b_clean.js _verify/t_cshot.js _verify/t_edit.js _verify/t_var3.js _verify/t_var4.js
