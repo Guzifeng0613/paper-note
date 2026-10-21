@@ -1,0 +1,4 @@
+<resources>
+    <!-- 与 WebView/网页米色一致：转场或合成层短暂未恢复时，露底也是同色，不出现冷白 -->
+    <color name="bg">#ECEAE2</color>
+</resources>

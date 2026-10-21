@@ -1,0 +1,22 @@
+<!doctype html><meta charset=utf8><body>
+<script src="vendor/ort/ort.min.js"></script>
+<script>
+(async()=>{
+ const log=[];
+ try{
+  log.push('ort type '+typeof ort);
+  ort.env.wasm.wasmPaths='vendor/ort/';
+  ort.env.wasm.numThreads=1;
+  log.push('SAB='+typeof SharedArrayBuffer+' isolated='+self.crossOriginIsolated);
+  for(const m of ['cls','det','rec']){
+   try{
+    const buf=await fetch('vendor/ocr/tiny/'+m+'.onnx').then(r=>r.arrayBuffer());
+    const s=await ort.InferenceSession.create(buf,{executionProviders:['wasm']});
+    log.push(m+' session OK '+buf.byteLength+' inputs '+JSON.stringify(s.inputNames));
+   }catch(e){log.push(m+' ERR '+String(e));}
+  }
+ }catch(e){log.push('ERR '+String(e)+' stack '+(e.stack||'').slice(0,200));}
+ document.title=JSON.stringify(log);
+ window.__out=log;
+})();
+</script></body>

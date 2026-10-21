@@ -1,0 +1,25 @@
+const {chromium}=require('playwright');const path=require('path');
+const EXE='/opt/vm/preinstall/ms-playwright/chromium_headless_shell-1169/chrome-linux/headless_shell';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{
+  const b=await chromium.launch({headless:true,executablePath:EXE});
+  const ctx=await b.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'no-preference'});
+  const page=await ctx.newPage();
+  let err=0;page.on('pageerror',e=>{err++;console.log('[pageerror]',e.message)});
+  await page.goto('file://'+path.resolve('index.html'));
+  await page.waitForFunction(()=>window.__app);await sleep(400);
+  await page.evaluate(()=>location.hash='#/home');await sleep(300);
+  await page.evaluate(()=>{const n=window.__app.notes.find(x=>x.type==='todo');location.hash='#/edit?id='+n.id;});
+  await sleep(500);
+  await page.click('#editBack');
+  await sleep(450);
+  const cls=await page.evaluate(()=>document.querySelector('#scr-edit').className);
+  console.log('after back class:',cls);
+  await page.evaluate(()=>{const n=window.__app.notes.find(x=>x.type==='todo');location.hash='#/edit?id='+n.id;});
+  await sleep(500);
+  const cls2=await page.evaluate(()=>{const e=document.querySelector('#scr-edit');const cs=getComputedStyle(e);return {cls:e.className,vis:cs.visibility,tr:cs.transform};});
+  console.log('reenter:',JSON.stringify(cls2));
+  await page.screenshot({path:'_verify/shots/edit_reenter.png'});
+  console.log('errors:',err);
+  await b.close();
+})();

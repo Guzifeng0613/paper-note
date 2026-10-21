@@ -1,0 +1,4 @@
+<resources>
+    <!-- 深色：与网页深色背景一致，避免深色模式状态栏/导航栏露白 -->
+    <color name="bg">#1A1C20</color>
+</resources>

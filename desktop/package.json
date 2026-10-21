@@ -1,0 +1,15 @@
+{
+  "name": "zhipian-desktop",
+  "version": "15.4.2",
+  "description": "纸片便签 · Windows 桌面端",
+  "main": "main.js",
+  "author": "Zhipian",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "node build-win.js"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^31.7.7"
+  }
+}
