@@ -16,7 +16,7 @@ const JS_ORDER = [
   'editor.js', 'notebook-trash.js', 'settings.js', 'cloud.js',
   'parse.js', 'ai.js', 'main.js',
   /* ---- v16 新 UI（M2/M3）---- */
-  'vault-fs.js', 'markdown.js', 'vault.js', 'mock-vault.js', 'vault-ui.js', 'v16-boot.js',
+  'vault-fs.js', 'markdown.js', 'migrate.js', 'vault.js', 'mock-vault.js', 'vault-ui.js', 'v16-boot.js',
 ];
 
 const read = p => fs.readFileSync(p, 'utf8');
