@@ -74,7 +74,9 @@ function toLegacyNote(path, g){
     createdAt: isNaN(createdAt)?Date.now():createdAt,
     updatedAt: isNaN(updatedAt)?Date.now():updatedAt,
     todos: [],
-    files: []
+    files: [],
+    /* 来源标记：该笔记由 vault 哪个 .md 投影而来（回写时据此跳过，避免 Migrate 按文件名去重产生“标题 2.md”副本） */
+    __vp: path
   };
   if(type==='todo'){
     const rows = (typeof MD!=='undefined' && MD.todoLines) ? MD.todoLines(g.md) : [];
@@ -172,6 +174,35 @@ const VaultSync = {
     const res = await Migrate.run({ onProgress: onProgress || (()=>{}) });
     await Vault.init();
     return res;
+  },
+
+  /* 收集 vault 内现有笔记的 frontmatter id 集合（追加写回时据此跳过已有笔记，避免副本） */
+  async vaultIdSet(){
+    const paths = await collectAllMd('');
+    const ids = new Set();
+    for(const p of paths){
+      try{
+        const md = await VaultFS.read(p);
+        const fm = (typeof MD!=='undefined' && MD.parseFrontmatter) ? (MD.parseFrontmatter(md||'').fm||{}) : {};
+        if(fm.id) ids.add(String(fm.id));
+      }catch(e){ /* 单个读失败跳过 */ }
+    }
+    return ids;
+  },
+
+  /* 追加写回：只把 vault 里还没有的笔记（按 id）写成新 .md，已有笔记不动。
+     用于“合并导入”/旧屏新增笔记后回写，绝不重写已有文件（Migrate 按文件名去重会产生副本）。
+     notesToAppend 不传则用全局 notes 中无 __vp 标记的新笔记。 */
+  async appendNotesToVault(notesToAppend, onProgress){
+    const exist = await this.vaultIdSet();
+    const list = (Array.isArray(notesToAppend) ? notesToAppend : notes.filter(n=>n && !n.__vp))
+      .filter(n=>n && n.id && !exist.has(String(n.id)) && !n.trashed);
+    if(!list.length){ await Vault.init(); return {added:0, report:null}; }
+    Migrate.configure({ FS: VaultFS, MD: MD, loadLib: ()=>({notes:list, prefs:{}}) });
+    Migrate._cachedDetect = null;
+    const res = await Migrate.run({ onProgress: onProgress || (()=>{}) });
+    await Vault.init();
+    return {added: list.length, report: res};
   },
 
   /* 待同步标记：整库恢复（云端/目录）在 reload 前置位，启动时由 VUI 消费 */

@@ -26,6 +26,9 @@ const I = {
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>',
   move:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>',
   theme:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>',
+  auto:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>',
   upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>',
   image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m21 15-5-5-9 9"/></svg>',
   link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
@@ -59,7 +62,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.2';
+const APP_VERSION = '16.0.3';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -701,11 +704,17 @@ async function renderSettings(){
         openModal('<h3>纯本地隐私说明</h3><p>纸片不设账号、不收集任何数据。所有笔记、图片、附件与 AI 配置均只保存在本设备；AI 问答仅在你主动触发时，把当前页内容发送到你自己配置的模型服务。</p><p>清理应用数据前请先导出备份。</p>');
       }
       else if(a==='fontscale'){
-        /* 字号刻度尺：cycle 3 档 */
-        const cur = parseFloat(root.style.fontSize||'16');
-        const next = cur>=18 ? 14 : (cur<=14 ? 16 : 18);
-        root.style.fontSize = next+'px';
-        toast('字号：'+next+'px');
+        /* 字号刻度尺：三档 0.9 / 1.0 / 1.15。v16 样式全部用固定 px，改 root.fontSize 不生效；
+           复用 v15 验证过的 applyFontScale()（设置 <html> zoom，整页含 v16root 一起缩放），
+           并写入 prefs.fontScale 持久化、重启保留。 */
+        const cur = prefs.fontScale || 1;
+        const next = cur >= 1.15 ? 0.9 : (cur <= 0.9 ? 1.0 : 1.15);
+        prefs.fontScale = next;
+        if(typeof applyFontScale==='function') applyFontScale();
+        persistPrefs();
+        const rv = r.querySelector('.rv');
+        if(rv) rv.textContent = next===1 ? '标准' : (next>1 ? '较大' : '较小');
+        toast('字号：'+Math.round(next*100)+'%');
       }
       else if(a==='font'){ openFontPicker(); }
       else if(a==='install'){ installApp(); }
@@ -731,11 +740,19 @@ async function renderSettings(){
         (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); if(typeof exportRAGMarkdown==='function') await exportRAGMarkdown(); toast('知识库 MD 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
       }
       else if(a==='exportjson'){
-        (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); const blob=new Blob([Store.payload()],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='zhipian-library.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast('JSON 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
+        (async()=>{ toast('正在导出…'); try{
+          await VaultSync.syncVaultToStore();
+          const data = Store.payload();
+          /* 统一走 exportArtifact：原生端写入导出目录并返回路径，浏览器端下载；
+             不再用 Blob + a.click()（Android WebView 中不触发系统保存） */
+          const p = await exportArtifact('JSON','zhipian-library.json','application/json', data);
+          toast('已导出：'+(p||'zhipian-library.json'));
+        }catch(e){ console.warn(e); toast('导出失败'); } })();
       }
       else if(a==='import'){
         (async()=>{
           try{
+            toast('正在准备…');
             await VaultSync.syncVaultToStore();
             if(typeof unifiedImportEntry==='function'){ unifiedImportEntry(); haptic(8); }
             else toast('导入功能暂不可用');
@@ -743,10 +760,16 @@ async function renderSettings(){
         })();
       }
       else if(a==='kbbuild'){
-        /* 用 v16 底部 sheet 包装（v15 openActionSheet 层级在 v16 之下不可见） */
+        /* 用 v16 底部 sheet 包装（v15 openActionSheet 层级在 v16 之下不可见）。
+           buildKnowledgeIndex 遍历全局 notes，必须先 syncVaultToStore 把 vault .md 投影进来，
+           否则切片的是空数据。 */
         openSheet('构建知识切片', [
-          {icon:I.file, label:'前台构建（显示进度）', fn:()=>{ try{ buildKnowledgeIndex(false); toast('已开始前台构建'); }catch(e){ console.warn(e); toast('构建失败'); } }},
-          {icon:I.file, label:'后台保活构建', fn:()=>{ try{ buildKnowledgeIndex(true); toast('后台构建已开始'); }catch(e){ console.warn(e); toast('构建失败'); } }}
+          {icon:I.file, label:'前台构建（显示进度）', fn:async()=>{
+            try{ toast('正在同步…'); await VaultSync.syncVaultToStore(); buildKnowledgeIndex(false); }
+            catch(e){ console.warn(e); toast('构建失败'); } }},
+          {icon:I.file, label:'后台保活构建', fn:async()=>{
+            try{ toast('正在同步…'); await VaultSync.syncVaultToStore(); buildKnowledgeIndex(true); }
+            catch(e){ console.warn(e); toast('构建失败'); } }}
         ]);
       }
       else if(a==='hlsyn'){
@@ -774,7 +797,7 @@ async function renderSettings(){
           (async()=>{ try{ await Vault.clear(); await Vault.init(); renderHome(); toast('已新建资料库'); }catch(e){ toast('新建失败'); } })();
         }
       }
-      else if(a==='attachloc'){ /* 固定为 attachments/，无需操作 */ }
+      else if(a==='attachloc'){ toast('附件统一存放在资料库 attachments/ 目录，无需修改'); }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };
   });
@@ -877,10 +900,25 @@ function openColorPicker(current, onPick){
    不改变 hash、不进 navStack：直接把旧 v15 屏提升到 v16 之上显示；
    其返回按钮经捕获式拦截回到 v16。这样旧屏的成熟逻辑原样保留，不重写。 */
 let _legacyReturn = null;
-function openLegacy(name, returnScr){
+let _legacyNotesSig = null;
+/* notes 内容指纹：仅用于判断旧屏是否改动了 notes（标题/时间/正文长度），避免回写风暴 */
+function notesSignature(){
+  try{
+    return notes.length + '|' + notes.map(n=>n.id+'@'+(n.updatedAt||0)+':'+(n.content||'').length).join('~');
+  }catch(e){ return ''; }
+}
+async function openLegacy(name, returnScr){
   const el = document.getElementById('scr-'+name);
   if(!el){ toast('该功能暂不可用'); return; }
-  /* 若该屏需要初始化（如本页问答需当前笔记上下文），可在调用前由调用方设置 */
+  /* 旧屏 RAG / 导入导出基于全局 notes：先把 vault 最新 .md 投影进旧数据模型，
+     否则 AI 问答知识库为空、导入导出看到空数据。完成后再显示旧屏。 */
+  if(typeof VaultSync!=='undefined' && VaultSync && VaultSync.syncVaultToStore){
+    toast('正在加载…');
+    try{ await VaultSync.syncVaultToStore(); }
+    catch(e){ console.warn('syncVaultToStore failed', e); }
+  }
+  /* 记录进入旧屏时的 notes 指纹，关闭时比对是否需要回写 vault */
+  _legacyNotesSig = notesSignature();
   el.classList.add('active','legacy-top');
   _legacyReturn = returnScr || 'settings';
   /* 旧屏内容原本由 hash 路由 route() 触发 render；桥接不走 hash，这里手动补一次初始化，
@@ -890,14 +928,25 @@ function openLegacy(name, returnScr){
   else if(name==='log' && typeof renderLog==='function') renderLog();
   else if(name==='pan' && typeof renderPan==='function') renderPan();
 }
-function closeLegacy(){
+async function closeLegacy(){
   const el = document.querySelector('.screen.legacy-top');
   if(el) el.classList.remove('active','legacy-top');
   const r = _legacyReturn || 'settings';
   _legacyReturn = null;
+  /* 先立即回到 v16 对应屏，避免后续写回阻塞返回操作 */
   if(r==='home'){ show('home'); renderHome(); }
   else if(r==='editor'){ show('editor'); }
   else show(r);
+  /* 旧屏可能新增了笔记（无 __vp 来源标记者）：指纹变了就在后台追加回 vault，完成后再刷新首页 */
+  try{
+    const changed = _legacyNotesSig && (notesSignature() !== _legacyNotesSig);
+    _legacyNotesSig = null;
+    if(changed && typeof VaultSync!=='undefined' && VaultSync && VaultSync.appendNotesToVault){
+      toast('正在保存资料库…');
+      await VaultSync.appendNotesToVault(null);
+      if(window.VUI && VUI.renderHome) VUI.renderHome();
+    }
+  }catch(e){ console.warn('closeLegacy writeback failed', e); }
 }
 /* 捕获式拦截：旧屏内返回按钮（id 含 Back）点击 → 回 v16，阻止其原有 hash 导航 */
 document.addEventListener('click', (e)=>{
@@ -924,6 +973,18 @@ document.addEventListener('click', (e)=>{
     const m = document.getElementById('modal');
     if(m) m.classList.remove('v16-lift');
     _CM();
+  };
+})();
+
+/* ---------- 安卓返回键：旧屏(legacy-top)优先关闭 ----------
+   closeLegacy 在本 IIFE 内，main.js 的 __dismissOverlay 访问不到。
+   这里包装一层：有旧屏先 closeLegacy，否则交还原实现。 */
+(function patchDismissOverlay(){
+  const _orig = window.__dismissOverlay;
+  window.__dismissOverlay = function(){
+    const legacy = document.querySelector('.screen.legacy-top');
+    if(legacy){ closeLegacy(); return true; }
+    return _orig ? _orig() : false;
   };
 })();
 
@@ -1023,7 +1084,11 @@ function bind(){
   $('#v16DrawerClose').onclick = closeDrawer;
   $('#v16SearchBtn').onclick = ()=>{ show('search'); setTimeout(()=>$('#v16SrInput').focus(), 300); };
   $('#v16More').onclick = ()=>openSheet('更多', [
-    {icon:I.upload, label:'导入文件', fn:()=>{ try{ VaultSync.syncVaultToStore(); if(typeof unifiedImportEntry==='function'){ unifiedImportEntry(); haptic(8); } else toast('导入功能暂不可用'); }catch(e){ console.warn(e); toast('导入失败'); } }},
+    {icon:I.upload, label:'导入文件', fn:async()=>{
+      try{ toast('正在准备…'); await VaultSync.syncVaultToStore();
+        if(typeof unifiedImportEntry==='function'){ unifiedImportEntry(); haptic(8); }
+        else toast('导入功能暂不可用');
+      }catch(e){ console.warn(e); toast('导入失败'); } }},
     {icon:I.trash, label:'回收站', fn:()=>{show('trash'); renderTrash();}},
     {icon:I.settings, label:'设置', fn:()=>{show('settings'); renderSettings();}},
     {icon:I.theme, label:'切换深色/浅色', fn:()=>toggleTheme(true)}
@@ -1044,7 +1109,10 @@ function bind(){
       menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false;
       try{
         if(it.dataset.f==='note'){
-          const path = await Vault.create({ title:'未命名', folder:S.curFolder, type:'note' });
+          /* 尊重设置：默认新建位置（资料库根/当前目录）与默认类型（笔记/待办） */
+          const folder = (prefs.newFileLoc==='root') ? '' : S.curFolder;
+          const type = prefs.defaultType==='todo' ? 'todo' : 'note';
+          const path = await Vault.create({ title:'未命名', folder, type });
           haptic(8);
           await renderHome();
           await openNote(path);
@@ -1054,23 +1122,12 @@ function bind(){
           haptic(8);
           toast('已新建文件夹'); renderHome();
         } else if(it.dataset.f==='import'){
-          /* 统一导入：原生 vaultPickImport，浏览器降级 file input */
-          if(typeof Native!=='undefined' && Native && Native.call){
-            try{
-              await Native.call('vaultPickImport', {dirPath: S.curFolder});
-              toast('导入完成'); renderHome();
-            }catch(e){ console.warn(e); toast('导入失败'); }
-          } else {
-            const inp = document.createElement('input');
-            inp.type='file'; inp.style.display='none'; document.body.appendChild(inp);
-            inp.onchange = async ()=>{
-              inp.remove();
-              const f = inp.files && inp.files[0]; if(!f) return;
-              try{ await VaultFS.writeAttachment(f.name, f, S.curFolder); toast('已导入'); renderHome(); }
-              catch(e){ toast('导入失败'); }
-            };
-            inp.click();
-          }
+          /* 统一导入 zip / JSON / JSONL 备份包：先把 vault 投影进旧 Store，再交 unifiedImportEntry 解析；
+             用户在合并/覆盖确认后由 applyLibrary 回写 vault 并刷新首页。 */
+          toast('正在准备…');
+          await VaultSync.syncVaultToStore();
+          if(typeof unifiedImportEntry==='function'){ unifiedImportEntry(); haptic(8); }
+          else toast('导入功能暂不可用');
         }
       }catch(e){ console.warn('create failed', e); toast('新建失败'); }
     };

@@ -949,6 +949,8 @@ function applyLibrary(lib,label){
     await settleImport('mergeImport');
     toast('已合并，共 '+notes.length+' 张');
     Logs.info('导入','合并（'+label+'）'+lib.notes.length+' 张');
+    /* v16：把本次新进来的笔记追加回 Markdown 资料库（已有笔记不动，避免副本），再刷新首页 */
+    v16WritebackAfterImport('append', lib.notes);
   };
   $('#uimo').onclick=async()=>{
     notes=lib.notes;prefs=Object.assign(prefs,lib.prefs||{});
@@ -958,7 +960,27 @@ function applyLibrary(lib,label){
     await settleImport('commitImport');
     toast('已导入 '+notes.length+' 张');
     Logs.info('导入','覆盖（'+label+'）'+lib.notes.length+' 张');
+    /* v16：覆盖=整库替换，清空 vault 后把当前 Store 全量落回 .md，再刷新首页 */
+    v16WritebackAfterImport('replace');
   };
+}
+/* v16 Markdown 资料库回写：导入确认后把结果落到 vault 文件并刷新首页。
+   append=只追加本次新笔记（合并）；replace=清空 vault 后全量重写（覆盖）。
+   纯 v15 环境无 VaultSync 时自动跳过，不影响旧流程。 */
+async function v16WritebackAfterImport(kind, incomingNotes){
+  try{
+    if(typeof VaultSync==='undefined' || !VaultSync || !VaultSync.appendNotesToVault) return;
+    await flushDisk();
+    if(kind==='replace'){
+      toast('正在写入资料库…');
+      await VaultSync.restoreFromStore();
+    }else{
+      toast('正在追加到资料库…');
+      await VaultSync.appendNotesToVault(incomingNotes || null);
+    }
+    if(window.VUI && VUI.renderHome) VUI.renderHome();
+    Logs.info('导入','v16 vault 回写完成（'+kind+'）');
+  }catch(e){ console.warn('v16 import writeback failed', e); Logs.error('导入','v16 回写失败',(e&&e.message)||String(e)); }
 }
 /* zip：自动区分 知识库包（manifest+chunks）/ 备份 */
 async function importZipBlob(file){
