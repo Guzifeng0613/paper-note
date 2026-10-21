@@ -67,22 +67,30 @@ function cleanFm(fm){
   return out;
 }
 
-/* ---------- 递归扫描建索引（一次遍历，避免重复 list） ---------- */
+/* ---------- 递归扫描建索引（同层并发，减少串行 await） ----------
+   保留数据目录（attachments/ 等）不递归、不入目录树：
+   附件是存储区而非用户内容，单篇笔记 get 时按 md 内引用按需解析。 */
+const RESERVED_DIRS = new Set(['attachments']);
 async function scanDir(dirPath){
   let items = [];
   try{ items = await VaultFS.list(dirPath); }catch(e){ return; }
+  const subs = [], mdFiles = [];
   for(const it of items){
-    if(it.name.startsWith('.')) continue;   // 隐藏文件（.trash/.tmp）跳过
+    if(it.name.startsWith('.')) continue;                 // 隐藏文件（.trash/.tmp）跳过
+    if(dirPath==='' && RESERVED_DIRS.has(it.name)) continue;  // 保留数据目录不索引
     const full = U.join(dirPath, it.name);
-    if(it.type==='folder'){
-      _folders.add(full);
-      await scanDir(full);
-    } else if(/\.md$/i.test(it.name)){
-      let md='';
-      try{ md = await VaultFS.read(full); }catch(e){ continue; }
-      _entries.set(full, makeEntry(full, md));
-    }
+    if(it.type==='folder'){ _folders.add(full); subs.push(full); }
+    else if(/\.md$/i.test(it.name)){ mdFiles.push(full); }
   }
+  /* 同层子目录并发 list、同层 md 并发读，消除逐层串行 await 链 */
+  await Promise.all([
+    ...subs.map(full=>scanDir(full)),
+    ...mdFiles.map(async full=>{
+      let md='';
+      try{ md = await VaultFS.read(full); }catch(e){ return; }
+      _entries.set(full, makeEntry(full, md));
+    })
+  ]);
 }
 async function scanTrash(){
   let list=[];

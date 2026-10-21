@@ -204,13 +204,38 @@ const Migrate = {
     }
     return null;
   },
-  /* 读旧附件字节：优先 dataURL；否则注入/默认桥 */
+  /* 读旧附件字节：优先级
+     1) file.data（导入时内嵌 dataURL，v1/v2 旧库形态）
+     2) 注入 loadBlob（node 测试 / idb 后端）
+     3) native：Native.call('loadBlobBytes',{id}) → {b64,name,type}（原生 agent 同步添加）
+     4) 浏览器 idb 兜底：zhipian-db-v3 / blobs / <id>
+     全部失败 → 返回 null（run 会记 failures，不丢其他附件） */
   async _loadBlobBytes(note, file){
     if(file && file.data) return dataURLtoBytes(file.data);
     if(this._cfg && this._cfg.loadBlob) return await this._cfg.loadBlob(note, file);
     if(typeof Native!=='undefined' && Native.call){
-      const r = await Native.call('fileUri', file.id).catch(()=>null);
-      throw new Error('native 端附件字节读取需经 vaultReadBlob 迁移桥（M2 已预留）：'+file.id);
+      try{
+        const r = await Native.call('loadBlobBytes', JSON.stringify({id:file.id}));
+        if(r && r.b64){
+          const bin = dataURLtoBytes('data:application/octet-stream;base64,'+r.b64);
+          return bin;
+        }
+      }catch(e){ /* 桥未就绪，走兜底 */ }
+    }
+    if(typeof indexedDB!=='undefined'){
+      try{
+        const blob = await new Promise((res,rej)=>{
+          const rq = indexedDB.open('zhipian-db-v3',1);
+          rq.onupgradeneeded=e=>{const db=e.target.result;
+            if(!db.objectStoreNames.contains('blobs'))db.createObjectStore('blobs');};
+          rq.onsuccess=e=>{
+            const g=e.target.result.transaction('blobs','readonly').objectStore('blobs').get(file.id);
+            g.onsuccess=()=>res(g.result); g.onerror=()=>rej(g.error);
+          };
+          rq.onerror=()=>rej(rq.error);
+        });
+        if(blob) return blob;
+      }catch(e){ /* idb 也没有 */ }
     }
     return null;
   },

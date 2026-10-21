@@ -267,6 +267,66 @@ t('标签/双链/附件 在 serialize(parse) 后仍可提取', ()=>{
   eq(MD.extractAttachRefs(md2).length,2);
 });
 
+console.log('\n[8] 独立审计回归（htmlToMD 数据损坏级缺陷）');
+t('审计1：<strong>PLAINTEXT123</strong> 严格包裹', ()=>{
+  eq(MD.htmlToMD('<strong>PLAINTEXT123</strong>'), '**PLAINTEXT123**\n');
+});
+t('审计1b：高亮+加粗混排不错位不拆词', ()=>{
+  eq(MD.htmlToMD('<mark>高亮</mark>，<strong>PLAINTEXT123</strong>'), '==高亮==，**PLAINTEXT123**\n');
+});
+t('审计1c：嵌套 粗>斜>删除 不串位', ()=>{
+  eq(MD.htmlToMD('<strong>a <em>b</em> c</strong>'), '**a *b* c**\n');
+  eq(MD.htmlToMD('<del>外<strong>内</strong>外</del>'), '~~外**内**外~~\n');
+});
+t('审计2：<i> 斜体落盘', ()=> eq(MD.htmlToMD('<p><i>斜体</i></p>'), '*斜体*\n'));
+t('审计3：块间标准空行 p/p、div/div', ()=>{
+  eq(MD.htmlToMD('<p>第一段</p><p>第二段</p>'), '第一段\n\n第二段\n');
+  eq(MD.htmlToMD('<div>甲</div><div>乙</div>'), '甲\n\n乙\n');
+});
+t('审计3b：标题与正文空行', ()=> eq(MD.htmlToMD('<h2>节</h2><p>正文</p>'), '## 节\n\n正文\n'));
+t('审计4：<hr> → --- 且独立成行', ()=>{
+  eq(MD.htmlToMD('<p>a</p><hr><p>b</p>'), 'a\n\n---\nb\n');
+});
+t('审计5：blockquote 多行 > 前缀', ()=>{
+  eq(MD.htmlToMD('<blockquote><p>q1</p><p>q2</p></blockquote>'), '> q1\n> q2\n');
+});
+t('审计5b：pre+code language-js → 围栏带语言', ()=>{
+  eq(MD.htmlToMD('<pre><code class="language-js">let a=1;</code></pre>'), '```js\nlet a=1;\n```\n');
+});
+t('审计5c：pre 无语言 → 空围栏', ()=>{
+  eq(MD.htmlToMD('<pre><code>code</code></pre>'), '```\ncode\n```\n');
+});
+t('审计6：待办勾选状态 + 优先级不吞', ()=>{
+  const md = MD.htmlToMD('<ul><li><input type="checkbox" checked>写报告 #p/high</li><li><input type="checkbox">未办 #p/low</li></ul>');
+  ok(md.includes('- [x] 写报告 #p/high')); ok(md.includes('- [ ] 未办 #p/low'));
+});
+t('审计6b：列表内图片不丢项', ()=>{
+  ok(MD.htmlToMD('<ul><li><img src="a.jpg" alt="图"></li></ul>').includes('![图](a.jpg)'));
+});
+t('审计7：富文本元素 HTML→MD→HTML 往返不丢', ()=>{
+  const html = '<h2>节</h2><p>文字<strong>粗</strong><em>斜</em><u>下</u><del>删</del><mark>亮</mark><code>c</code></p>'
+    +'<blockquote><p>引</p></blockquote><ul><li>列</li></ul><pre><code class="language-js">x=1</code></pre><hr><a href="p.pdf">文档</a>';
+  const h2 = MD.toHTML(MD.htmlToMD(html));
+  ok(h2.includes('<strong>粗</strong>')); ok(h2.includes('<em>斜</em>'));
+  ok(h2.includes('<u>下</u>')); ok(h2.includes('<del>删</del>'));
+  ok(h2.includes('<mark class="md-hl">亮</mark>')); ok(h2.includes('<code class="md-code">c</code>'));
+  ok(h2.includes('<blockquote')); ok(h2.includes('<li>列</li>'));
+  ok(h2.includes('data-lang="js"')); ok(h2.includes('<hr'));
+  ok(h2.includes('[文档](p.pdf)') || h2.includes('>文档<'));
+});
+t('审计附：styleWithCSS span → 行内标记', ()=>{
+  ok(MD.htmlToMD('<p><span style="font-weight: bold;">粗</span></p>').includes('**粗**'));
+  ok(MD.htmlToMD('<p><span style="font-style: italic;">斜</span></p>').includes('*斜*'));
+  ok(MD.htmlToMD('<p><span style="text-decoration: underline;">下</span></p>').includes('<u>下</u>'));
+  ok(MD.htmlToMD('<p><span style="background-color: #FFE27A;">亮</span></p>').includes('==亮=='));
+});
+t('审计附2：字号 span 保留内联 HTML（不丢）', ()=>{
+  ok(MD.htmlToMD('<p>前<span style="font-size:18px">大字</span>后</p>').includes('<span style="font-size:18px">大字</span>'));
+});
+t('审计附3：链接内嵌套标记', ()=>{
+  eq(MD.htmlToMD('<p><a href="x.pdf"><strong>粗</strong>链接</a></p>'), '[**粗**链接](x.pdf)\n');
+});
+
 console.log('\n========================================');
 console.log('结果：PASS ' + pass + ' / FAIL ' + fail + ' （共 ' + (pass+fail) + ' 断言）');
 if(fail){ console.log('失败用例：\n - ' + fails.join('\n - ')); process.exit(1); }

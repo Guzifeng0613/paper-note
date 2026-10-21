@@ -292,11 +292,24 @@ function htmlToMD(html){
   s = s.replace(/<!--[\s\S]*?-->/g,'');
   s = s.replace(/<br\s*\/?>/gi,'\n');
 
+  /* styleWithCSS / execCommand 产出的样式 span → 标准行内标签 */
+  const convStack = [];
+  s = s.replace(/<span[^>]*style="([^"]*)"[^>]*>/gi, (m, style)=>{
+    if(/font-weight\s*:\s*(bold|[6-9]00)/i.test(style)){ convStack.push('b'); return '<b>'; }
+    if(/font-style\s*:\s*italic/i.test(style)){ convStack.push('i'); return '<i>'; }
+    if(/text-decoration\s*:\s*underline/i.test(style)){ convStack.push('u'); return '<u>'; }
+    if(/background(-color)?\s*:/i.test(style)){ convStack.push('mark'); return '<mark>'; }
+    return m; // 字号等复杂内联样式：原样保留（见 span/font 分支）
+  });
+  /* 已转换 span 的闭合标签 → 对应标签闭合 */
+  s = s.replace(/<\/span>/gi, ()=> convStack.length ? '</'+convStack.pop()+'>' : '</span>');
+
   let out = '';
-  const stack = [];                 // 块级上下文栈：'ul'|'ol'|'quote'|'wiki'
+  const stack = [];                 // 块级上下文栈：'ul'|'ol'|'quote'|'wiki'|'hl'
   const linkStack = [];            // {href, buf}
   let pendingLi = null;             // {type, indent, isTodo, checked}
   let preActive = false, preLang = '', preBuf = [];
+  let rawInlineDepth = 0;          // 原样保留的内联 HTML（字号 span/font）深度
 
   /* 输出目标：若在链接内则写入链接缓冲，否则写入主输出 */
   const emit = txt => {
@@ -304,8 +317,15 @@ function htmlToMD(html){
     if(linkStack.length){ linkStack[linkStack.length-1].buf += txt; return; }
     out += txt;
   };
-  /* 块间换行：引用块内换行后补 '> ' */
-  const br = () => emit(stack.includes('quote') ? '\n> ' : '\n');
+  /* 单换行（引用块内换行后补 '> '） */
+  const nl = () => emit(stack.includes('quote') ? '\n> ' : '\n');
+  /* 块间标准空行：保证相邻块之间恰好一个空行 */
+  const blk = () => {
+    if(!out) return;
+    if(out.endsWith('\n\n')) return;
+    if(out.endsWith('\n')) nl();
+    else { nl(); nl(); }
+  };
   const pushText = txt => {
     if(!txt) return;
     if(preActive){ preBuf.push(decodeEntities(txt)); return; }
@@ -341,7 +361,14 @@ function htmlToMD(html){
       if(tag === 'pre' && isClose){
         preActive = false;
         const inner = preBuf.join('').replace(/<\/?code[^>]*>/gi,'');
-        out += '\n```'+preLang+'\n'+inner.replace(/\n+$/,'')+'\n```\n';
+        // 语言：<pre class="language-x"> 或内部 <code class="language-x">
+        if(!preLang){
+          const lm = preBuf.join('').match(/language-([\w+-]+)/);
+          if(lm) preLang = lm[1];
+        }
+        blk();
+        out += '```'+preLang+'\n'+inner.replace(/\n+$/,'')+'\n```';
+        nl();
       } else {
         preBuf.push(m[0]); // pre 内部标签原样保留
       }
@@ -350,18 +377,18 @@ function htmlToMD(html){
 
     switch(tag){
       case 'p': case 'div':
-        if(isClose) br();
+        if(isClose) blk();
         break;
       case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6': {
         let lv = Number(tag[1]);
         lv = Math.max(2, Math.min(6, lv)); // 方言：# 不用于正文标题，h1→##
-        if(!isClose){ if(out && !out.endsWith('\n')) br(); emit('#'.repeat(lv)+' '); }
-        else br();
+        if(!isClose){ blk(); emit('#'.repeat(lv)+' '); }
+        else blk();
         break;
       }
       case 'ul': case 'ol':
         if(!isClose) stack.push(tag);
-        else { const k=stack.lastIndexOf(tag); if(k>=0)stack.splice(k,1); br(); }
+        else { const k=stack.lastIndexOf(tag); if(k>=0)stack.splice(k,1); blk(); }
         break;
       case 'li': {
         if(!isClose){
@@ -376,7 +403,7 @@ function htmlToMD(html){
                                 : (pendingLi.type==='ol' ? '1. ' : '- ')));
             pendingLi = null;
           }
-          br();
+          nl();
         }
         break;
       }
@@ -388,22 +415,25 @@ function htmlToMD(html){
         break;
       }
       case 'blockquote':
-        if(!isClose){ stack.push('quote'); emit('\n> '); }
-        else { const k=stack.lastIndexOf('quote'); if(k>=0)stack.splice(k,1); emit('\n'); }
+        if(!isClose){ blk(); stack.push('quote'); emit('\n> '); }
+        else { const k=stack.lastIndexOf('quote'); if(k>=0)stack.splice(k,1); blk(); }
         break;
       case 'pre':
-        if(!isClose){ preActive = true; preBuf = []; preLang = getAttr('data-lang')||getAttr('class')||'';
-          const lm = preLang.match(/language-([\w+-]+)/); if(lm) preLang = lm[1]; }
+        if(!isClose){
+          preActive = true; preBuf = [];
+          preLang = getAttr('data-lang')||'';
+          const lm = attrs.match(/language-([\w+-]+)/); if(lm) preLang = lm[1];
+        }
         break;
       case 'code':
-        emit(isClose ? '`' : '`');
-        break;
+        emit(isClose ? '`' : '`'); break;
       case 'strong': case 'b':           emit('**'); break;
       case 'em': case 'i':               emit('*');  break;
       case 'u':                          emit(isClose ? '</u>' : '<u>'); break;
       case 'del': case 's': case 'strike': emit('~~'); break;
       case 'mark': case 'highlight':      emit('==');  break;
-      case 'hr': emit('\n---\n'); break;      case 'img': {
+      case 'hr': blk(); emit('---'); nl(); break;
+      case 'img': {
         const src = getAttr('src')||'', alt = getAttr('alt')||'';
         if(pendingLi){ pendingLi = null; } // 图片直接成项
         emit('!['+alt+']('+src+')');
@@ -419,9 +449,15 @@ function htmlToMD(html){
       case 'span':
         if(!isClose && /md-wiki/.test(attrs)){ stack.push('wiki'); emit('[['); }
         else if(isClose && stack[stack.length-1]==='wiki'){ stack.pop(); emit(']]'); }
-        /* M4：高亮 span（style="background-color:..."）→ == == */
         else if(!isClose && /background(-color)?:/.test(attrs)){ stack.push('hl'); emit('=='); }
         else if(isClose && stack[stack.length-1]==='hl'){ stack.pop(); emit('=='); }
+        /* 其余 span（字号等复杂内联）：原样保留内联 HTML */
+        else if(!isClose){ emit(m[0]); rawInlineDepth++; }
+        else if(rawInlineDepth>0){ emit('</span>'); rawInlineDepth--; }
+        break;
+      case 'font':
+        if(!isClose){ emit(m[0]); rawInlineDepth++; }
+        else if(rawInlineDepth>0){ emit('</font>'); rawInlineDepth--; }
         break;
       default: break;
     }

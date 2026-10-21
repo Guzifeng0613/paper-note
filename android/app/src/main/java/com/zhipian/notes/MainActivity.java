@@ -52,7 +52,10 @@ public class MainActivity extends AppCompatActivity {
             RC_CREATE_ZIP = 105, RC_OPEN_ZIP = 106,
             RC_CAPTURE_PNG = 107, RC_CAPTURE_PDF = 108,
             RC_EXPORT_KB = 109, RC_IMPORT_DATA = 110,
-            RC_VAULT_BIND = 111, RC_VAULT_EXPORT = 113;
+            RC_VAULT_BIND = 111, RC_VAULT_CAMERA = 112, RC_VAULT_EXPORT = 113,
+            RC_VAULT_PICK = 114;
+    /* 待接续的 v16 vault 上下文 */
+    String pendingCameraNote = "", pendingVaultDir = "";
 
     @Override
     protected void onCreate(Bundle b) {
@@ -635,6 +638,32 @@ public class MainActivity extends AppCompatActivity {
                         JSONObject r = new JSONObject();
                         r.put("ok", true); r.put("bytes", bytes);
                         cbData(callId, r);
+                        break;
+                    }
+                    case RC_VAULT_CAMERA: {
+                        /* 系统相机拍照完成 → 落 vault attachments/<笔记名>/ */
+                        File tmp = new File(getCacheDir(), "vault_camera_tmp.jpg");
+                        if (!tmp.exists() || tmp.length() == 0)
+                            throw new Exception("未拍摄到照片");
+                        byte[] bytes = Storage.readAll(tmp);
+                        tmp.delete();
+                        String name = "拍照-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmmss")
+                                .format(new java.util.Date()) + ".jpg";
+                        String rel = Storage.vaultWriteAttachment(this, pendingCameraNote, name, bytes);
+                        pendingCameraNote = "";
+                        JSONObject o = new JSONObject();
+                        o.put("path", rel); o.put("name", name);
+                        o.put("size", bytes.length); o.put("type", "image/jpeg");
+                        cbData(callId, o);
+                        break;
+                    }
+                    case RC_VAULT_PICK: {
+                        /* 任意文件/PDF 多选 → 导入 vault 指定目录 */
+                        JSONArray arr = new JSONArray();
+                        for (Uri u : collect(data))
+                            arr.put(Storage.vaultImportFile(this, u.toString(), pendingVaultDir));
+                        pendingVaultDir = "";
+                        cbData(callId, arr);
                         break;
                     }
                     default:

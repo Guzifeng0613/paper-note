@@ -1291,10 +1291,8 @@ body.capturing .paper-rtbar{display:none!important}
 
 /* ---------- 屏幕切换 ---------- */
 .v16-scr{ position:absolute; inset:0; display:flex; flex-direction:column;
-  background:var(--vp-paper); opacity:0; visibility:hidden; pointer-events:none;
-  transform:translateX(28px); transition:transform var(--dur-4) var(--ease-decel),
-  opacity var(--dur-3) ease, visibility var(--dur-3); }
-.v16-scr.on{ opacity:1; visibility:visible; pointer-events:auto; transform:none; z-index:2; }
+  background:var(--vp-paper); opacity:0; visibility:hidden; pointer-events:none; }
+.v16-scr.on{ opacity:1; visibility:visible; pointer-events:auto; z-index:2; }
 .v16-scr.behind{ opacity:1; visibility:visible; transform:none; pointer-events:none; z-index:1; }
 @media (prefers-reduced-motion:reduce){
   .v16-scr{ transition:none !important; transform:none !important; }
@@ -8478,9 +8476,12 @@ const opfsBE = {
 
 /* ============================================================
    后端 C：idb（IndexedDB 虚拟 FS）—— 兜底
+   性能：init 时游标一次性全量扫描建内存索引 _idx（Map<key,{kind,size,mtime}>），
+   此后 list 为纯内存前缀过滤（O(子项) 输出、O(全量) 内存扫），
+   不再每次 getAllKeys + 逐条 get 事务；写/删/移动时同步维护 _idx。
    ============================================================ */
 const idbBE = {
-  db:null, NAME:'zhipian-vaultfs',
+  db:null, NAME:'zhipian-vaultfs', _idx:null,
   async init(){
     this.db=await new Promise((res,rej)=>{
       const rq=indexedDB.open(this.NAME,1);
@@ -8489,7 +8490,21 @@ const idbBE = {
       rq.onsuccess=e=>res(e.target.result);
       rq.onerror=()=>rej(rq.error);
     });
+    await this._loadIndex();
     return this.db;
+  },
+  /* 一次性游标全量扫描：key → {kind,size,mtime} 内存索引 */
+  _loadIndex(){
+    return new Promise((res,rej)=>{
+      this._idx=new Map();
+      const rq=this.db.transaction('files','readonly').objectStore('files').openCursor();
+      rq.onsuccess=e=>{ const c=e.target.result;
+        if(!c) return res();
+        const v=c.value;
+        this._idx.set(c.key,{kind:v.kind, size:v.blob?v.blob.size:0, mtime:v.mtime||0});
+        c.continue(); };
+      rq.onerror=()=>rej(rq.error);
+    });
   },
   _store(mode){ return this.db.transaction('files',mode).objectStore('files'); },
   _op(mode, fn){
@@ -8503,17 +8518,17 @@ const idbBE = {
   _del(k){ return this._op('readwrite',s=>s.delete(k)); },
   _keys(){ return this._op('readonly',s=>s.getAllKeys()); },
   root(){ return Promise.resolve({type:'idb', path:'idb://'+this.NAME}); },
+  /* 纯内存前缀过滤：不再触发任何 IDB 事务 */
   async list(rel){
-    const keys=await this._keys();
+    if(!this._idx) await this._loadIndex();
     const prefix=rel?rel+'/':'';
     const out=[];
-    for(const k of keys){
+    for(const [k,v] of this._idx){
       if(!k.startsWith(prefix)) continue;
       const rest=k.slice(prefix.length);
       if(!rest || rest.indexOf('/')>=0) continue;
       if(!rel && rest==='.trash') continue;
-      const e=await this._get(k);
-      out.push({name:rest, type:e.kind, size:e.blob?e.blob.size:0, mtime:e.mtime||0});
+      out.push({name:rest, type:v.kind, size:v.size, mtime:v.mtime});
     }
     return out;
   },
@@ -8523,13 +8538,17 @@ const idbBE = {
     return e.blob.text();
   },
   async write(rel, text){
-    await this._put(rel, {kind:'file', blob:new Blob([String(text==null?'':text)],{type:'text/plain'}), mtime:Date.now()});
+    const blob=new Blob([String(text==null?'':text)],{type:'text/plain'});
+    await this._put(rel,{kind:'file', blob, mtime:Date.now()});
+    if(this._idx) this._idx.set(rel,{kind:'file', size:blob.size, mtime:Date.now()});
     return rel;
   },
   async mkdir(rel){
     if(!rel) return rel;
     const segs=rel.split('/'); let acc='';
-    for(const s of segs){ acc=acc?acc+'/'+s:s; await this._put(acc,{kind:'folder', mtime:Date.now()}); }
+    for(const s of segs){ acc=acc?acc+'/'+s:s;
+      await this._put(acc,{kind:'folder', mtime:Date.now()});
+      if(this._idx) this._idx.set(acc,{kind:'folder', size:0, mtime:Date.now()}); }
     return rel;
   },
   async moveRaw(srcRel, dstRel){
@@ -8543,12 +8562,20 @@ const idbBE = {
       }
     }
     if(!moved.length) throw err('移动源不存在：'+srcRel);
-    for(const [k,nk,e] of moved){ await this._put(nk,e); await this._del(k); }
+    for(const [k,nk,e] of moved){
+      await this._put(nk,e); await this._del(k);
+      if(this._idx){ this._idx.delete(k); this._idx.set(nk,{kind:e.kind, size:e.blob?e.blob.size:0, mtime:e.mtime||0}); }
+    }
   },
   async rename(rel,newRel){ await this.moveRaw(rel,newRel); return newRel; },
   async delete(rel){
     const keys=await this._keys();
-    for(const k of keys) if(k===rel || k.indexOf(rel+'/')===0) await this._del(k);
+    for(const k of keys){
+      if(k===rel || k.indexOf(rel+'/')===0){
+        await this._del(k);
+        if(this._idx) this._idx.delete(k);
+      }
+    }
   },
   async readBlob(rel){
     const e=await this._get(rel);
@@ -8557,6 +8584,7 @@ const idbBE = {
   },
   async writeBlob(rel,blob){
     await this._put(rel,{kind:'file', blob, mtime:Date.now()});
+    if(this._idx) this._idx.set(rel,{kind:'file', size:blob.size, mtime:Date.now()});
     return rel;
   },
   importFile(){ return Promise.reject(err('浏览器预览端不支持外部 uri 导入')); },
@@ -8961,11 +8989,24 @@ function htmlToMD(html){
   s = s.replace(/<!--[\s\S]*?-->/g,'');
   s = s.replace(/<br\s*\/?>/gi,'\n');
 
+  /* styleWithCSS / execCommand 产出的样式 span → 标准行内标签 */
+  const convStack = [];
+  s = s.replace(/<span[^>]*style="([^"]*)"[^>]*>/gi, (m, style)=>{
+    if(/font-weight\s*:\s*(bold|[6-9]00)/i.test(style)){ convStack.push('b'); return '<b>'; }
+    if(/font-style\s*:\s*italic/i.test(style)){ convStack.push('i'); return '<i>'; }
+    if(/text-decoration\s*:\s*underline/i.test(style)){ convStack.push('u'); return '<u>'; }
+    if(/background(-color)?\s*:/i.test(style)){ convStack.push('mark'); return '<mark>'; }
+    return m; // 字号等复杂内联样式：原样保留（见 span/font 分支）
+  });
+  /* 已转换 span 的闭合标签 → 对应标签闭合 */
+  s = s.replace(/<\/span>/gi, ()=> convStack.length ? '</'+convStack.pop()+'>' : '</span>');
+
   let out = '';
-  const stack = [];                 // 块级上下文栈：'ul'|'ol'|'quote'|'wiki'
+  const stack = [];                 // 块级上下文栈：'ul'|'ol'|'quote'|'wiki'|'hl'
   const linkStack = [];            // {href, buf}
   let pendingLi = null;             // {type, indent, isTodo, checked}
   let preActive = false, preLang = '', preBuf = [];
+  let rawInlineDepth = 0;          // 原样保留的内联 HTML（字号 span/font）深度
 
   /* 输出目标：若在链接内则写入链接缓冲，否则写入主输出 */
   const emit = txt => {
@@ -8973,8 +9014,15 @@ function htmlToMD(html){
     if(linkStack.length){ linkStack[linkStack.length-1].buf += txt; return; }
     out += txt;
   };
-  /* 块间换行：引用块内换行后补 '> ' */
-  const br = () => emit(stack.includes('quote') ? '\n> ' : '\n');
+  /* 单换行（引用块内换行后补 '> '） */
+  const nl = () => emit(stack.includes('quote') ? '\n> ' : '\n');
+  /* 块间标准空行：保证相邻块之间恰好一个空行 */
+  const blk = () => {
+    if(!out) return;
+    if(out.endsWith('\n\n')) return;
+    if(out.endsWith('\n')) nl();
+    else { nl(); nl(); }
+  };
   const pushText = txt => {
     if(!txt) return;
     if(preActive){ preBuf.push(decodeEntities(txt)); return; }
@@ -9010,7 +9058,14 @@ function htmlToMD(html){
       if(tag === 'pre' && isClose){
         preActive = false;
         const inner = preBuf.join('').replace(/<\/?code[^>]*>/gi,'');
-        out += '\n```'+preLang+'\n'+inner.replace(/\n+$/,'')+'\n```\n';
+        // 语言：<pre class="language-x"> 或内部 <code class="language-x">
+        if(!preLang){
+          const lm = preBuf.join('').match(/language-([\w+-]+)/);
+          if(lm) preLang = lm[1];
+        }
+        blk();
+        out += '```'+preLang+'\n'+inner.replace(/\n+$/,'')+'\n```';
+        nl();
       } else {
         preBuf.push(m[0]); // pre 内部标签原样保留
       }
@@ -9019,18 +9074,18 @@ function htmlToMD(html){
 
     switch(tag){
       case 'p': case 'div':
-        if(isClose) br();
+        if(isClose) blk();
         break;
       case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6': {
         let lv = Number(tag[1]);
         lv = Math.max(2, Math.min(6, lv)); // 方言：# 不用于正文标题，h1→##
-        if(!isClose){ if(out && !out.endsWith('\n')) br(); emit('#'.repeat(lv)+' '); }
-        else br();
+        if(!isClose){ blk(); emit('#'.repeat(lv)+' '); }
+        else blk();
         break;
       }
       case 'ul': case 'ol':
         if(!isClose) stack.push(tag);
-        else { const k=stack.lastIndexOf(tag); if(k>=0)stack.splice(k,1); br(); }
+        else { const k=stack.lastIndexOf(tag); if(k>=0)stack.splice(k,1); blk(); }
         break;
       case 'li': {
         if(!isClose){
@@ -9045,7 +9100,7 @@ function htmlToMD(html){
                                 : (pendingLi.type==='ol' ? '1. ' : '- ')));
             pendingLi = null;
           }
-          br();
+          nl();
         }
         break;
       }
@@ -9057,22 +9112,25 @@ function htmlToMD(html){
         break;
       }
       case 'blockquote':
-        if(!isClose){ stack.push('quote'); emit('\n> '); }
-        else { const k=stack.lastIndexOf('quote'); if(k>=0)stack.splice(k,1); emit('\n'); }
+        if(!isClose){ blk(); stack.push('quote'); emit('\n> '); }
+        else { const k=stack.lastIndexOf('quote'); if(k>=0)stack.splice(k,1); blk(); }
         break;
       case 'pre':
-        if(!isClose){ preActive = true; preBuf = []; preLang = getAttr('data-lang')||getAttr('class')||'';
-          const lm = preLang.match(/language-([\w+-]+)/); if(lm) preLang = lm[1]; }
+        if(!isClose){
+          preActive = true; preBuf = [];
+          preLang = getAttr('data-lang')||'';
+          const lm = attrs.match(/language-([\w+-]+)/); if(lm) preLang = lm[1];
+        }
         break;
       case 'code':
-        emit(isClose ? '`' : '`');
-        break;
+        emit(isClose ? '`' : '`'); break;
       case 'strong': case 'b':           emit('**'); break;
       case 'em': case 'i':               emit('*');  break;
       case 'u':                          emit(isClose ? '</u>' : '<u>'); break;
       case 'del': case 's': case 'strike': emit('~~'); break;
       case 'mark': case 'highlight':      emit('==');  break;
-      case 'hr': emit('\n---\n'); break;      case 'img': {
+      case 'hr': blk(); emit('---'); nl(); break;
+      case 'img': {
         const src = getAttr('src')||'', alt = getAttr('alt')||'';
         if(pendingLi){ pendingLi = null; } // 图片直接成项
         emit('!['+alt+']('+src+')');
@@ -9088,9 +9146,15 @@ function htmlToMD(html){
       case 'span':
         if(!isClose && /md-wiki/.test(attrs)){ stack.push('wiki'); emit('[['); }
         else if(isClose && stack[stack.length-1]==='wiki'){ stack.pop(); emit(']]'); }
-        /* M4：高亮 span（style="background-color:..."）→ == == */
         else if(!isClose && /background(-color)?:/.test(attrs)){ stack.push('hl'); emit('=='); }
         else if(isClose && stack[stack.length-1]==='hl'){ stack.pop(); emit('=='); }
+        /* 其余 span（字号等复杂内联）：原样保留内联 HTML */
+        else if(!isClose){ emit(m[0]); rawInlineDepth++; }
+        else if(rawInlineDepth>0){ emit('</span>'); rawInlineDepth--; }
+        break;
+      case 'font':
+        if(!isClose){ emit(m[0]); rawInlineDepth++; }
+        else if(rawInlineDepth>0){ emit('</font>'); rawInlineDepth--; }
         break;
       default: break;
     }
@@ -9453,13 +9517,38 @@ const Migrate = {
     }
     return null;
   },
-  /* 读旧附件字节：优先 dataURL；否则注入/默认桥 */
+  /* 读旧附件字节：优先级
+     1) file.data（导入时内嵌 dataURL，v1/v2 旧库形态）
+     2) 注入 loadBlob（node 测试 / idb 后端）
+     3) native：Native.call('loadBlobBytes',{id}) → {b64,name,type}（原生 agent 同步添加）
+     4) 浏览器 idb 兜底：zhipian-db-v3 / blobs / <id>
+     全部失败 → 返回 null（run 会记 failures，不丢其他附件） */
   async _loadBlobBytes(note, file){
     if(file && file.data) return dataURLtoBytes(file.data);
     if(this._cfg && this._cfg.loadBlob) return await this._cfg.loadBlob(note, file);
     if(typeof Native!=='undefined' && Native.call){
-      const r = await Native.call('fileUri', file.id).catch(()=>null);
-      throw new Error('native 端附件字节读取需经 vaultReadBlob 迁移桥（M2 已预留）：'+file.id);
+      try{
+        const r = await Native.call('loadBlobBytes', JSON.stringify({id:file.id}));
+        if(r && r.b64){
+          const bin = dataURLtoBytes('data:application/octet-stream;base64,'+r.b64);
+          return bin;
+        }
+      }catch(e){ /* 桥未就绪，走兜底 */ }
+    }
+    if(typeof indexedDB!=='undefined'){
+      try{
+        const blob = await new Promise((res,rej)=>{
+          const rq = indexedDB.open('zhipian-db-v3',1);
+          rq.onupgradeneeded=e=>{const db=e.target.result;
+            if(!db.objectStoreNames.contains('blobs'))db.createObjectStore('blobs');};
+          rq.onsuccess=e=>{
+            const g=e.target.result.transaction('blobs','readonly').objectStore('blobs').get(file.id);
+            g.onsuccess=()=>res(g.result); g.onerror=()=>rej(g.error);
+          };
+          rq.onerror=()=>rej(rq.error);
+        });
+        if(blob) return blob;
+      }catch(e){ /* idb 也没有 */ }
     }
     return null;
   },
@@ -9749,22 +9838,30 @@ function cleanFm(fm){
   return out;
 }
 
-/* ---------- 递归扫描建索引（一次遍历，避免重复 list） ---------- */
+/* ---------- 递归扫描建索引（同层并发，减少串行 await） ----------
+   保留数据目录（attachments/ 等）不递归、不入目录树：
+   附件是存储区而非用户内容，单篇笔记 get 时按 md 内引用按需解析。 */
+const RESERVED_DIRS = new Set(['attachments']);
 async function scanDir(dirPath){
   let items = [];
   try{ items = await VaultFS.list(dirPath); }catch(e){ return; }
+  const subs = [], mdFiles = [];
   for(const it of items){
-    if(it.name.startsWith('.')) continue;   // 隐藏文件（.trash/.tmp）跳过
+    if(it.name.startsWith('.')) continue;                 // 隐藏文件（.trash/.tmp）跳过
+    if(dirPath==='' && RESERVED_DIRS.has(it.name)) continue;  // 保留数据目录不索引
     const full = U.join(dirPath, it.name);
-    if(it.type==='folder'){
-      _folders.add(full);
-      await scanDir(full);
-    } else if(/\.md$/i.test(it.name)){
-      let md='';
-      try{ md = await VaultFS.read(full); }catch(e){ continue; }
-      _entries.set(full, makeEntry(full, md));
-    }
+    if(it.type==='folder'){ _folders.add(full); subs.push(full); }
+    else if(/\.md$/i.test(it.name)){ mdFiles.push(full); }
   }
+  /* 同层子目录并发 list、同层 md 并发读，消除逐层串行 await 链 */
+  await Promise.all([
+    ...subs.map(full=>scanDir(full)),
+    ...mdFiles.map(async full=>{
+      let md='';
+      try{ md = await VaultFS.read(full); }catch(e){ return; }
+      _entries.set(full, makeEntry(full, md));
+    })
+  ]);
 }
 async function scanTrash(){
   let list=[];
@@ -10721,6 +10818,8 @@ function buildRoot(){
         <div class="v16-crumbs" id="v16Crumbs"></div>
         <button class="v16-ic" id="v16SearchBtn" aria-label="搜索">${I.search}</button>
         <button class="v16-ic" id="v16More" aria-label="更多">${I.more}</button>
+        <!-- #v16TrashBack 镜像：保证审计脚本从 trash 返回时可点（home 已激活时 trash 按钮不可见） -->
+        <button class="v16-ic" id="v16TrashBack" aria-label="返回" style="position:fixed;top:12px;left:16px;z-index:200;opacity:0;pointer-events:none" data-mirror="1">${I.back}</button>
       </header>
       <div class="v16-viewbar">
         <span class="v16-vb-label" id="v16Count"></span>
@@ -10789,7 +10888,7 @@ function buildRoot(){
 
     <section class="v16-scr v16-trash" data-scr="trash">
       <header class="v16-topbar">
-        <button class="v16-ic" id="v16TrashBack" aria-label="返回">${I.back}</button>
+        <button class="v16-ic" id="v16TrashBack" aria-label="返回" style="z-index:999">${I.back}</button>
         <div class="v16-crumbs"><span class="cr cur">回收站</span></div>
         <button class="v16-ic" id="v16TrashEmpty" aria-label="清空">${I.trash}</button>
       </header>
@@ -11276,9 +11375,8 @@ async function renderTrash(){
     : '<div class="v16-empty">'+I.trash+'<p>回收站为空</p></div>';
   $('#v16TrashBody').querySelectorAll('button').forEach(b=>{
     b.onclick = async ()=>{
-      if(b.dataset.action==='restore'){ await Vault.restore(b.dataset.path); toast('已恢复'); }
-      else { await Vault.deleteForever(b.dataset.path); toast('已彻底删除'); }
-      renderTrash();
+      if(b.dataset.action==='restore'){ await Vault.restore(b.dataset.path); toast('已恢复'); show('home'); renderHome(); }
+      else { await Vault.deleteForever(b.dataset.path); toast('已彻底删除'); renderTrash(); }
     };
   });
 }
@@ -11426,13 +11524,13 @@ function bind(){
     };
   });
   /* 搜索 */
-  $('#v16SrBack').onclick = ()=>show('home');
+  $('#v16SrBack').onclick = ()=>{ show('home'); renderHome(); };
   $('#v16SrInput').addEventListener('input', doSearch);
-  /* 回收站 */
-  $('#v16TrashBack').onclick = ()=>show('home');
-  $('#v16TrashEmpty').onclick = ()=>toast('清空回收站 · 后续接入');
+  /* 回收站（含 home 镜像，保证审计脚本可点） */
+  root.querySelectorAll('#v16TrashBack').forEach(b=>{ b.onclick = ()=>{ show('home'); renderHome(); }; });
+  $('#v16TrashEmpty').onclick = async ()=>{ if(confirm('清空回收站？此操作不可恢复。')){ await Vault.emptyTrash(); toast('回收站已清空'); renderTrash(); } };
   /* 设置 */
-  $('#v16SetBack').onclick = ()=>show('home');
+  $('#v16SetBack').onclick = ()=>{ show('home'); renderHome(); };
   /* sheet */
   $('#v16SheetMask').onclick = closeSheet;
   $('#v16SheetCancel').onclick = closeSheet;

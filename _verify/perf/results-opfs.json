@@ -1,0 +1,274 @@
+{
+  "backend": "opfs",
+  "seed": {
+    "seedMs": 2886,
+    "noteCount": 1000,
+    "folders": 20,
+    "attCount": 334
+  },
+  "cold": [
+    {
+      "backend": "opfs",
+      "injectMs": 0.39999999944120646,
+      "initMs": 1524.1000000005588,
+      "st": {
+        "listCalls": 356,
+        "listMs": 426.1000000005588,
+        "readCalls": 1000,
+        "readMs": 1056.4000000059605
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 12836621,
+        "total": 19048121
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 0.5,
+      "initMs": 1646.9000000003725,
+      "st": {
+        "listCalls": 356,
+        "listMs": 450.6999999973923,
+        "readCalls": 1000,
+        "readMs": 1150.5000000223517
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 14361265,
+        "total": 26568377
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 0.8999999994412065,
+      "initMs": 1641.7999999998137,
+      "st": {
+        "listCalls": 356,
+        "listMs": 417.50000000186265,
+        "readCalls": 1000,
+        "readMs": 1181.200000002049
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 16040725,
+        "total": 28141241
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 0.5,
+      "initMs": 1578,
+      "st": {
+        "listCalls": 356,
+        "listMs": 401.3000000026077,
+        "readCalls": 1000,
+        "readMs": 1136.4999999953434
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 17717081,
+        "total": 29976249
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 0.8999999994412065,
+      "initMs": 1647.800000000745,
+      "st": {
+        "listCalls": 356,
+        "listMs": 431.60000000242144,
+        "readCalls": 1000,
+        "readMs": 1167.199999999255
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 18952889,
+        "total": 39044793
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 0.7999999998137355,
+      "initMs": 1701.4000000003725,
+      "st": {
+        "listCalls": 356,
+        "listMs": 453.49999999720603,
+        "readCalls": 1000,
+        "readMs": 1202.0000000111759
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 26344813,
+        "total": 46802617
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 0.900000000372529,
+      "initMs": 1732.2999999998137,
+      "st": {
+        "listCalls": 356,
+        "listMs": 470,
+        "readCalls": 1000,
+        "readMs": 1222.0000000065193
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 22285405,
+        "total": 49424057
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 1.2000000001862645,
+      "initMs": 1597.5,
+      "st": {
+        "listCalls": 356,
+        "listMs": 378.7999999988824,
+        "readCalls": 1000,
+        "readMs": 1180.5000000046566
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 29672741,
+        "total": 50996921
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 0.40000000037252903,
+      "initMs": 1433.699999999255,
+      "st": {
+        "listCalls": 356,
+        "listMs": 349.1999999983236,
+        "readCalls": 1000,
+        "readMs": 1047.7999999923632
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 25645905,
+        "total": 53356217
+      }
+    },
+    {
+      "backend": "opfs",
+      "injectMs": 0.7000000001862645,
+      "initMs": 1224.0999999996275,
+      "st": {
+        "listCalls": 356,
+        "listMs": 356.59999999962747,
+        "readCalls": 1000,
+        "readMs": 830.800000003539
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118685
+      },
+      "mem": {
+        "used": 32975625,
+        "total": 54929081
+      }
+    }
+  ],
+  "save": {
+    "n": 50,
+    "median": 8.800000000745058,
+    "p95": 15.799999999813735,
+    "min": 7.599999999627471,
+    "max": 15.899999999441206,
+    "mean": 10.036000000033528
+  },
+  "scroll": {
+    "frames": 302,
+    "scrollHeight": 82738,
+    "scrollEnd": 27180,
+    "avgFps": 60.00199342170837,
+    "avgFrameMs": 16.66611295681063,
+    "longCount": 63,
+    "longRatio": 0.20930232558139536,
+    "long20Ratio": 0,
+    "droppedRatio": 0,
+    "maxFrame": 16.80000000000109,
+    "p95Frame": 16.700000000000728,
+    "mem0": {
+      "used": 38607189,
+      "total": 57453581
+    },
+    "mem1": {
+      "used": 5644359,
+      "total": 48298211
+    },
+    "memBefore": {
+      "used": 34409532,
+      "total": 55004156
+    }
+  },
+  "pageerrors": 0,
+  "noteMetaFile": null,
+  "coldStat": {
+    "n": 10,
+    "median": 1641.7999999998137,
+    "p95": 1732.2999999998137,
+    "min": 1224.0999999996275,
+    "max": 1732.2999999998137,
+    "mean": 1572.760000000056
+  },
+  "coldListRead": {
+    "listCalls": 356,
+    "readCalls": 1000
+  },
+  "conclusion": {
+    "coldPass": true,
+    "savePass": true,
+    "scrollPass": true,
+    "pageerrorPass": true
+  }
+}

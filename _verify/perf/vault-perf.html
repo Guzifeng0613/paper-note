@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<!-- vault-perf.html —— 性能测量隔离宿主页（不引用任何 src 业务入口，仅提供骨架）
+     脚本由 run-perf.js 通过 evaluate 注入 lib 副本；CSS 只读链接 vault-ui.css 保证卡片渲染成本真实 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>vault-perf</title>
+<link rel="stylesheet" href="/src/css/vault-ui.css">
+<style>
+  html,body{margin:0;padding:0;height:100%;background:#ECEAE2;}
+  #scroller{height:100vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+</style>
+</head>
+<body>
+<div id="scroller"><div id="gridMount" class="v16-grid"></div></div>
+</body>
+</html>

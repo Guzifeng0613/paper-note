@@ -57,10 +57,8 @@
 
 /* ---------- 屏幕切换 ---------- */
 .v16-scr{ position:absolute; inset:0; display:flex; flex-direction:column;
-  background:var(--vp-paper); opacity:0; visibility:hidden; pointer-events:none;
-  transform:translateX(28px); transition:transform var(--dur-4) var(--ease-decel),
-  opacity var(--dur-3) ease, visibility var(--dur-3); }
-.v16-scr.on{ opacity:1; visibility:visible; pointer-events:auto; transform:none; z-index:2; }
+  background:var(--vp-paper); opacity:0; visibility:hidden; pointer-events:none; }
+.v16-scr.on{ opacity:1; visibility:visible; pointer-events:auto; z-index:2; }
 .v16-scr.behind{ opacity:1; visibility:visible; transform:none; pointer-events:none; z-index:1; }
 @media (prefers-reduced-motion:reduce){
   .v16-scr{ transition:none !important; transform:none !important; }

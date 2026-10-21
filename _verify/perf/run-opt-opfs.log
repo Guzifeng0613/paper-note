@@ -1,0 +1,25 @@
+== 阶段1：生成 1000 篇 vault（opfs） ==
+种子写入耗时 6276ms | 笔记 1000 | 文件夹 20 | 附件 334
+== 阶段2：冷启动索引（每次 reload） ==
+#1 [opfs] init=780.0ms (inject=0.5ms) list:21次/4046ms read:1000次/204920ms notes=1000 folders=20
+#2 [opfs] init=760.0ms (inject=0.5ms) list:21次/3608ms read:1000次/199110ms notes=1000 folders=20
+#3 [opfs] init=795.6ms (inject=0.6ms) list:21次/3986ms read:1000次/211232ms notes=1000 folders=20
+#4 [opfs] init=756.1ms (inject=0.5ms) list:21次/3611ms read:1000次/190087ms notes=1000 folders=20
+#5 [opfs] init=880.4ms (inject=3.8ms) list:21次/4381ms read:1000次/221065ms notes=1000 folders=20
+#6 [opfs] init=860.4ms (inject=2.8ms) list:21次/4582ms read:1000次/217377ms notes=1000 folders=20
+#7 [opfs] init=798.6ms (inject=0.6ms) list:21次/3983ms read:1000次/203144ms notes=1000 folders=20
+#8 [opfs] init=757.4ms (inject=0.6ms) list:21次/4166ms read:1000次/191549ms notes=1000 folders=20
+#9 [opfs] init=680.7ms (inject=1.0ms) list:21次/3573ms read:1000次/188824ms notes=1000 folders=20
+#10 [opfs] init=631.0ms (inject=2.9ms) list:21次/3549ms read:1000次/162663ms notes=1000 folders=20
+正确性断言: {"stats":{"notes":1000,"folders":20,"attachments":0,"bytes":118580},"rootFolders":8,"rootNotes":0,"searchHits":1000,"treeRootChildren":8,"treeHasAttachments":false,"attNote0Count":1,"attNote0Kind":"image","attNote0Url":true,"trash":0}
+== 阶段3：单文件保存落盘（5 轮 × 10 篇并发 = 50 次） ==
+写盘耗时: {"n":50,"median":10.399999999441206,"p95":12.5,"min":8.5,"max":12.5,"mean":10.491999999955297}
+== 阶段4：1000 卡片网格滚动帧率 ==
+滚动结果: {"frames":302,"avgFps":"60.0","avgFrameMs":"16.67","longRatio":"19.9%","long20Ratio":"0.00%","droppedRatio":"0.00%","maxFrame":"16.8","p95":"16.8"}
+
+========== 汇总 ==========
+冷启动索引: n=10 中位数=780.0ms P95=880.4ms (门禁 ≤2s → PASS )
+写盘耗时:   中位数=10.4ms P95=12.5ms (目标 ≤100ms → PASS )
+滚动帧率:   平均=60.0fps 长帧>16.7ms占比=19.9% (>20ms=0.00% 丢帧=0.00%) → PASS
+pageerror:  0 (目标 0 → PASS )
+内存:       滚动前={"used":29501175,"total":59928015} 滚动后={"used":5698675,"total":55556531}

@@ -189,9 +189,12 @@ const opfsBE = {
 
 /* ============================================================
    后端 C：idb（IndexedDB 虚拟 FS）—— 兜底
+   性能：init 时游标一次性全量扫描建内存索引 _idx（Map<key,{kind,size,mtime}>），
+   此后 list 为纯内存前缀过滤（O(子项) 输出、O(全量) 内存扫），
+   不再每次 getAllKeys + 逐条 get 事务；写/删/移动时同步维护 _idx。
    ============================================================ */
 const idbBE = {
-  db:null, NAME:'zhipian-vaultfs',
+  db:null, NAME:'zhipian-vaultfs', _idx:null,
   async init(){
     this.db=await new Promise((res,rej)=>{
       const rq=indexedDB.open(this.NAME,1);
@@ -200,7 +203,21 @@ const idbBE = {
       rq.onsuccess=e=>res(e.target.result);
       rq.onerror=()=>rej(rq.error);
     });
+    await this._loadIndex();
     return this.db;
+  },
+  /* 一次性游标全量扫描：key → {kind,size,mtime} 内存索引 */
+  _loadIndex(){
+    return new Promise((res,rej)=>{
+      this._idx=new Map();
+      const rq=this.db.transaction('files','readonly').objectStore('files').openCursor();
+      rq.onsuccess=e=>{ const c=e.target.result;
+        if(!c) return res();
+        const v=c.value;
+        this._idx.set(c.key,{kind:v.kind, size:v.blob?v.blob.size:0, mtime:v.mtime||0});
+        c.continue(); };
+      rq.onerror=()=>rej(rq.error);
+    });
   },
   _store(mode){ return this.db.transaction('files',mode).objectStore('files'); },
   _op(mode, fn){
@@ -214,17 +231,17 @@ const idbBE = {
   _del(k){ return this._op('readwrite',s=>s.delete(k)); },
   _keys(){ return this._op('readonly',s=>s.getAllKeys()); },
   root(){ return Promise.resolve({type:'idb', path:'idb://'+this.NAME}); },
+  /* 纯内存前缀过滤：不再触发任何 IDB 事务 */
   async list(rel){
-    const keys=await this._keys();
+    if(!this._idx) await this._loadIndex();
     const prefix=rel?rel+'/':'';
     const out=[];
-    for(const k of keys){
+    for(const [k,v] of this._idx){
       if(!k.startsWith(prefix)) continue;
       const rest=k.slice(prefix.length);
       if(!rest || rest.indexOf('/')>=0) continue;
       if(!rel && rest==='.trash') continue;
-      const e=await this._get(k);
-      out.push({name:rest, type:e.kind, size:e.blob?e.blob.size:0, mtime:e.mtime||0});
+      out.push({name:rest, type:v.kind, size:v.size, mtime:v.mtime});
     }
     return out;
   },
@@ -234,13 +251,17 @@ const idbBE = {
     return e.blob.text();
   },
   async write(rel, text){
-    await this._put(rel, {kind:'file', blob:new Blob([String(text==null?'':text)],{type:'text/plain'}), mtime:Date.now()});
+    const blob=new Blob([String(text==null?'':text)],{type:'text/plain'});
+    await this._put(rel,{kind:'file', blob, mtime:Date.now()});
+    if(this._idx) this._idx.set(rel,{kind:'file', size:blob.size, mtime:Date.now()});
     return rel;
   },
   async mkdir(rel){
     if(!rel) return rel;
     const segs=rel.split('/'); let acc='';
-    for(const s of segs){ acc=acc?acc+'/'+s:s; await this._put(acc,{kind:'folder', mtime:Date.now()}); }
+    for(const s of segs){ acc=acc?acc+'/'+s:s;
+      await this._put(acc,{kind:'folder', mtime:Date.now()});
+      if(this._idx) this._idx.set(acc,{kind:'folder', size:0, mtime:Date.now()}); }
     return rel;
   },
   async moveRaw(srcRel, dstRel){
@@ -254,12 +275,20 @@ const idbBE = {
       }
     }
     if(!moved.length) throw err('移动源不存在：'+srcRel);
-    for(const [k,nk,e] of moved){ await this._put(nk,e); await this._del(k); }
+    for(const [k,nk,e] of moved){
+      await this._put(nk,e); await this._del(k);
+      if(this._idx){ this._idx.delete(k); this._idx.set(nk,{kind:e.kind, size:e.blob?e.blob.size:0, mtime:e.mtime||0}); }
+    }
   },
   async rename(rel,newRel){ await this.moveRaw(rel,newRel); return newRel; },
   async delete(rel){
     const keys=await this._keys();
-    for(const k of keys) if(k===rel || k.indexOf(rel+'/')===0) await this._del(k);
+    for(const k of keys){
+      if(k===rel || k.indexOf(rel+'/')===0){
+        await this._del(k);
+        if(this._idx) this._idx.delete(k);
+      }
+    }
   },
   async readBlob(rel){
     const e=await this._get(rel);
@@ -268,6 +297,7 @@ const idbBE = {
   },
   async writeBlob(rel,blob){
     await this._put(rel,{kind:'file', blob, mtime:Date.now()});
+    if(this._idx) this._idx.set(rel,{kind:'file', size:blob.size, mtime:Date.now()});
     return rel;
   },
   importFile(){ return Promise.reject(err('浏览器预览端不支持外部 uri 导入')); },

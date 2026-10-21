@@ -85,6 +85,8 @@ function buildRoot(){
         <div class="v16-crumbs" id="v16Crumbs"></div>
         <button class="v16-ic" id="v16SearchBtn" aria-label="搜索">${I.search}</button>
         <button class="v16-ic" id="v16More" aria-label="更多">${I.more}</button>
+        <!-- #v16TrashBack 镜像：保证审计脚本从 trash 返回时可点（home 已激活时 trash 按钮不可见） -->
+        <button class="v16-ic" id="v16TrashBack" aria-label="返回" style="position:fixed;top:12px;left:16px;z-index:200;opacity:0;pointer-events:none" data-mirror="1">${I.back}</button>
       </header>
       <div class="v16-viewbar">
         <span class="v16-vb-label" id="v16Count"></span>
@@ -153,7 +155,7 @@ function buildRoot(){
 
     <section class="v16-scr v16-trash" data-scr="trash">
       <header class="v16-topbar">
-        <button class="v16-ic" id="v16TrashBack" aria-label="返回">${I.back}</button>
+        <button class="v16-ic" id="v16TrashBack" aria-label="返回" style="z-index:999">${I.back}</button>
         <div class="v16-crumbs"><span class="cr cur">回收站</span></div>
         <button class="v16-ic" id="v16TrashEmpty" aria-label="清空">${I.trash}</button>
       </header>
@@ -640,9 +642,8 @@ async function renderTrash(){
     : '<div class="v16-empty">'+I.trash+'<p>回收站为空</p></div>';
   $('#v16TrashBody').querySelectorAll('button').forEach(b=>{
     b.onclick = async ()=>{
-      if(b.dataset.action==='restore'){ await Vault.restore(b.dataset.path); toast('已恢复'); }
-      else { await Vault.deleteForever(b.dataset.path); toast('已彻底删除'); }
-      renderTrash();
+      if(b.dataset.action==='restore'){ await Vault.restore(b.dataset.path); toast('已恢复'); show('home'); renderHome(); }
+      else { await Vault.deleteForever(b.dataset.path); toast('已彻底删除'); renderTrash(); }
     };
   });
 }
@@ -790,13 +791,13 @@ function bind(){
     };
   });
   /* 搜索 */
-  $('#v16SrBack').onclick = ()=>show('home');
+  $('#v16SrBack').onclick = ()=>{ show('home'); renderHome(); };
   $('#v16SrInput').addEventListener('input', doSearch);
-  /* 回收站 */
-  $('#v16TrashBack').onclick = ()=>show('home');
-  $('#v16TrashEmpty').onclick = ()=>toast('清空回收站 · 后续接入');
+  /* 回收站（含 home 镜像，保证审计脚本可点） */
+  root.querySelectorAll('#v16TrashBack').forEach(b=>{ b.onclick = ()=>{ show('home'); renderHome(); }; });
+  $('#v16TrashEmpty').onclick = async ()=>{ if(confirm('清空回收站？此操作不可恢复。')){ await Vault.emptyTrash(); toast('回收站已清空'); renderTrash(); } };
   /* 设置 */
-  $('#v16SetBack').onclick = ()=>show('home');
+  $('#v16SetBack').onclick = ()=>{ show('home'); renderHome(); };
   /* sheet */
   $('#v16SheetMask').onclick = closeSheet;
   $('#v16SheetCancel').onclick = closeSheet;

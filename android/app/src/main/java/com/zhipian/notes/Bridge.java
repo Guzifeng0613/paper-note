@@ -467,6 +467,49 @@ class Bridge {
                     a.launch(callId, i, MainActivity.RC_VAULT_EXPORT);
                     break;
                 }
+                /* ---------- v16 迁移/附件：旧库附件读取 + 打开/分享/拍照/选文件 ---------- */
+                case "loadBlobBytes": {
+                    /* 读旧库附件（files/<id>/ 下首个文件），base64 返回，供迁移复制到 vault */
+                    String id = new JSONObject(payload).optString("id", "");
+                    File f = Storage.findFile(a, id);
+                    if (f == null) throw new java.io.IOException("附件不存在：" + id);
+                    byte[] bytes = Storage.readAll(f);
+                    JSONObject r = new JSONObject();
+                    r.put("b64", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP));
+                    r.put("name", f.getName());
+                    r.put("size", bytes.length);
+                    r.put("type", a.guessMime(f.getName()));
+                    a.cbData(callId, r);
+                    break;
+                }
+                case "openWith": {
+                    openVaultFile(callId, vaultPayload(payload).optString("path", ""), false);
+                    break;
+                }
+                case "shareFile": {
+                    openVaultFile(callId, vaultPayload(payload).optString("path", ""), true);
+                    break;
+                }
+                case "vaultTakePhoto": {
+                    /* 系统相机拍照 → 落 vault attachments/<笔记名>/ */
+                    a.pendingCameraNote = vaultPayload(payload).optString("notePath", "");
+                    File tmp = new File(a.getCacheDir(), "vault_camera_tmp.jpg");
+                    Uri out = FileProvider.getUriForFile(a, a.getPackageName() + ".fileprovider", tmp);
+                    Intent i = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+                    i.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, out);
+                    a.launch(callId, i, MainActivity.RC_VAULT_CAMERA);
+                    break;
+                }
+                case "vaultPickImport": {
+                    /* 任意文件/PDF 多选 → 导入 vault 指定目录 */
+                    a.pendingVaultDir = vaultPayload(payload).optString("dirPath", "");
+                    Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.setType("*/*");
+                    i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    a.launch(callId, i, MainActivity.RC_VAULT_PICK);
+                    break;
+                }
                 default:
                     a.cbErr(callId, "未知方法：" + method);
             }
@@ -482,6 +525,44 @@ class Bridge {
     static String vaultBaseOf(String rel) {
         int i = rel.lastIndexOf('/');
         return i < 0 ? rel : rel.substring(i + 1);
+    }
+
+    /* 打开/分享 vault 内文件：私有目录走 FileProvider，SAF 绑定目录直接用 DocumentFile uri */
+    void openVaultFile(final String callId, final String vaultRel, final boolean share) {
+        try {
+            final Uri uri;
+            final String mime;
+            if (Storage.vaultHasSaf(a)) {
+                androidx.documentfile.provider.DocumentFile df =
+                        Storage.findRel(Storage.vaultSafRoot(a), vaultRel);
+                if (df == null || !df.isFile()) throw new java.io.IOException("文件不存在：" + vaultRel);
+                uri = df.getUri();
+                mime = a.guessMime(df.getName());
+            } else {
+                File f = Storage.vaultFile(a, vaultRel);
+                if (!f.isFile()) throw new java.io.IOException("文件不存在：" + vaultRel);
+                uri = FileProvider.getUriForFile(a, a.getPackageName() + ".fileprovider", f);
+                mime = a.guessMime(f.getName());
+            }
+            a.runOnUiThread(() -> {
+                try {
+                    Intent i = share ? new Intent(Intent.ACTION_SEND) : new Intent(Intent.ACTION_VIEW);
+                    i.setType(mime);
+                    if (share) i.putExtra(Intent.EXTRA_STREAM, uri);
+                    else i.setDataAndType(uri, mime);
+                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    if (share) i = Intent.createChooser(i, "分享");
+                    a.startActivity(i);
+                    a.cbData(callId, new JSONObject());
+                } catch (ActivityNotFoundException e) {
+                    a.cbErr(callId, "没有能处理此文件的应用");
+                } catch (Exception e) {
+                    a.cbErr(callId, e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            a.cbErr(callId, e.getMessage());
+        }
     }
 
     void openFile(final String callId, final String id) {

@@ -1,0 +1,127 @@
+{
+  "backend": "opfs",
+  "seed": {
+    "seedMs": 2458,
+    "noteCount": 1000,
+    "folders": 20,
+    "attCount": 334
+  },
+  "cold": [
+    {
+      "backend": "idb",
+      "injectMs": 0.5,
+      "initMs": 3635.2000000001863,
+      "st": {
+        "listCalls": 356,
+        "listMs": 2602.700000002049,
+        "readCalls": 1000,
+        "readMs": 980.6000000089407
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118704
+      },
+      "mem": {
+        "used": 14458987,
+        "total": 26409127
+      }
+    },
+    {
+      "backend": "idb",
+      "injectMs": 0.5,
+      "initMs": 3898.7000000001863,
+      "st": {
+        "listCalls": 356,
+        "listMs": 2830.6999999955297,
+        "readCalls": 1000,
+        "readMs": 1008.7999999839813
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118704
+      },
+      "mem": {
+        "used": 21286423,
+        "total": 44808359
+      }
+    },
+    {
+      "backend": "idb",
+      "injectMs": 0.7999999998137355,
+      "initMs": 3767.7000000001863,
+      "st": {
+        "listCalls": 356,
+        "listMs": 2713.0000000018626,
+        "readCalls": 1000,
+        "readMs": 1006.4000000245869
+      },
+      "stats": {
+        "notes": 1000,
+        "folders": 355,
+        "attachments": 0,
+        "bytes": 118704
+      },
+      "mem": {
+        "used": 23002079,
+        "total": 50313383
+      }
+    }
+  ],
+  "save": {
+    "n": 10,
+    "median": 7.5,
+    "p95": 10.299999999813735,
+    "min": 2.5,
+    "max": 10.299999999813735,
+    "mean": 6.970000000018627
+  },
+  "scroll": {
+    "frames": 292,
+    "scrollHeight": 82738,
+    "scrollEnd": 26280,
+    "avgFps": 58.0097280918587,
+    "avgFrameMs": 17.238487972508594,
+    "longCount": 66,
+    "longRatio": 0.2268041237113402,
+    "long20Ratio": 0.020618556701030927,
+    "droppedRatio": 0.010309278350515464,
+    "maxFrame": 66.70000000000073,
+    "p95Frame": 16.800000000000182,
+    "mem0": {
+      "used": 27441668,
+      "total": 52238520
+    },
+    "mem1": {
+      "used": 4835106,
+      "total": 43339782
+    },
+    "memBefore": {
+      "used": 23226543,
+      "total": 50313383
+    }
+  },
+  "pageerrors": 0,
+  "noteMetaFile": null,
+  "coldStat": {
+    "n": 3,
+    "median": 3767.7000000001863,
+    "p95": 3898.7000000001863,
+    "min": 3635.2000000001863,
+    "max": 3898.7000000001863,
+    "mean": 3767.2000000001863
+  },
+  "coldListRead": {
+    "listCalls": 356,
+    "readCalls": 1000
+  },
+  "conclusion": {
+    "coldPass": false,
+    "savePass": true,
+    "scrollPass": true,
+    "pageerrorPass": true
+  }
+}
