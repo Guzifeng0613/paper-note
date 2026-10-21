@@ -9,11 +9,14 @@ const ROOT = path.resolve(__dirname, '..');
 const CSS_ORDER = [
   'tokens.css', 'base.css', 'home.css', 'editor.css', 'settings.css',
   'search.css', 'cloud.css', 'editor-v4.css', 'desktop.css',
+  'vault-ui.css',
 ];
 const JS_ORDER = [
   'util.js', 'store.js', 'theme.js', 'route.js', 'sheets.js', 'home.js',
   'editor.js', 'notebook-trash.js', 'settings.js', 'cloud.js',
   'parse.js', 'ai.js', 'main.js',
+  /* ---- v16 新 UI（M1）---- */
+  'md-mini.js', 'mock-vault.js', 'vault-ui.js', 'v16-boot.js',
 ];
 
 const read = p => fs.readFileSync(p, 'utf8');

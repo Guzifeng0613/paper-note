@@ -1232,6 +1232,383 @@ body.capturing .paper-rtbar{display:none!important}
 /* 仅桌面显示的控件（如 AI 对话返回键） */
 .desk-only{display:none}
 .platform-desktop .desk-only{display:inline-flex;align-items:center;justify-content:center}
+/* ============================================================
+   vault-ui.css —— 纸片 v16 新 UI 样式（暖纸克制风，类 Obsidian）
+   全部以 v16- 前缀命名，独立于旧样式；深浅色均适配。
+   复用旧 tokens 的动效变量 --dur-*/--ease-*。
+   ============================================================ */
+/* 变量挂在 :root（而非 #v16root），保证始终进 cssOM */
+:root{
+  --vp-paper:#ECEAE2; --vp-paper-2:#F3F1E8; --vp-card:#FBFAF4;
+  --vp-ink:#3A3732; --vp-ink-2:#7C766B; --vp-ink-3:#ACA598;
+  --vp-line:rgba(96,84,60,.14);
+  --vp-accent:#A8843C; --vp-accent-soft:#EFE4C9;
+  --vp-shadow:0 1px 2px rgba(90,80,60,.06), 0 6px 18px rgba(90,80,60,.08);
+  --vp-shadow-lg:0 4px 10px rgba(90,80,60,.10), 0 16px 40px rgba(90,80,60,.14);
+  --vp-r:16px; --vp-r-sm:12px;
+  --vp-c-yellow:#FBF0C8; --vp-c-green:#DCEBD2; --vp-c-blue:#D8E4F2;
+  --vp-c-pink:#F6DDE0; --vp-c-orange:#F6E0C6; --vp-c-cream:#F1EDE2;
+}
+:root[data-theme="dark"]{
+  --vp-paper:#18191C; --vp-paper-2:#202126; --vp-card:#26272C;
+  --vp-ink:#E8E6E1; --vp-ink-2:#A7A29A; --vp-ink-3:#6E6A63;
+  --vp-line:rgba(255,255,255,.09);
+  --vp-accent:#D3B266; --vp-accent-soft:rgba(211,178,102,.16);
+  --vp-shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+  --vp-shadow-lg:0 4px 12px rgba(0,0,0,.5), 0 16px 40px rgba(0,0,0,.45);
+  --vp-c-yellow:#4A4226; --vp-c-green:#33442E; --vp-c-blue:#2C3A4E;
+  --vp-c-pink:#4A3036; --vp-c-orange:#4A3826; --vp-c-cream:#2C2D31;
+}
+#v16root{
+  /* 暖纸配色 */
+  --vp-paper:#ECEAE2; --vp-paper-2:#F3F1E8; --vp-card:#FBFAF4;
+  --vp-ink:#3A3732; --vp-ink-2:#7C766B; --vp-ink-3:#ACA598;
+  --vp-line:rgba(96,84,60,.14);
+  --vp-accent:#A8843C; --vp-accent-soft:#EFE4C9;
+  --vp-shadow:0 1px 2px rgba(90,80,60,.06), 0 6px 18px rgba(90,80,60,.08);
+  --vp-shadow-lg:0 4px 10px rgba(90,80,60,.10), 0 16px 40px rgba(90,80,60,.14);
+  --vp-r:16px; --vp-r-sm:12px;
+  --vp-c-yellow:#FBF0C8; --vp-c-green:#DCEBD2; --vp-c-blue:#D8E4F2;
+  --vp-c-pink:#F6DDE0; --vp-c-orange:#F6E0C6; --vp-c-cream:#F1EDE2;
+
+  position:fixed; left:0; right:0; top:0; bottom:0; z-index:60;
+  width:100%; height:100%;
+  background:#ECEAE2; color:var(--vp-ink);
+  display:flex; flex-direction:column; overflow:hidden;
+  font-family:var(--font-base);
+}
+:root[data-theme="dark"] #v16root{
+  background:#18191C;
+  --vp-paper:#18191C; --vp-paper-2:#202126; --vp-card:#26272C;
+  --vp-ink:#E8E6E1; --vp-ink-2:#A7A29A; --vp-ink-3:#6E6A63;
+  --vp-line:rgba(255,255,255,.09);
+  --vp-accent:#D3B266; --vp-accent-soft:rgba(211,178,102,.16);
+  --vp-shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+  --vp-shadow-lg:0 4px 12px rgba(0,0,0,.5), 0 16px 40px rgba(0,0,0,.45);
+  --vp-c-yellow:#4A4226; --vp-c-green:#33442E; --vp-c-blue:#2C3A4E;
+  --vp-c-pink:#4A3036; --vp-c-orange:#4A3826; --vp-c-cream:#2C2D31;
+}
+
+/* ---------- 屏幕切换 ---------- */
+.v16-scr{ position:absolute; inset:0; display:flex; flex-direction:column;
+  background:var(--vp-paper); opacity:0; visibility:hidden; pointer-events:none;
+  transform:translateX(28px); transition:transform var(--dur-4) var(--ease-decel),
+  opacity var(--dur-3) ease, visibility var(--dur-3); }
+.v16-scr.on{ opacity:1; visibility:visible; pointer-events:auto; transform:none; z-index:2; }
+.v16-scr.behind{ opacity:1; visibility:visible; transform:none; pointer-events:none; z-index:1; }
+@media (prefers-reduced-motion:reduce){
+  .v16-scr{ transition:none !important; transform:none !important; }
+}
+
+/* ---------- 顶栏 ---------- */
+.v16-topbar{ display:flex; align-items:center; gap:10px; flex-shrink:0;
+  padding:12px 16px 10px; padding-top:max(12px, calc(env(safe-area-inset-top,0px) + 8px));
+  min-height:58px; }
+.v16-ic{ width:38px; height:38px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; color:var(--vp-ink-2);
+  transition:transform .18s var(--ease-spring), background .2s; }
+.v16-ic:active{ transform:scale(.88); background:var(--vp-accent-soft); }
+.v16-ic svg{ width:21px; height:21px; }
+.v16-crumbs{ flex:1; min-width:0; display:flex; align-items:center; gap:4px;
+  overflow-x:auto; scrollbar-width:none; font-size:15px; font-weight:700; }
+.v16-crumbs::-webkit-scrollbar{ display:none; }
+.v16-crumbs .cr{ flex-shrink:0; color:var(--vp-ink-2); font-weight:600; }
+.v16-crumbs .cr.cur{ color:var(--vp-ink); }
+.v16-crumbs .sep{ color:var(--vp-ink-3); font-size:13px; flex-shrink:0; }
+.v16-crumbs .home-ico{ width:18px; height:18px; flex-shrink:0; color:var(--vp-accent); }
+
+/* 视图切换条 */
+.v16-viewbar{ display:flex; align-items:center; gap:8px; padding:2px 16px 10px; flex-shrink:0; }
+.v16-vb-label{ font-size:13px; color:var(--vp-ink-3); font-weight:600; flex:1; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.v16-seg{ display:flex; background:var(--vp-paper-2); border-radius:19px; padding:3px; }
+.v16-seg button{ width:34px; height:30px; border-radius:16px; display:flex; align-items:center;
+  justify-content:center; color:var(--vp-ink-3); transition:background .2s,color .2s; }
+.v16-seg button.on{ background:var(--vp-card); color:var(--vp-accent); box-shadow:var(--vp-shadow); }
+.v16-seg button svg{ width:17px; height:17px; }
+
+/* ---------- 主区 ---------- */
+.v16-body{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  padding:4px 16px calc(90px + var(--safe-b,0px)); }
+
+/* 文件夹卡片 */
+.v16-folders{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:6px; }
+.v16-folder-card{ display:flex; align-items:center; gap:12px; background:var(--vp-card);
+  border-radius:var(--vp-r); padding:14px; box-shadow:var(--vp-shadow); cursor:pointer;
+  transition:transform var(--dur-2) var(--ease-spring), box-shadow .2s; }
+.v16-folder-card:active{ transform:scale(.96); }
+.v16-folder-card .fic{ width:38px; height:38px; border-radius:11px; background:var(--vp-accent-soft);
+  color:var(--vp-accent); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.v16-folder-card .fic svg{ width:22px; height:22px; }
+.v16-folder-card .fname{ font-size:14.5px; font-weight:700; line-height:1.2; }
+.v16-folder-card .fcnt{ font-size:12px; color:var(--vp-ink-3); margin-top:2px; }
+
+/* md 卡片：网格 */
+.v16-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.v16-note-card{ position:relative; background:var(--vp-card); border-radius:var(--vp-r);
+  padding:14px 14px 12px; box-shadow:var(--vp-shadow); cursor:pointer;
+  transition:transform var(--dur-2) var(--ease-spring), box-shadow .2s;
+  border-left:3px solid transparent; }
+.v16-note-card:active{ transform:scale(.96); }
+.v16-note-card.c-yellow{ background:var(--vp-c-yellow); }
+.v16-note-card.c-green{ background:var(--vp-c-green); }
+.v16-note-card.c-blue{ background:var(--vp-c-blue); }
+.v16-note-card.c-pink{ background:var(--vp-c-pink); }
+.v16-note-card.c-orange{ background:var(--vp-c-orange); }
+.v16-note-card .nt{ font-size:15px; font-weight:800; line-height:1.3; padding-right:20px;
+  display:flex; align-items:center; gap:5px; }
+.v16-note-card .nt .pin{ width:14px; height:14px; color:var(--vp-accent); flex-shrink:0; }
+.v16-note-card .ns{ font-size:12.5px; color:var(--vp-ink-2); line-height:1.5; margin-top:7px;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.v16-note-card .nfoot{ display:flex; align-items:center; gap:6px; margin-top:10px;
+  font-size:11.5px; color:var(--vp-ink-3); }
+.v16-note-card .ntag{ background:rgba(120,110,80,.14); padding:1px 7px; border-radius:8px;
+  font-weight:600; }
+.v16-note-card .nfoot .dot{ margin-left:auto; }
+.v16-note-card .selmark{ position:absolute; top:12px; right:12px; width:22px; height:22px;
+  border-radius:50%; border:2px solid var(--vp-ink-3); display:none; align-items:center; justify-content:center; }
+.v16-home.selecting .v16-note-card .selmark{ display:flex; }
+.v16-home.selecting .v16-note-card{ border-color:var(--vp-accent); }
+.v16-note-card.sel .selmark{ background:var(--vp-accent); border-color:var(--vp-accent); }
+.v16-note-card.sel .selmark svg{ width:12px; height:12px; color:#fff; }
+
+/* 列表视图 */
+.v16-list{ display:flex; flex-direction:column; gap:10px; }
+.v16-list .v16-note-card{ display:block; border-left-width:4px; }
+
+/* 空态 */
+.v16-empty{ padding:60px 30px; text-align:center; color:var(--vp-ink-3); }
+.v16-empty svg{ width:60px; height:60px; opacity:.5; margin-bottom:14px; }
+.v16-empty p{ font-size:14px; }
+
+/* ---------- FAB ---------- */
+.v16-fab{ position:absolute; right:18px; bottom:calc(22px + var(--safe-b,0px));
+  width:58px; height:58px; border-radius:18px; background:var(--vp-accent); color:#fff;
+  display:flex; align-items:center; justify-content:center; box-shadow:var(--vp-shadow-lg);
+  z-index:8; transition:transform var(--dur-3) var(--ease-spring), background .2s; }
+.v16-fab svg{ width:26px; height:26px; transition:transform var(--dur-3) var(--ease-spring); }
+.v16-fab.open{ transform:rotate(135deg); }
+.v16-fab:active{ transform:scale(.9); }
+.v16-fab-menu{ position:absolute; right:24px; bottom:calc(92px + var(--safe-b,0px)); z-index:7;
+  display:flex; flex-direction:column; gap:10px; align-items:flex-end;
+  opacity:0; visibility:hidden; transform:translateY(10px);
+  transition:opacity var(--dur-2) ease, transform var(--dur-2) var(--ease-spring), visibility var(--dur-2); }
+.v16-fab-menu.open{ opacity:1; visibility:visible; transform:none; }
+.v16-fab-item{ display:flex; align-items:center; gap:9px; background:var(--vp-card);
+  border-radius:14px; padding:9px 12px; box-shadow:var(--vp-shadow); font-size:13.5px; font-weight:700;
+  color:var(--vp-ink); white-space:nowrap; }
+.v16-fab-item svg{ width:18px; height:18px; color:var(--vp-accent); }
+
+/* ---------- 左侧抽屉：文件树 ---------- */
+.v16-drawer-mask{ position:absolute; inset:0; z-index:10; background:rgba(40,36,28,.34);
+  opacity:0; visibility:hidden; transition:opacity var(--dur-3) ease, visibility var(--dur-3); }
+.v16-drawer-mask.open{ opacity:1; visibility:visible; }
+.v16-drawer{ position:absolute; left:0; top:0; bottom:0; width:78%; max-width:320px; z-index:11;
+  background:var(--vp-paper-2); display:flex; flex-direction:column;
+  transform:translateX(-100%); transition:transform var(--dur-4) var(--ease-decel);
+  box-shadow:var(--vp-shadow-lg); }
+.v16-drawer.open{ transform:none; }
+.v16-dr-head{ display:flex; align-items:center; gap:10px; padding:16px 18px;
+  padding-top:max(16px, calc(env(safe-area-inset-top,0px) + 10px)); }
+.v16-dr-head .dt{ font-size:17px; font-weight:800; flex:1; }
+.v16-dr-scroll{ flex:1; overflow-y:auto; padding:4px 10px 20px; }
+.v16-tree-node{ font-size:14px; }
+.v16-tree-row{ display:flex; align-items:center; gap:6px; padding:9px 10px; border-radius:10px;
+  cursor:pointer; color:var(--vp-ink); }
+.v16-tree-row:active{ background:var(--vp-accent-soft); }
+.v16-tree-row.on{ background:var(--vp-accent-soft); color:var(--vp-accent); font-weight:700; }
+.v16-tree-row .tw{ width:20px; height:20px; display:flex; align-items:center; justify-content:center;
+  color:var(--vp-ink-3); transition:transform var(--dur-2) var(--ease-decel); flex-shrink:0; }
+.v16-tree-row .tw svg{ width:14px; height:14px; }
+.v16-tree-row.openfolder .tw{ transform:rotate(90deg); }
+.v16-tree-row .ticon{ width:18px; height:18px; color:var(--vp-accent); flex-shrink:0; }
+.v16-tree-row .tname{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.v16-tree-row .tcnt{ font-size:11.5px; color:var(--vp-ink-3); }
+.v16-children{ margin-left:16px; overflow:hidden;
+  transition:max-height var(--dur-3) var(--ease-decel); max-height:0; }
+.v16-children.open{ max-height:600px; }
+.v16-dr-foot{ padding:10px 18px calc(12px + var(--safe-b,0px)); border-top:1px solid var(--vp-line); }
+.v16-dr-foot button{ width:100%; padding:11px; border-radius:12px; background:var(--vp-accent-soft);
+  color:var(--vp-accent); font-weight:700; font-size:13.5px; }
+
+/* ---------- 编辑器 ---------- */
+.v16-ed-scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:8px 20px calc(90px + var(--safe-b,0px)); }
+.v16-ed-crumb{ font-size:12.5px; color:var(--vp-ink-3); margin-bottom:6px; display:flex; align-items:center; gap:5px; }
+.v16-ed-crumb .mv{ margin-left:auto; color:var(--vp-accent); font-weight:700; }
+.v16-ed-title{ width:100%; font-size:26px; font-weight:800; line-height:1.3; margin:6px 0 4px;
+  color:var(--vp-ink); font-family:"Noto Serif SC",serif; }
+.v16-ed-meta{ font-size:12px; color:var(--vp-ink-3); margin-bottom:14px; }
+.v16-ed-body{ font-size:15.5px; line-height:1.75; color:var(--vp-ink); }
+.v16-ed-body .md-p{ margin:10px 0; }
+.v16-ed-body .md-h{ font-size:19px; font-weight:800; margin:18px 0 8px; }
+.v16-ed-body .md-quote{ border-left:3px solid var(--vp-accent); background:var(--vp-paper-2);
+  padding:8px 14px; border-radius:0 10px 10px 0; margin:12px 0; color:var(--vp-ink-2); }
+.v16-ed-body .md-quote p{ margin:4px 0; }
+.v16-ed-body .md-pre{ background:var(--vp-paper-2); border-radius:12px; padding:14px;
+  overflow-x:auto; margin:12px 0; }
+.v16-ed-body .md-pre code{ font-family:ui-monospace,monospace; font-size:13px; color:var(--vp-ink); }
+.v16-ed-body .md-code{ background:var(--vp-paper-2); padding:1px 6px; border-radius:6px;
+  font-family:ui-monospace,monospace; font-size:13.5px; }
+.v16-ed-body .md-hl{ background:var(--vp-accent-soft); padding:0 3px; border-radius:3px; }
+.v16-ed-body .md-hr{ border:none; border-top:1px solid var(--vp-line); margin:16px 0; }
+.v16-ed-body ul, .v16-ed-body ol{ margin:10px 0; padding-left:6px; list-style:none; }
+.v16-ed-body ul li::before{ content:'·'; margin-right:8px; color:var(--vp-accent); font-weight:800; }
+.v16-ed-body ol{ counter-reset:it; }
+.v16-ed-body ol li{ counter-increment:it; }
+.v16-ed-body ol li::before{ content:counter(it)'.'; margin-right:8px; color:var(--vp-accent); font-weight:700; }
+.v16-ed-body .md-tag{ color:var(--vp-accent); font-weight:600; }
+.v16-ed-body .md-wiki{ color:var(--vp-accent); background:var(--vp-accent-soft); padding:0 4px; border-radius:5px; }
+.v16-ed-body .md-link{ color:var(--vp-accent); }
+.v16-ed-body .md-img{ width:100%; border-radius:12px; margin:10px 0; display:block; box-shadow:var(--vp-shadow); }
+
+/* 待办行（可勾选） */
+.v16-todo{ display:flex; align-items:flex-start; gap:10px; padding:8px 4px; cursor:pointer;
+  border-radius:10px; }
+.v16-todo:active{ background:var(--vp-paper-2); }
+.v16-todo .mbox{ width:22px; height:22px; border-radius:7px; border:2px solid var(--vp-ink-3);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px;
+  transition:background var(--dur-2) var(--ease-spring), border-color var(--dur-2); }
+.v16-todo .mbox svg{ width:13px; height:13px; color:#fff; opacity:0; transition:opacity .1s; }
+.v16-todo.done .mbox{ background:var(--vp-accent); border-color:var(--vp-accent); }
+.v16-todo.done .mbox svg{ opacity:1; }
+.v16-todo .mtxt{ flex:1; font-size:15px; line-height:1.5; }
+.v16-todo.done .mtxt{ color:var(--vp-ink-3); text-decoration:line-through; }
+.v16-todo.pr-high .mbox{ border-color:var(--vp-accent); }
+.v16-todo .badge{ font-size:10.5px; padding:1px 7px; border-radius:8px; font-weight:700; flex-shrink:0; }
+.v16-todo.pr-high .badge{ background:var(--vp-c-pink); color:#A04438; }
+.v16-todo.pr-low .badge{ background:var(--vp-c-blue); color:#3A5A80; }
+
+/* 源码模式 */
+.v16-source{ width:100%; min-height:60vh; font-family:ui-monospace,monospace; font-size:13.5px;
+  line-height:1.7; color:var(--vp-ink); background:var(--vp-paper-2); border-radius:14px;
+  padding:16px; resize:none; white-space:pre-wrap; }
+
+/* 附件区 */
+.v16-attach-sec{ margin-top:18px; }
+.v16-attach-sec .ast{ font-size:12.5px; color:var(--vp-ink-3); font-weight:700; margin-bottom:8px; }
+.v16-attach-row{ display:flex; gap:10px; flex-wrap:wrap; }
+.v16-att{ width:84px; cursor:pointer; }
+.v16-att img{ width:84px; height:64px; object-fit:cover; border-radius:10px; box-shadow:var(--vp-shadow); }
+.v16-att .an{ font-size:11px; color:var(--vp-ink-3); margin-top:4px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.v16-att .fileico{ width:84px; height:64px; border-radius:10px; background:var(--vp-paper-2);
+  display:flex; align-items:center; justify-content:center; color:var(--vp-ink-2); }
+.v16-att .fileico svg{ width:30px; height:30px; }
+
+/* 底部工具栏 */
+.v16-dock{ flex-shrink:0; display:flex; align-items:center; gap:2px; padding:8px 8px calc(8px + var(--safe-b,0px));
+  border-top:1px solid var(--vp-line); background:var(--vp-paper); overflow-x:auto; scrollbar-width:none; }
+.v16-dock::-webkit-scrollbar{ display:none; }
+.v16-dock button{ min-width:40px; height:40px; border-radius:10px; display:flex; align-items:center;
+  justify-content:center; color:var(--vp-ink-2); padding:0 8px; }
+.v16-dock button:active{ background:var(--vp-accent-soft); color:var(--vp-accent); }
+.v16-dock button svg{ width:20px; height:20px; }
+
+/* ---------- 设置 ---------- */
+.v16-settings-scroll{ flex:1; overflow-y:auto; padding:6px 16px calc(40px + var(--safe-b,0px)); }
+.v16-set-group{ background:var(--vp-card); border-radius:var(--vp-r); margin-bottom:14px;
+  box-shadow:var(--vp-shadow); overflow:hidden; }
+.v16-set-head{ display:flex; align-items:center; gap:10px; padding:15px 16px; cursor:pointer; }
+.v16-set-head .stic{ width:22px; height:22px; color:var(--vp-accent); flex-shrink:0; }
+.v16-set-head .st{ font-size:15px; font-weight:800; flex:1; }
+.v16-set-head .stw{ width:18px; height:18px; color:var(--vp-ink-3); transition:transform var(--dur-2) var(--ease-decel); }
+.v16-set-group.open .stw{ transform:rotate(180deg); }
+.v16-set-body{ overflow:hidden; max-height:0; transition:max-height var(--dur-3) var(--ease-decel); }
+.v16-set-group.open .v16-set-body{ max-height:800px; }
+.v16-row{ display:flex; align-items:center; gap:12px; padding:13px 16px; border-top:1px solid var(--vp-line);
+  font-size:14px; }
+.v16-row .rl{ flex:1; }
+.v16-row .rv{ color:var(--vp-ink-3); font-size:12.5px; text-align:right; max-width:50%; }
+.v16-row:active{ background:var(--vp-paper-2); }
+.v16-row .rgo{ width:16px; height:16px; color:var(--vp-ink-3); }
+.v16-row.hl{ background:var(--vp-c-yellow); }
+.v16-switch{ width:44px; height:26px; border-radius:14px; background:var(--vp-line); position:relative; flex-shrink:0;
+  transition:background var(--dur-2); }
+.v16-switch::after{ content:''; position:absolute; top:3px; left:3px; width:20px; height:20px;
+  border-radius:50%; background:#fff; transition:transform var(--dur-2) var(--ease-spring);
+  box-shadow:0 1px 3px rgba(0,0,0,.25); }
+.v16-switch.on{ background:var(--vp-accent); }
+.v16-switch.on::after{ transform:translateX(18px); }
+
+/* ---------- 搜索页 ---------- */
+.v16-search-field{ margin:0 16px 10px; display:flex; align-items:center; gap:10px;
+  background:var(--vp-card); border-radius:14px; padding:0 14px; height:44px; box-shadow:var(--vp-shadow); }
+.v16-search-field svg{ width:18px; height:18px; color:var(--vp-ink-3); flex-shrink:0; }
+.v16-search-field input{ flex:1; font-size:15px; }
+.v16-search-scroll{ flex:1; overflow-y:auto; padding:0 16px calc(40px + var(--safe-b,0px)); }
+.v16-sr-hit{ background:var(--vp-card); border-radius:var(--vp-r-sm); padding:13px 14px; margin-bottom:10px;
+  box-shadow:var(--vp-shadow); cursor:pointer; }
+.v16-sr-hit .ht{ font-size:14.5px; font-weight:700; }
+.v16-sr-hit .hs{ font-size:12.5px; color:var(--vp-ink-2); margin-top:4px; line-height:1.5; }
+.v16-sr-hit mark{ background:var(--vp-accent-soft); color:var(--vp-accent); padding:0 2px; border-radius:3px; }
+
+/* ---------- 回收站 ---------- */
+.v16-trash-scroll{ flex:1; overflow-y:auto; padding:6px 16px calc(40px + var(--safe-b,0px)); }
+.v16-trash-item{ background:var(--vp-card); border-radius:var(--vp-r-sm); padding:13px 14px; margin-bottom:10px;
+  box-shadow:var(--vp-shadow); display:flex; align-items:center; gap:10px; }
+.v16-trash-item .ti{ flex:1; }
+.v16-trash-item .tn{ font-size:14.5px; font-weight:700; }
+.v16-trash-item .tp{ font-size:12px; color:var(--vp-ink-3); margin-top:3px; }
+.v16-trash-item button{ font-size:12.5px; font-weight:700; padding:7px 12px; border-radius:9px; }
+.v16-trash-item .b-restore{ background:var(--vp-accent-soft); color:var(--vp-accent); }
+.v16-trash-item .b-del{ color:var(--vp-ink-3); }
+
+/* ---------- 底部 sheet ---------- */
+.v16-sheet-mask{ position:absolute; inset:0; z-index:20; background:rgba(40,36,28,.34);
+  opacity:0; visibility:hidden; transition:opacity var(--dur-3) ease, visibility var(--dur-3); }
+.v16-sheet-mask.open{ opacity:1; visibility:visible; }
+.v16-sheet{ position:absolute; left:0; right:0; bottom:0; z-index:21; background:var(--vp-card);
+  border-radius:22px 22px 0 0; padding:8px 0 calc(6px + var(--safe-b,0px));
+  transform:translateY(105%); transition:transform var(--dur-4) var(--ease-decel); }
+.v16-sheet.open{ transform:none; }
+.v16-sheet-grip{ width:38px; height:4px; border-radius:2px; background:var(--vp-line); margin:6px auto 10px; }
+.v16-sheet-title{ font-size:13px; color:var(--vp-ink-3); text-align:center; margin-bottom:8px; font-weight:700; }
+.v16-sheet-opt{ display:flex; align-items:center; gap:12px; padding:14px 20px; font-size:15px; cursor:pointer; }
+.v16-sheet-opt:active{ background:var(--vp-paper-2); }
+.v16-sheet-opt svg{ width:20px; height:20px; color:var(--vp-ink-2); }
+.v16-sheet-cancel{ margin:8px 14px 0; padding:14px; text-align:center; font-size:15px; font-weight:700;
+  border-radius:14px; background:var(--vp-paper-2); color:var(--vp-ink); }
+
+/* ---------- toast ---------- */
+.v16-toast{ position:absolute; left:50%; bottom:calc(110px + var(--safe-b,0px)); transform:translateX(-50%);
+  background:rgba(50,46,38,.92); color:#fff; padding:10px 18px; border-radius:20px; font-size:13.5px;
+  z-index:40; opacity:0; visibility:hidden; transition:opacity var(--dur-2) ease, transform var(--dur-2) ease;
+  max-width:80%; text-align:center; }
+.v16-toast.show{ opacity:1; visibility:visible; transform:translateX(-50%) translateY(-6px); }
+
+/* ---------- 主题圆形扩散（双图层） ---------- */
+.v16-reveal{ position:fixed; inset:0; z-index:70; pointer-events:none; border-radius:50%;
+  transform:scale(0); opacity:0; }
+
+/* ---------- 大图查看器 ---------- */
+.v16-imgviewer{ position:fixed; inset:0; z-index:80; background:rgba(10,10,10,.94);
+  display:flex; align-items:center; justify-content:center; opacity:0; visibility:hidden;
+  transition:opacity var(--dur-3) ease, visibility var(--dur-3); }
+.v16-imgviewer.open{ opacity:1; visibility:visible; }
+.v16-imgviewer img{ max-width:94%; max-height:88%; border-radius:6px; }
+.v16-imgviewer .close{ position:absolute; top:16px; right:16px; color:#fff;
+  width:40px; height:40px; display:flex; align-items:center; justify-content:center; }
+.v16-imgviewer .close svg{ width:26px; height:26px; }
+
+/* 多选底部操作条 */
+.v16-selbar{ position:absolute; left:0; right:0; bottom:0; z-index:9;
+  background:var(--vp-card); display:flex; padding:10px calc(12px + var(--safe-b,0px)) calc(10px + var(--safe-b,0px));
+  box-shadow:0 -4px 20px rgba(0,0,0,.1); transform:translateY(110%); transition:transform var(--dur-3) var(--ease-spring-soft); }
+.v16-selbar.open{ transform:none; }
+.v16-selbar button{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+  font-size:11.5px; color:var(--vp-ink-2); padding:6px 0; }
+.v16-selbar button svg{ width:22px; height:22px; }
+.v16-selbar button:active{ color:var(--vp-accent); }
+
+/* ============================================================
+   M1：旧 v15 screen 整体压在新 UI 之下、不拦截指针与转场
+   （旧模块保留在磁盘与 git，M2-M4 逐步迁移；走查期新 UI 独占前台）
+   ============================================================ */
+#app > .screen{ visibility:hidden !important; opacity:0 !important;
+  pointer-events:none !important; z-index:0 !important; transform:none !important; }
+#app > .mask, #app > .sheet, #app > .modal, #app > .sync-overlay,
+#app > .toast, #app > .nb-picker, #app > .chat-drawer, #app > .note-ai-panel{ z-index:1 !important; }
+
 </style>
 </head>
 <body>
@@ -7864,6 +8241,1327 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('pageshow',()=>window.__forceRepaint());
 
 boot().catch(e=>console.warn('boot failed',e));
+/* ============================================================
+   md-mini.js —— 纸片 v16 最小 Markdown 引擎（M1 内置版）
+   全局名 MD。M3 将被完整 markdown.js 替换，方法签名遵循 docs/VAULT-INTERFACE.md 第3节。
+   方言 = Obsidian 兼容子集：##标题 / **粗** / *斜* / ==高亮== / <u>下划</u> /
+   ~~删除~~ / `行内码` / ```代码块``` / >引用 / - / 1. / --- /
+   - [ ] / - [x]（优先级 #p/high #p/low） / ![[图]] / ![](图) / [名](文件) / [[双链]] / #标签
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------- frontmatter ---------- */
+function parseFrontmatter(text){
+  if(!text) return { fm:null, body:'' };
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if(!m) return { fm:null, body:text };
+  const raw = m[1];
+  const body = text.slice(m[0].length);
+  const fm = {};
+  raw.split(/\r?\n/).forEach(line=>{
+    const mm = line.match(/^\s*([\w.-]+)\s*:\s*(.*)$/);
+    if(!mm) return;
+    let key = mm[1], val = mm[2].trim();
+    if(val.startsWith('[') && val.endsWith(']')){
+      val = val.slice(1,-1).split(',').map(s=>s.trim().replace(/^["']|["']$/g,'')).filter(Boolean);
+    } else {
+      val = val.replace(/^["']|["']$/g,'');
+      if(val==='true') val=true;
+      else if(val==='false') val=false;
+      else if(val!=='' && !isNaN(Number(val))) val=Number(val);
+    }
+    fm[key]=val;
+  });
+  return { fm, body };
+}
+function stringifyFrontmatter(fm){
+  const keys = Object.keys(fm||{});
+  if(!keys.length) return '';
+  const lines = keys.map(k=>{
+    let v = fm[k];
+    if(Array.isArray(v)) v = '[' + v.join(', ') + ']';
+    else if(typeof v === 'string') v = v;
+    else v = String(v);
+    return k+': '+v;
+  });
+  return '---\n'+lines.join('\n')+'\n---\n';
+}
+
+/* ---------- 行内渲染 ---------- */
+function inline(t){
+  let s = esc(t);
+  /* 图片 ![[alt]] 与 ![](url) —— 先抓，避免内部被当文本 */
+  s = s.replace(/!\[\[([^\]]*)\]\]/g, (_,alt)=>'<img class="md-img" src="attachments/'+encodeURIComponent(alt)+'" alt="'+esc(alt)+'">');
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_,alt,url)=>'<img class="md-img" src="'+url+'" alt="'+esc(alt)+'">');
+  /* 附件链接 [名](path) */
+  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_,txt,url)=>'<a class="md-link" href="'+url+'">'+txt+'</a>');
+  /* 双链 [[名]] */
+  s = s.replace(/\[\[([^\]]+)\]\]/g, '<span class="md-wiki">[[ $1 ]]</span>');
+  /* 下划线 <u>..</u>（HTML 已被 esc 转义，需还原） */
+  s = s.replace(/&lt;u&gt;([\s\S]*?)&lt;\/u&gt;/g, '<u>$1</u>');
+  /* 代码块在行内场景不处理；行内码 `x` */
+  s = s.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>');
+  /* 高亮 ==x== */
+  s = s.replace(/==([^=]+)==/g, '<mark class="md-hl">$1</mark>');
+  /* 删除线 ~~x~~ */
+  s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+  /* 加粗 **x** */
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  /* 斜体 *x* */
+  s = s.replace(/(^|\W)\*([^*\n]+)\*(\W|$)/g, '$1<em>$2</em>$3');
+  /* 标签 #标签（汉字/字母/数字） */
+  s = s.replace(/(^|\s)#([\u4e00-\u9fa5\w-]+)/g, '$1<span class="md-tag">#$2</span>');
+  return s;
+}
+
+/* ---------- 块级渲染 ---------- */
+function toHTML(md){
+  const { fm, body } = parseFrontmatter(md||'');
+  const lines = body.split(/\r?\n/);
+  let html = '', i = 0;
+  const flushList = (buf, ordered) => {
+    if(!buf.length) return;
+    html += (ordered?'<ol>':'<ul>') + buf.map(li=>'<li>'+li+'</li>').join('') + (ordered?'</ol>':'</ul>');
+    buf.length = 0;
+  };
+  let ulBuf = [], olBuf = [];
+  while(i < lines.length){
+    let line = lines[i];
+    /* 代码块 ``` */
+    const fence = line.match(/^```(\w*)\s*$/);
+    if(fence){
+      const code = []; i++;
+      while(i < lines.length && !/^```\s*$/.test(lines[i])){ code.push(lines[i]); i++; }
+      i++;
+      html += '<pre class="md-pre"><code>'+esc(code.join('\n'))+'</code></pre>';
+      continue;
+    }
+    /* 分割线 ---（需独立成行且非 frontmatter） */
+    if(/^---\s*$/.test(line)){ flushList(ulBuf); flushList(olBuf,true); html+='<hr class="md-hr">'; i++; continue; }
+    /* 引用 > */
+    if(/^>\s?/.test(line)){
+      flushList(ulBuf); flushList(olBuf,true);
+      const q = [];
+      while(i < lines.length && /^>\s?/.test(lines[i])){ q.push(lines[i].replace(/^>\s?/,'')); i++; }
+      html += '<blockquote class="md-quote">'+q.map(l=>'<p>'+inline(l)+'</p>').join('')+'</blockquote>';
+      continue;
+    }
+    /* 标题 ##~###### */
+    const h = line.match(/^(#{2,6})\s+(.*)$/);
+    if(h){ flushList(ulBuf); flushList(olBuf,true);
+      const lv = h[1].length; html += '<h'+lv+' class="md-h">'+inline(h[2])+'</h'+lv+'>'; i++; continue; }
+    /* 待办 */
+    const todo = line.match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
+    if(todo){
+      flushList(ulBuf); flushList(olBuf,true);
+      const indent = todo[1].length, done = todo[2].toLowerCase()==='x';
+      html += todoRowHTML(line, indent, done, todo[3]);
+      i++; continue;
+    }
+    /* 无序列表 */
+    const ul = line.match(/^(\s*)-\s+(.*)$/);
+    if(ul){ olBuf.length && flushList(olBuf,true); ulBuf.push(inline(ul[2])); i++; continue; }
+    /* 有序列表 */
+    const ol = line.match(/^(\s*)\d+\.\s+(.*)$/);
+    if(ol){ ulBuf.length && flushList(ulBuf); olBuf.push(inline(ol[2])); i++; continue; }
+    /* 空行 */
+    if(!line.trim()){ flushList(ulBuf); flushList(olBuf,true); i++; continue; }
+    /* 普通段落 */
+    flushList(ulBuf); flushList(olBuf,true);
+    html += '<p class="md-p">'+inline(line)+'</p>';
+    i++;
+  }
+  flushList(ulBuf); flushList(olBuf,true);
+  return html || '<p class="md-p md-empty">（空笔记）</p>';
+}
+
+/* 待办行 HTML（M1 只读展示用；可勾选在 VUI 层处理） */
+function todoRowHTML(orig, indent, done, text){
+  const pr = (text.match(/#p\/(high|low)/)||[])[1] || '';
+  const clean = text.replace(/#p\/(high|low)/g,'').trim();
+  return '<div class="md-todo'+(done?' done':'')+(pr?' p-'+pr:'')+'" data-done="'+(done?1:0)+'">'
+    +'<span class="md-todo-box">'+(done?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>':'')+'</span>'
+    +'<span class="md-todo-text">'+inline(clean)+'</span></div>';
+}
+
+/* ---------- 待办行抽取 / 回写 ---------- */
+function todoLines(md){
+  const { body } = parseFrontmatter(md||'');
+  const out = [];
+  body.split(/\r?\n/).forEach((line, idx)=>{
+    const m = line.match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
+    if(!m) return;
+    const pr = (m[3].match(/#p\/(high|low)/)||[])[1] || 'normal';
+    out.push({ key:String(idx), indent:m[1].length, done:m[2].toLowerCase()==='x',
+      priority:pr, text:m[3], start:0, end:line.length });
+  });
+  return out;
+}
+function setTodoLine(md, key, patch){
+  const { fm, body } = parseFrontmatter(md||'');
+  const lines = body.split(/\r?\n/);
+  const idx = Number(key);
+  const m = lines[idx] && lines[idx].match(/^(\s*)- \[[ xX]\]\s+(.*)$/);
+  if(!m) return md;
+  const done = (patch && patch.done!=null) ? patch.done : (m[2].toLowerCase()==='x');
+  lines[idx] = m[1]+'- ['+(done?'x':' ')+'] '+m[3];
+  return stringifyFrontmatter(fm) + lines.join('\n');
+}
+
+/* ---------- 索引辅助 ---------- */
+function extractTags(md){
+  const { body } = parseFrontmatter(md||'');
+  const set = new Set();
+  const fm = parseFrontmatter(md).fm;
+  if(fm && Array.isArray(fm.tags)) fm.tags.forEach(t=>set.add(t));
+  (body.match(/#([\u4e00-\u9fa5\w-]+)/g)||[]).forEach(t=>set.add(t.slice(1)));
+  return Array.from(set);
+}
+function extractSummary(md){
+  const { body } = parseFrontmatter(md||'');
+  const text = body
+    .replace(/```[\s\S]*?```/g,' ')
+    .replace(/^#{1,6}\s+/gm,'')
+    .replace(/[*_`>#=-]/g,' ')
+    .replace(/!\[\[[^\]]*\]\]/g,'[图]')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g,'[图]')
+    .replace(/\s+/g,' ').trim();
+  return text.slice(0,120);
+}
+
+window.MD = {
+  parseFrontmatter, stringifyFrontmatter, toHTML,
+  todoLines, setTodoLine, extractTags, extractSummary,
+  extractAttachRefs(md){
+    const { body } = parseFrontmatter(md||'');
+    const refs = [];
+    (body.match(/!\[\[([^\]]*)\]\]/g)||[]).forEach(s=>{ const a=s.slice(3,-2); refs.push({alt:a,link:a,embed:true}); });
+    (body.match(/!\[([^\]]*)\]\(([^)\s]+)\)/g)||[]).forEach(s=>{
+      const m=s.match(/!\[([^\]]*)\]\(([^)\s]+)\)/); refs.push({alt:m[1],link:m[2],embed:true}); });
+    (body.match(/\[([^\]]+)\]\(([^)\s]+)\)/g)||[]).forEach(s=>{
+      const m=s.match(/\[([^\]]+)\]\(([^)\s]+)\)/);
+      if(m && !s.startsWith('!')) refs.push({alt:m[1],link:m[2],embed:false}); });
+    return refs;
+  }
+};
+})();
+
+/* ============================================================
+   mock-vault.js —— 纸片 v16 MockVault（M1 高保真走查用）
+   全局名 MockVault。实现 docs/VAULT-INTERFACE.md 第2节 Vault 全部方法。
+   数据驻留内存，所有 async 方法带 30~80ms 模拟延时。
+   M2 将被真实 vault.js 替换，方法签名与返回结构不得变更。
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------- 内联 SVG 占位图（离线可用，不外链） ---------- */
+function imgURI(label, c1, c2){
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='360'><rect width='480' height='360' fill='${c1}'/><circle cx='392' cy='64' r='42' fill='${c2}' opacity='.85'/><path d='M0 270 L130 160 L240 240 L340 170 L480 260 V360 H0 Z' fill='${c2}' opacity='.45'/><text x='22' y='330' font-size='26' fill='${c2}' font-family='sans-serif'>${label}</text></svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+const IMG_WHITE = imgURI('白板照片', '#E8E2D2', '#B9A97E');
+const IMG_MOVE  = imgURI('打包现场', '#E4E0D4', '#9CA88C');
+const IMG_ROOM  = imgURI('房间草稿', '#E6E1D0', '#C0A98A');
+const IMG_PDF   = 'data:application/pdf;base64,'; /* 占位：VUI 用文件图标渲染 */
+
+/* ---------- 时间基准（2026-10，截图稳定） ---------- */
+const T = (s)=>new Date(s).getTime();
+const BASE = T('2026-10-18T09:00:00+08:00');
+
+/* ---------- 原始 md 正文 ---------- */
+const BODY = {
+  '灵感速记.md': `---
+id: 0a1b2c3d
+created: 2026-10-20T08:30:00+08:00
+updated: 2026-10-20T21:10:00+08:00
+color: cream
+tags: [灵感]
+type: note
+---
+## 关于资料库的想法
+
+纸片的 v16 想做成 ==类 Obsidian== 的目录式笔记：**每张便签 = 一个 .md 文件**，
+正文用 *Markdown*，文件能被 Obsidian 直接打开。
+
+> 克制比炫技更重要。
+
+相关：[[周会纪要]]`,
+
+  '临时想法.md': `---
+id: 0b2c3d4e
+created: 2026-10-19T07:50:00+08:00
+updated: 2026-10-20T07:50:00+08:00
+tags: [想法]
+type: note
+---
+- 纸感要保留：暖纸底、柔和阴影
+- 深色模式也要克制
+- 动效不能丢
+
+#产品`,
+
+  '工作/周会纪要.md': `---
+id: 8f3a2b1c
+created: 2026-10-18T09:00:00+08:00
+updated: 2026-10-20T14:30:00+08:00
+color: yellow
+pinned: true
+tags: [工作, 周会]
+type: todo
+---
+## 本周对齐事项
+
+- [x] 同步 v16 资料库改造进度 #p/high
+- [x] 确认 Markdown 方言与 Obsidian 兼容 #p/high
+- [ ] 评审新建文件的命名规则 #p/high
+- [ ] 附件相对路径迁移方案 #p/low
+- [ ] 下周三前给出 M2 验收清单
+
+> 会后补充：原子写方案沿用 .tmp + rename。
+
+相关：[[需求清单]] [[本周周报]]`,
+
+  '工作/项目A/需求清单.md': `---
+id: 1b2c3d4e
+created: 2026-10-15T11:00:00+08:00
+updated: 2026-10-19T10:12:00+08:00
+tags: [工作, 项目A, 需求]
+type: note
+---
+## 项目A 需求
+
+1. 支持任意层级文件夹
+2. 文件树展开 / 折叠
+3. 拖拽文件到文件夹
+4. 重名自动加序号
+
+核心片段：
+
+\`\`\`js
+function atomicWrite(path, text){
+  write(path + '.tmp', text);
+  rename(path + '.tmp', path);
+}
+\`\`\`
+
+要点 **不要** 破坏旧库，==迁移前先备份==。`,
+
+  '生活/购物清单.md': `---
+id: 2c3d4e5f
+created: 2026-10-12T20:00:00+08:00
+updated: 2026-10-20T08:20:00+08:00
+color: green
+tags: [生活, 采购]
+type: todo
+---
+## 双十一采购
+
+- [x] 咖啡豆两袋
+- [x] 厨房纸巾
+- [ ] 床头台灯（暖光）#p/low
+- [ ] 无线鼠标
+- [ ] 绿植一盆
+
+*记得核对优惠券*`,
+
+  '读书/读书笔记.md': `---
+id: 3d4e5f6a
+created: 2026-10-08T21:00:00+08:00
+updated: 2026-10-19T22:40:00+08:00
+tags: [读书, 产品]
+type: note
+---
+## 《设计心理学》摘录
+
+> 好的设计有两个重要特征：==可视性== 和 ==易通性==。
+
+- 映射 *自然* 而 *直观*
+-  affordance 暗示操作方式
+- **反馈** 让用户确信操作生效
+
+下划线的想法：<u>可供性不是属性，是关系</u>。删除线：~~过时的拟物~~。
+
+标签 #设计 #交互`,
+
+  '工作/本周周报.md': `---
+id: 4e5f6a7b
+created: 2026-10-19T18:00:00+08:00
+updated: 2026-10-20T19:00:00+08:00
+color: blue
+tags: [工作, 周报]
+type: note
+---
+## 本周完成
+
+- 完成 M0 工程化拆分
+- 新 UI 走查版搭建中
+
+---
+
+## 下周计划
+
+推进 M2 原生桥联调，==预留两天== 给回归。`,
+
+  '生活/搬家记录.md': `---
+id: 5f6a7b8c
+created: 2026-10-10T10:00:00+08:00
+updated: 2026-10-17T16:00:00+08:00
+tags: [生活, 搬家]
+type: note
+---
+## 搬家手记
+
+打包顺序：书籍 → 厨房 → 衣物。
+
+![[打包现场.jpg]]
+
+房间草稿留底：
+
+![[房间草稿.png]]
+
+白板方案见附件。`,
+
+  '旅行/旅行清单.md': `---
+id: 6a7b8c9d
+created: 2026-10-01T15:00:00+08:00
+updated: 2026-10-05T12:00:00+08:00
+tags: [旅行, 云南]
+type: note
+---
+## 云南行
+
+- 身份证 / 充电宝
+- 相机 + 备用电池
+- 防晒 / 外套
+- 预订民宿确认
+
+*昆明 → 大理 → 丽江*`,
+
+  '.trash/旧便签/会议草稿.md': `---
+id: 7b8c9d0e
+created: 2026-09-20T09:00:00+08:00
+updated: 2026-09-22T09:00:00+08:00
+tags: [草稿]
+type: note
+---
+## 被淘汰的会议草稿
+
+这篇已移入回收站，可恢复或彻底删除。`,
+
+  '.trash/旧便签/随手记.md': `---
+id: 8c9d0e1f
+created: 2026-09-18T22:00:00+08:00
+updated: 2026-09-19T09:00:00+08:00
+type: note
+---
+## 随手记
+
+回收站第二篇示例。`
+};
+
+/* ---------- 附件映射（相对路径 → 资源） ---------- */
+const ATTACH = {
+  '生活/搬家记录.md': [
+    { name:'打包现场.jpg', kind:'image', url:IMG_MOVE },
+    { name:'房间草稿.png', kind:'image', url:IMG_ROOM }
+  ],
+  '工作/周会纪要.md': [
+    { name:'白板照片.jpg', kind:'image', url:IMG_WHITE }
+  ]
+};
+
+/* ---------- 内部状态 ---------- */
+let _files = {};          // path -> md全文
+let _trashOrigin = {};    // trash内path -> 原path
+const _delay = ()=> 30 + Math.floor(Math.random()*50);
+
+function _mkdirsFromFiles(){ /* 目录由文件路径推导，无需额外维护 */ }
+
+function _dirname(p){ const i = p.lastIndexOf('/'); return i<0 ? '' : p.slice(0,i); }
+function _basename(p){ const i = p.lastIndexOf('/'); return i<0 ? p : p.slice(i+1); }
+function _titleOf(p){ return _basename(p).replace(/\.md$/,''); }
+
+/* 由 md 全文构造 Entry */
+function _makeEntry(path){
+  const md = _files[path];
+  const { fm, body } = MD.parseFrontmatter(md);
+  const name = _basename(path);
+  const folder = _dirname(path);
+  const title = _titleOf(path);
+  const todos = MD.todoLines(md);
+  return {
+    path, name, folder, title,
+    type: (fm && fm.type) || 'note',
+    color: (fm && fm.color) || null,
+    pinned: !!(fm && fm.pinned),
+    tags: (fm && Array.isArray(fm.tags)) ? fm.tags : MD.extractTags(md),
+    summary: MD.extractSummary(md),
+    id: (fm && fm.id) || path,
+    created: fm && fm.created ? T(fm.created) : BASE,
+    updated: fm && fm.updated ? T(fm.updated) : BASE,
+    mtime: fm && fm.updated ? T(fm.updated) : BASE,
+    todoTotal: todos.length,
+    todoDone: todos.filter(t=>t.done).length
+  };
+}
+
+/* 收集所有非 trash 目录 */
+function _allDirs(){
+  const set = new Set();
+  Object.keys(_files).forEach(p=>{
+    if(p.startsWith('.trash/')) return;
+    let d = _dirname(p);
+    while(d){ set.add(d); d = _dirname(d); }
+  });
+  return Array.from(set);
+}
+function _subDirs(folder){
+  return _allDirs().filter(d=>{
+    if(folder==='') return _dirname(d)==='';
+    return d.indexOf(folder+'/')===0 && _dirname(d)===folder;
+  }).sort();
+}
+function _mdFilesUnder(folder){
+  return Object.keys(_files).filter(p=>{
+    if(p.startsWith('.trash/')) return false;
+    return _dirname(p)===folder;
+  });
+}
+/* 该文件夹下（含所有子目录）的笔记数，用于文件夹卡片"内含篇数" */
+function _notesUnder(dir){
+  return Object.keys(_files).filter(p=>{
+    if(p.startsWith('.trash/')) return false;
+    const d = _dirname(p);
+    return dir==='' ? true : (d===dir || d.indexOf(dir+'/')===0);
+  }).length;
+}
+
+const MockVault = {
+  /* ---- 初始化 ---- */
+  async init(){
+    await new Promise(r=>setTimeout(r,_delay()));
+    if(!Object.keys(_files).length){
+      _files = Object.assign({}, BODY);
+      Object.keys(BODY).forEach(p=>{
+        if(p.startsWith('.trash/')){
+          _trashOrigin[p] = p.replace('.trash/旧便签/','');
+        }
+      });
+    }
+    return true;
+  },
+
+  /* ---- 当前文件夹内容：文件夹置顶，其后 md（pinned 在前） ---- */
+  entries(folderPath){
+    folderPath = folderPath || '';
+    const folders = _subDirs(folderPath).map(d=>({
+      type:'folder', name:_basename(d)+'/', path:d,
+      title:_basename(d), count:_notesUnder(d)
+    }));
+    const notes = _mdFilesUnder(folderPath).map(_makeEntry)
+      .sort((a,b)=> (b.pinned-a.pinned) || (b.updated-a.updated));
+    return { folders, notes };
+  },
+
+  /* ---- 全量嵌套树 ---- */
+  tree(){
+    const build = (dir)=>{
+      const node = { name: dir==='' ? '资料库' : _basename(dir), path:dir, type:'folder', children:[], count:_notesUnder(dir) };
+      _subDirs(dir).forEach(d=>node.children.push(build(d)));
+      return node;
+    };
+    return build('');
+  },
+
+  /* ---- 读单篇 ---- */
+  get(path){
+    const md = _files[path];
+    if(md==null) throw new Error('笔记不存在：'+path);
+    const { fm } = MD.parseFrontmatter(md);
+    const entry = _makeEntry(path);
+    return Promise.resolve().then(()=>({ entry, md, frontmatter:fm, html:MD.toHTML(md) }));
+  },
+
+  /* ---- 搜索：标题/正文/标签 ---- */
+  search(q){
+    q = (q||'').trim().toLowerCase();
+    if(!q) return Promise.resolve([]);
+    const hits = Object.keys(_files).filter(p=>!p.startsWith('.trash/'))
+      .map(_makeEntry)
+      .filter(e=>{
+        if(e.title.toLowerCase().includes(q)) return true;
+        if(e.summary.toLowerCase().includes(q)) return true;
+        if((e.tags||[]).some(t=>t.toLowerCase().includes(q))) return true;
+        return false;
+      });
+    return Promise.resolve(hits);
+  },
+
+  /* ---- 新建 ---- */
+  async create({ title, folder, type, content }){
+    await new Promise(r=>setTimeout(r,_delay()));
+    title = (title||'').trim() || '未命名';
+    folder = folder || '';
+    let name = title + '.md';
+    let path = folder ? folder+'/'+name : name;
+    let n = 2;
+    while(_files[path]){ path = (folder?folder+'/':'') + title + ' '+n+'.md'; n++; }
+    const fm = '---\nid: '+uid()+'\ncreated: '+new Date().toISOString()+'\nupdated: '+new Date().toISOString()+'\ntype: '+(type||'note')+'\n---\n';
+    _files[path] = fm + (content||'');
+    return path;
+  },
+
+  /* ---- 保存 ---- */
+  async save(path, md){
+    await new Promise(r=>setTimeout(r,_delay()));
+    _files[path] = md;
+    return path;
+  },
+
+  /* ---- 重命名（改标题=改文件名） ---- */
+  async rename(path, title){
+    await new Promise(r=>setTimeout(r,_delay()));
+    const folder = _dirname(path);
+    let name = (title||'未命名')+'.md';
+    let np = folder?folder+'/'+name:name;
+    let n=2; while(_files[np] && np!==path){ np = (folder?folder+'/':'') + (title||'未命名')+' '+n+'.md'; n++; }
+    if(_files[path]!=null){ _files[np] = _files[path]; delete _files[path]; }
+    return np;
+  },
+
+  /* ---- 移动 ---- */
+  async move(path, dirPath){
+    await new Promise(r=>setTimeout(r,_delay()));
+    const name = _basename(path);
+    const np = dirPath ? dirPath+'/'+name : name;
+    if(_files[path]!=null){ _files[np] = _files[path]; delete _files[path]; }
+    return np;
+  },
+
+  /* ---- 删除（进回收站） ---- */
+  async remove(path){
+    await new Promise(r=>setTimeout(r,_delay()));
+    const trashPath = '.trash/旧便签/'+_basename(path);
+    _trashOrigin[trashPath] = path;
+    if(_files[path]!=null){ _files[trashPath] = _files[path]; delete _files[path]; }
+    return trashPath;
+  },
+
+  /* ---- 回收站列表 ---- */
+  trashList(){
+    return Object.keys(_files).filter(p=>p.startsWith('.trash/'))
+      .map(p=>({ entry:_makeEntry(p), originalPath:_trashOrigin[p]||_titleOf(p) }));
+  },
+
+  /* ---- 恢复 ---- */
+  async restore(trashPath){
+    await new Promise(r=>setTimeout(r,_delay()));
+    const orig = _trashOrigin[trashPath] || _titleOf(trashPath);
+    if(_files[trashPath]!=null){ _files[orig] = _files[trashPath]; delete _files[trashPath]; delete _trashOrigin[trashPath]; }
+    return orig;
+  },
+
+  /* ---- 彻底删除 ---- */
+  async deleteForever(trashPath){
+    await new Promise(r=>setTimeout(r,_delay()));
+    delete _files[trashPath]; delete _trashOrigin[trashPath];
+    return true;
+  },
+
+  /* ---- 待办勾选回写 ---- */
+  async toggleTodo(path, rowKey){
+    await new Promise(r=>setTimeout(r,_delay()));
+    const md = _files[path];
+    const line = MD.todoLines(md).find(t=>t.key===rowKey);
+    const newMd = MD.setTodoLine(md, rowKey, { done: !(line && line.done) });
+    _files[path] = newMd;
+    const nl = MD.todoLines(newMd).find(t=>t.key===rowKey);
+    return nl ? { done: nl.done, key: rowKey } : null;
+  },
+
+  /* ---- 改色 ---- */
+  async setColor(path, color){
+    await new Promise(r=>setTimeout(r,_delay()));
+    let md = _files[path];
+    const { fm } = MD.parseFrontmatter(md);
+    fm.color = color || undefined;
+    const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/,'');
+    _files[path] = MD.stringifyFrontmatter(cleanFm(fm)) + body;
+    return path;
+  },
+
+  /* ---- 置顶 ---- */
+  async setPin(path, pinned){
+    await new Promise(r=>setTimeout(r,_delay()));
+    let md = _files[path];
+    const { fm } = MD.parseFrontmatter(md);
+    fm.pinned = !!pinned;
+    const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/,'');
+    _files[path] = MD.stringifyFrontmatter(cleanFm(fm)) + body;
+    return path;
+  },
+
+  /* ---- 面包屑 ---- */
+  crumbs(path){
+    const parts = [];
+    if(!path || !path.includes('/')) return [{name:'资料库', path:''}];
+    const dir = _dirname(path);
+    let acc='';
+    parts.push({name:'资料库', path:''});
+    dir.split('/').forEach(seg=>{ acc = acc?acc+'/'+seg:seg; parts.push({name:seg, path:acc}); });
+    return parts;
+  },
+
+  /* ---- 统计 ---- */
+  stats(){
+    const notes = Object.keys(_files).filter(p=>!p.startsWith('.trash/')).length;
+    const folders = _allDirs().length;
+    const attachments = Object.keys(ATTACH).length;
+    const bytes = Object.keys(_files).reduce((s,p)=>s+_files[p].length,0);
+    return Promise.resolve({ notes, folders, attachments, bytes });
+  },
+
+  /* ---- 取附件（M1 mock） ---- */
+  attachments(path){ return ATTACH[path] || []; },
+  attachmentUrl(path, name){
+    const list = ATTACH[path]||[];
+    const f = list.find(a=>a.name===name);
+    return f ? f.url : null;
+  }
+};
+
+function cleanFm(fm){
+  const out = {};
+  Object.keys(fm||{}).forEach(k=>{
+    if(fm[k]==null || fm[k]==='' ) return;
+    out[k]=fm[k];
+  });
+  return out;
+}
+window.MockVault = MockVault;
+})();
+
+/* ============================================================
+   vault-ui.js —— 纸片 v16 新 UI（M1 高保真走查）
+   全局 VUI。独立构建 #v16root，承载首页 / 文件树抽屉 / 编辑器 /
+   源码模式 / 待办勾选 / 设置 / 搜索 / 回收站 / FAB / 底部 sheet /
+   大图查看器 / 主题圆形扩散。数据来自 MockVault（M2 换 RealVault）。
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------- 图标 ---------- */
+const I = {
+  menu:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
+  more:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/></svg>',
+  home:'<svg class="home-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  pin:'<svg class="pin" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l-1 7 3 3H7l3-3z"/><path d="M12 13v8"/></svg>',
+  grid:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
+  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.3 3.6A2 2 0 0 0 7.6 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></svg>',
+  file:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg>',
+  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  upDown:'<svg class="stw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>',
+  move:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m0 0-6 6m6-6 6 6"/></svg>',
+  theme:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>',
+  upload:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0-4 4m4-4 4 4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>',
+  image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.5"/><path d="m21 15-5-5-9 9"/></svg>',
+  link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>',
+  code:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg>',
+  quote:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h4v6a4 4 0 0 1-4 4H6v-2h1a2 2 0 0 0 2-2H7zm8 0h4v6a4 4 0 0 1-4 4h-1v-2h1a2 2 0 0 0 2-2h-2z"/></svg>',
+  todo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16 9"/></svg>',
+  listbar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/></svg>',
+  bold:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zm0 7h7a3.5 3.5 0 0 1 0 7H7z"/></svg>',
+  italic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 5h-9M14 19H5M15 5 9 19"/></svg>',
+  underline:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 4v6a5 5 0 0 0 10 0V4M5 20h14"/></svg>',
+  strike:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M7 6c0-1.5 2-2.5 5-2.5S17 4.5 17 6M7 18c0 1.5 2 2.5 5 2.5s5-1 5-2.5"/></svg>',
+  hl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h3l6-6"/><path d="m14 6 4 4-7 7-4-4z"/></svg>',
+  head:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 4v16M18 4v16M6 10h8M14 4v16"/></svg>',
+  export:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg>',
+  settings:'<svg class="stic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  book:'<svg class="stic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>',
+  edit:'<svg class="stic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  export:'<svg class="stic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg>',
+  eye:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  closeViewer:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+};
+
+/* ---------- 状态 ---------- */
+const S = {
+  curFolder:'', viewMode:'grid',
+  selecting:false, selected:new Set(),
+  curNote:null, sourceMode:false,
+  theme:'light', drawerOpen:false, fabOpen:false,
+  treeOpen:new Set(['工作'])
+};
+
+let root = null;
+const Vault = MockVault;   /* M2 换 RealVault：const Vault = useMock ? MockVault : RealVault */
+
+/* ---------- 工具 ---------- */
+const fmtDate = (ts)=>{ const d=new Date(ts); const p=n=>String(n).padStart(2,'0');
+  return (d.getMonth()+1)+'月'+d.getDate()+'日'; };
+function toast(msg){
+  const t = root.querySelector('.v16-toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+/* ---------- 骨架 ---------- */
+function buildRoot(){
+  root = document.createElement('div');
+  root.id = 'v16root';
+  /* 关键布局内联兜底（样式表里该规则偶发未进 cssOM，内联保证生效） */
+  root.style.cssText = 'position:fixed;left:0;right:0;top:0;bottom:0;width:100%;height:100%;z-index:60;display:flex;flex-direction:column;overflow:hidden;background:#ECEAE2;font-family:var(--font-base);';
+  root.innerHTML = `
+    <section class="v16-scr v16-home on" data-scr="home">
+      <header class="v16-topbar">
+        <button class="v16-ic" id="v16Menu" aria-label="菜单">${I.menu}</button>
+        <div class="v16-crumbs" id="v16Crumbs"></div>
+        <button class="v16-ic" id="v16SearchBtn" aria-label="搜索">${I.search}</button>
+        <button class="v16-ic" id="v16More" aria-label="更多">${I.more}</button>
+      </header>
+      <div class="v16-viewbar">
+        <span class="v16-vb-label" id="v16Count"></span>
+        <div class="v16-seg" id="v16ViewSeg">
+          <button data-v="grid" class="on" aria-label="网格">${I.grid}</button>
+          <button data-v="list" aria-label="列表">${I.list}</button>
+        </div>
+      </div>
+      <div class="v16-body" id="v16Body"></div>
+      <div class="v16-selbar" id="v16Selbar">
+        <button data-a="move">${I.move}<span>移动</span></button>
+        <button data-a="pin">${I.pin}<span>置顶</span></button>
+        <button data-a="color">${I.hl}<span>颜色</span></button>
+        <button data-a="del">${I.trash}<span>删除</span></button>
+      </div>
+      <button class="v16-fab" id="v16Fab" aria-label="新建">${I.plus}</button>
+      <div class="v16-fab-menu" id="v16FabMenu">
+        <div class="v16-fab-item" data-f="note">${I.file}新建笔记</div>
+        <div class="v16-fab-item" data-f="folder">${I.folder}新建文件夹</div>
+        <div class="v16-fab-item" data-f="import">${I.upload}导入文件</div>
+      </div>
+    </section>
+
+    <section class="v16-scr v16-editor" data-scr="editor">
+      <header class="v16-topbar">
+        <button class="v16-ic" id="v16EdBack" aria-label="返回">${I.back}</button>
+        <div class="v16-crumbs" id="v16EdCrumb"></div>
+        <button class="v16-ic" id="v16EdSource" aria-label="源码模式">${I.code}</button>
+        <button class="v16-ic" id="v16EdMore" aria-label="更多">${I.more}</button>
+      </header>
+      <div class="v16-ed-scroll" id="v16EdScroll"></div>
+      <div class="v16-dock" id="v16Dock">
+        <button data-t="head">${I.head}</button>
+        <button data-t="bold">${I.bold}</button>
+        <button data-t="italic">${I.italic}</button>
+        <button data-t="hl">${I.hl}</button>
+        <button data-t="underline">${I.underline}</button>
+        <button data-t="strike">${I.strike}</button>
+        <button data-t="list">${I.listbar}</button>
+        <button data-t="todo">${I.todo}</button>
+        <button data-t="quote">${I.quote}</button>
+        <button data-t="code">${I.code}</button>
+        <button data-t="link">${I.link}</button>
+        <button data-t="image">${I.image}</button>
+      </div>
+    </section>
+
+    <section class="v16-scr v16-settings" data-scr="settings">
+      <header class="v16-topbar">
+        <button class="v16-ic" id="v16SetBack" aria-label="返回">${I.back}</button>
+        <div class="v16-crumbs"><span class="cr cur">设置</span></div>
+        <span style="width:38px"></span><span style="width:38px"></span>
+      </header>
+      <div class="v16-settings-scroll" id="v16SettingsBody"></div>
+    </section>
+
+    <section class="v16-scr v16-search" data-scr="search">
+      <header class="v16-topbar">
+        <button class="v16-ic" id="v16SrBack" aria-label="返回">${I.back}</button>
+        <div class="v16-crumbs"><span class="cr cur">搜索</span></div>
+        <span style="width:38px"></span><span style="width:38px"></span>
+      </header>
+      <div class="v16-search-field">${I.search}<input id="v16SrInput" placeholder="搜索标题、正文、标签" autocomplete="off"></div>
+      <div class="v16-search-scroll" id="v16SrBody"></div>
+    </section>
+
+    <section class="v16-scr v16-trash" data-scr="trash">
+      <header class="v16-topbar">
+        <button class="v16-ic" id="v16TrashBack" aria-label="返回">${I.back}</button>
+        <div class="v16-crumbs"><span class="cr cur">回收站</span></div>
+        <button class="v16-ic" id="v16TrashEmpty" aria-label="清空">${I.trash}</button>
+      </header>
+      <div class="v16-trash-scroll" id="v16TrashBody"></div>
+    </section>
+
+    <div class="v16-drawer-mask" id="v16DrawerMask"></div>
+    <aside class="v16-drawer" id="v16Drawer">
+      <div class="v16-dr-head">
+        <span class="dt">资料库</span>
+        <button class="v16-ic" id="v16DrawerClose">${I.close}</button>
+      </div>
+      <div class="v16-dr-scroll" id="v16Tree"></div>
+      <div class="v16-dr-foot"><button id="v16DrawerNew">${I.plus} 新建文件夹</button></div>
+    </aside>
+
+    <div class="v16-sheet-mask" id="v16SheetMask"></div>
+    <div class="v16-sheet" id="v16Sheet">
+      <div class="v16-sheet-grip"></div>
+      <div class="v16-sheet-title" id="v16SheetTitle"></div>
+      <div id="v16SheetOpts"></div>
+      <div class="v16-sheet-cancel" id="v16SheetCancel">取消</div>
+    </div>
+
+    <div class="v16-toast"></div>
+    <div class="v16-imgviewer" id="v16ImgViewer">
+      <button class="close" id="v16ImgClose">${I.closeViewer}</button>
+      <img id="v16Img" alt="">
+    </div>
+  `;
+  document.body.appendChild(root);
+}
+
+/* ---------- 路由 ---------- */
+function show(name){
+  $$('#v16root .v16-scr').forEach(s=>{
+    s.classList.toggle('on', s.dataset.scr===name);
+    s.classList.toggle('behind', s.dataset.scr==='home' && name!=='home');
+  });
+}
+
+/* ---------- 面包屑 ---------- */
+function renderCrumbs(){
+  const c = Vault.crumbs(S.curFolder);
+  $('#v16Crumbs').innerHTML =
+    c.map((seg,i)=>`<span class="cr ${i===c.length-1?'cur':''}" data-path="${esc(seg.path)}">${i===0?I.home:esc(seg.name)}</span>${i<c.length-1?'<span class="sep">/</span>':''}`).join('');
+  $('#v16Crumbs').querySelectorAll('.cr').forEach(el=>{
+    el.onclick = ()=>{ S.curFolder = el.dataset.path; renderHome(); };
+  });
+}
+
+/* ---------- 首页 ---------- */
+async function renderHome(){
+  renderCrumbs();
+  const { folders, notes } = await Vault.entries(S.curFolder);
+  $('#v16Count').textContent = (S.curFolder? Vault.crumbs(S.curFolder).slice(-1)[0].name : '资料库') + ' · ' + notes.length + ' 篇';
+  const body = $('#v16Body');
+  const home = root.querySelector('.v16-home');
+  home.classList.toggle('selecting', S.selecting);
+
+  let html = '';
+  if(folders.length){
+    html += '<div class="v16-folders">' + folders.map(f=>`
+      <div class="v16-folder-card" data-folder="${esc(f.path)}">
+        <span class="fic">${I.folder}</span>
+        <span><span class="fname">${esc(f.title)}</span><div class="fcnt">${f.count} 篇</div></span>
+      </div>`).join('') + '</div>';
+  }
+  if(!notes.length && !folders.length){
+    html = `<div class="v16-empty">${I.folder}<p>空目录<br>点击右下 + 新建第一篇笔记</p></div>`;
+  } else if(notes.length){
+    html += `<div class="${S.viewMode==='grid'?'v16-grid':'v16-list'}">` + notes.map(n=>`
+      <div class="v16-note-card c-${n.color||'cream'}" data-path="${esc(n.path)}">
+        ${n.pinned?I.pin:''}
+        <div class="nt">${n.pinned?I.pin:''}${esc(n.title)}</div>
+        <div class="ns">${esc(n.summary)}</div>
+        <div class="nfoot">
+          ${(n.tags||[]).slice(0,2).map(t=>`<span class="ntag">#${esc(t)}</span>`).join('')}
+          <span class="dot">${fmtDate(n.updated)}</span>
+        </div>
+        <span class="selmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+      </div>`).join('') + '</div>';
+  }
+  body.innerHTML = html;
+
+  /* 文件夹点击 */
+  body.querySelectorAll('.v16-folder-card').forEach(card=>{
+    card.onclick = ()=>{ S.curFolder = card.dataset.folder; renderHome(); };
+    bindLongPress(card, ()=>{ openSheet('文件夹操作', [
+      {icon:I.move, label:'重命名', fn:()=>toast('重命名 · v16 后续里程碑接入')},
+      {icon:I.trash, label:'删除', fn:()=>toast('删除 · v16 后续里程碑接入')}
+    ]); });
+  });
+  /* 笔记卡片 */
+  body.querySelectorAll('.v16-note-card').forEach(card=>{
+    const path = card.dataset.path;
+    card.onclick = ()=>{ if(S.selecting){ toggleSelect(path); } else openNote(path); };
+    bindLongPress(card, ()=>{ if(!S.selecting){ S.selecting=true; S.selected=new Set(); } toggleSelect(path); });
+  });
+  const selbar = $('#v16Selbar');
+  selbar.classList.toggle('open', S.selecting);
+}
+function toggleSelect(path){
+  if(S.selected.has(path)) S.selected.delete(path); else S.selected.add(path);
+  root.querySelector(`.v16-note-card[data-path="${cssesc(path)}"]`).classList.toggle('sel', S.selected.has(path));
+  if(!S.selected.size){ S.selecting=false; }
+  renderCrumbs(); // keep
+  const home = root.querySelector('.v16-home');
+  home.classList.toggle('selecting', S.selecting);
+  if(!S.selecting) $('#v16Selbar').classList.remove('open');
+}
+function cssesc(s){ return s.replace(/"/g,'\\"'); }
+
+function bindLongPress(el, fn){
+  let t=null;
+  el.addEventListener('touchstart', ()=>{ t=setTimeout(fn, 520); }, {passive:true});
+  ['touchend','touchmove'].forEach(ev=>el.addEventListener(ev, ()=>clearTimeout(t), {passive:true}));
+  el.addEventListener('mousedown', ()=>{ t=setTimeout(fn, 520); });
+  el.addEventListener('mouseup', ()=>clearTimeout(t));
+}
+
+/* ---------- 文件树抽屉 ---------- */
+function buildTree(node, depth){
+  let html = `<div class="v16-tree-node">`;
+  const open = (node.path==='') || S.treeOpen.has(node.path);  /* 根节点默认展开 */
+  html += `<div class="v16-tree-row ${open?'openfolder':''} ${S.curFolder===node.path?'on':''}" data-path="${esc(node.path)}">
+    ${node.children.length?`<span class="tw">${I.chev}</span>`:'<span class="tw"></span>'}
+    <span class="ticon">${I.folder}</span>
+    <span class="tname">${esc(node.name)}</span>
+    <span class="tcnt">${node.count}</span></div>`;
+  if(node.children.length){
+    html += `<div class="v16-children ${open?'open':''}">`;
+    html += node.children.map(ch=>buildTree(ch, depth+1)).join('');
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+function renderDrawer(){
+  const tree = Vault.tree();
+  $('#v16Tree').innerHTML = buildTree(tree, 0);
+  $('#v16Tree').querySelectorAll('.v16-tree-row').forEach(row=>{
+    row.onclick = (e)=>{
+      const p = row.dataset.path;
+      const tw = row.querySelector('.tw');
+      /* 点箭头（且有子节点）：仅展开/折叠，保持抽屉 */
+      if(tw && tw.querySelector('svg') && e.target.closest('.tw')){
+        if(S.treeOpen.has(p)) S.treeOpen.delete(p); else S.treeOpen.add(p);
+        renderDrawer();
+        return;
+      }
+      /* 点行体：进入该目录并关抽屉 */
+      S.curFolder = p; renderHome(); closeDrawer();
+    };
+  });
+}
+function openDrawer(){ $('#v16Drawer').classList.add('open'); $('#v16DrawerMask').classList.add('open'); renderDrawer(); }
+function closeDrawer(){ $('#v16Drawer').classList.remove('open'); $('#v16DrawerMask').classList.remove('open'); }
+
+/* ---------- 编辑器 ---------- */
+async function openNote(path){
+  S.curNote = path; S.sourceMode = false;
+  const data = await Vault.get(path);
+  S._cur = data;
+  renderEditor(); show('editor');
+}
+function renderEditor(){
+  const data = S._cur; if(!data) return;
+  const e = data.entry;
+  /* 面包屑 */
+  const cr = Vault.crumbs(e.path);
+  $('#v16EdCrumb').innerHTML =
+    cr.map((s,i)=>`<span class="cr ${i===cr.length-1?'cur':''}">${i===0?I.home:esc(s.name)}</span>${i<cr.length-1?'<span class="sep">/</span>':''}`).join('')
+    + `<span class="mv" id="v16EdMove">移动到…</span>`;
+  $('#v16EdMove').onclick = ()=>openSheet('移动到…', [
+    {icon:I.folder,label:'工作',fn:async()=>{await Vault.move(e.path,'工作'); afterMove();}},
+    {icon:I.folder,label:'生活',fn:async()=>{await Vault.move(e.path,'生活'); afterMove();}},
+    {icon:I.folder,label:'根目录',fn:async()=>{await Vault.move(e.path,''); afterMove();}}
+  ]);
+  const attachments = Vault.attachments(e.path);
+
+  let body = `
+    <input class="v16-ed-title" id="v16EdTitle" value="${esc(e.title)}" placeholder="标题">
+    <div class="v16-ed-meta">更新于 ${fmtDate(e.updated)} · ${esc(e.path)}</div>`;
+
+  if(S.sourceMode){
+    body += `<textarea class="v16-source" id="v16SourceTa" spellcheck="false">${esc(data.md)}</textarea>`;
+  } else {
+    if(e.type==='todo'){
+      const todos = MD.todoLines(data.md);
+      body += `<div class="v16-todo-list">` + todos.map(t=>`
+        <div class="v16-todo ${t.done?'done':''} ${t.priority!=='normal'?'pr-'+t.priority:''}" data-key="${t.key}">
+          <span class="mbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="mtxt">${esc(t.text.replace(/#p\/(high|low)/g,'').trim())}</span>
+          ${t.priority!=='normal'?`<span class="badge">${t.priority==='high'?'高':'低'}</span>`:''}
+        </div>`).join('') + `</div>`;
+    } else {
+      let html = data.html;
+      /* 图片 src 映射到 mock data-URI */
+      html = html.replace(/src="attachments\/([^"]+)"/g, (m,enc)=>{
+        const name = decodeURIComponent(enc);
+        const url = Vault.attachmentUrl(e.path, name);
+        return url ? `src="${url}"` : m;
+      });
+      body += `<div class="v16-ed-body">${html}</div>`;
+    }
+    if(attachments.length){
+      body += `<div class="v16-attach-sec"><div class="ast">附件（${attachments.length}）</div><div class="v16-attach-row">`
+        + attachments.map((a,i)=> a.kind==='image'
+          ? `<div class="v16-att" data-img="${i}"><img src="${a.url}" alt="${esc(a.name)}"><div class="an">${esc(a.name)}</div></div>`
+          : `<div class="v16-att"><span class="fileico">${I.file}</span><div class="an">${esc(a.name)}</div></div>`
+        ).join('') + `</div></div>`;
+    }
+  }
+  $('#v16EdScroll').innerHTML = body;
+
+  /* 标题联动 */
+  $('#v16EdTitle').oninput = (ev)=>{ /* M2 真实重命名；M1 仅 toast 提示防抖 */ };
+  /* 待办勾选 */
+  $('#v16EdScroll').querySelectorAll('.v16-todo').forEach(row=>{
+    row.onclick = async ()=>{
+      const res = await Vault.toggleTodo(e.path, row.dataset.key);
+      if(res){ row.classList.toggle('done', res.done); toast('已保存'); }
+    };
+  });
+  /* 图片点击查看 */
+  $('#v16EdScroll').querySelectorAll('.v16-att[data-img]').forEach(el=>{
+    el.onclick = ()=>{
+      const a = attachments[Number(el.dataset.img)];
+      $('#v16Img').src = a.url; $('#v16ImgViewer').classList.add('open');
+    };
+  });
+}
+function afterMove(){ toast('已移动'); closeSheet(); show('home'); S.curFolder=''; renderHome(); }
+
+/* ---------- 设置 ---------- */
+async function renderSettings(){
+  const st = await Vault.stats();
+  const sz = st.bytes>1024 ? (st.bytes/1024).toFixed(1)+' KB' : st.bytes+' B';
+  const g = (id,title,icon,rows)=>`
+    <div class="v16-set-group ${id==='g-vault'?'open':''}" data-group="${id}">
+      <div class="v16-set-head">${icon}<span class="st">${title}</span>${I.upDown}</div>
+      <div class="v16-set-body">${rows}</div>
+    </div>`;
+  const row=(l,r,action,hl)=>`<div class="v16-row ${hl?'hl':''}" data-row="${action||''}"><span class="rl">${l}</span><span class="rv">${esc(r||'')}</span>${action?I.export.replace('stic','rgo'):''}</div>`;
+
+  $('#v16SettingsBody').innerHTML =
+    g('g-vault','资料库',I.book, `
+      <div class="v16-row"><span class="rl">当前资料库</span><span class="rv">私有目录 files/vault</span></div>
+      <div class="v16-row"><span class="rl">笔记数</span><span class="rv">${st.notes} 篇</span></div>
+      <div class="v16-row"><span class="rl">文件夹</span><span class="rv">${st.folders} 个</span></div>
+      <div class="v16-row"><span class="rl">附件</span><span class="rv">${st.attachments} 个</span></div>
+      <div class="v16-row"><span class="rl">容量</span><span class="rv">${sz}</span></div>
+      <div class="v16-row" data-row="bind"><span class="rl">绑定外部文件夹（SAF）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="newvault"><span class="rl">新建 / 切换资料库</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="export"><span class="rl">导出资料库（zip）</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row hl" data-row="migrate"><span class="rl">检测到旧库 library.json</span><span class="rv" style="color:#A04438;font-weight:700">迁移旧库 →</span></div>
+    `)
+    + g('g-edit','编辑',I.edit, `
+      <div class="v16-row" data-row="attachloc"><span class="rl">默认附件位置</span><span class="rv">attachments/</span></div>
+      <div class="v16-row" data-row="newloc"><span class="rl">新建文件默认位置</span><span class="rv">当前目录</span></div>
+      <div class="v16-row" data-row="hlsyn"><span class="rl">==高亮== 语法</span><span class="v16-switch on" data-sw></span></div>
+      <div class="v16-row" data-row="wiki"><span class="rl">[[wiki]] 双链</span><span class="v16-switch on" data-sw></span></div>
+      <div class="v16-row" data-row="newtype"><span class="rl">默认新建类型</span><span class="rv">笔记</span></div>
+    `)
+    + g('g-app','显示与主题',I.export.replace('stic','stic'), `
+      <div class="v16-row" data-row="font"><span class="rl">显示字体</span><span class="rv">默认</span></div>
+      <div class="v16-row" data-row="fontscale"><span class="rl">字号刻度尺</span><span class="rv">标准</span></div>
+      <div class="v16-row" data-row="theme"><span class="rl">主题（${S.theme==='dark'?'深色':'浅色'}）</span><span class="rv">点击切换</span></div>
+    `)
+    + g('g-more','更多',I.settings, `
+      <div class="v16-row" data-row="ai"><span class="rl">AI 服务与模型</span><span class="rv">OpenAI 兼容</span></div>
+      <div class="v16-row" data-row="log"><span class="rl">运行日志</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v16.0.0-alpha.1</span></div>
+      <div class="v16-row"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
+    `);
+
+  /* 手风琴 */
+  root.querySelectorAll('.v16-set-head').forEach(h=>{
+    h.onclick = ()=>h.parentElement.classList.toggle('open');
+  });
+  /* 开关 */
+  root.querySelectorAll('.v16-switch').forEach(sw=>{ sw.onclick = ()=>sw.classList.toggle('on'); });
+  /* 行动作 */
+  root.querySelectorAll('.v16-row[data-row]').forEach(r=>{
+    r.onclick = ()=>{
+      const a = r.dataset.row;
+      if(a==='theme'){ toggleTheme(true); }
+      else if(a==='migrate'){ toast('迁移旧库 · M4 接入'); }
+      else if(a==='about'){ toast('纸片 v16.0.0-alpha.1'); }
+      else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
+    };
+  });
+}
+
+/* ---------- 搜索 ---------- */
+async function doSearch(){
+  const q = $('#v16SrInput').value;
+  const hits = await Vault.search(q);
+  $('#v16SrBody').innerHTML = hits.length ? hits.map(h=>`
+    <div class="v16-sr-hit" data-path="${esc(h.path)}">
+      <div class="ht">${esc(h.title)}</div>
+      <div class="hs">${esc(h.folder||'根目录')} · ${esc(h.summary)}</div>
+    </div>`).join('')
+    : '<div class="v16-empty">'+I.search+'<p>无匹配结果</p></div>';
+  $('#v16SrBody').querySelectorAll('.v16-sr-hit').forEach(el=>{
+    el.onclick = ()=>openNote(el.dataset.path);
+  });
+}
+
+/* ---------- 回收站 ---------- */
+async function renderTrash(){
+  const list = await Vault.trashList();
+  $('#v16TrashBody').innerHTML = list.length ? list.map(item=>`
+    <div class="v16-trash-item">
+      <div class="ti"><div class="tn">${esc(item.entry.title)}</div>
+      <div class="tp">删除于 ${fmtDate(item.entry.updated)} · 原路径 ${esc(item.originalPath)}</div></div>
+      <button class="b-restore" data-action="restore" data-path="${esc(item.entry.path)}">恢复</button>
+      <button class="b-del" data-action="del" data-path="${esc(item.entry.path)}">彻底删除</button>
+    </div>`).join('')
+    : '<div class="v16-empty">'+I.trash+'<p>回收站为空</p></div>';
+  $('#v16TrashBody').querySelectorAll('button').forEach(b=>{
+    b.onclick = async ()=>{
+      if(b.dataset.action==='restore'){ await Vault.restore(b.dataset.path); toast('已恢复'); }
+      else { await Vault.deleteForever(b.dataset.path); toast('已彻底删除'); }
+      renderTrash();
+    };
+  });
+}
+
+/* ---------- 底部 sheet ---------- */
+function openSheet(title, opts){
+  $('#v16SheetTitle').textContent = title;
+  $('#v16SheetOpts').innerHTML = opts.map((o,i)=>`<div class="v16-sheet-opt" data-i="${i}">${o.icon}${esc(o.label)}</div>`).join('');
+  $('#v16SheetOpts').querySelectorAll('.v16-sheet-opt').forEach(el=>{
+    el.onclick = ()=>{ closeSheet(); opts[Number(el.dataset.i)].fn(); };
+  });
+  $('#v16SheetMask').classList.add('open'); $('#v16Sheet').classList.add('open');
+}
+function closeSheet(){ $('#v16SheetMask').classList.remove('open'); $('#v16Sheet').classList.remove('open'); }
+
+/* ---------- 主题圆形扩散（双图层） ---------- */
+function applyTheme(t){
+  S.theme = t;
+  document.documentElement.dataset.theme = t;
+  if(root) root.style.background = (t==='dark') ? '#18191C' : '#ECEAE2';
+}
+function toggleTheme(animate){
+  const next = S.theme==='dark' ? 'light' : 'dark';
+  if(!animate || reduceMotion()){ applyTheme(next); return; }
+  /* 双图层揭示：圆形遮罩从右上扩散 */
+  const circle = document.createElement('div');
+  circle.className = 'v16-reveal';
+  const r = Math.max(window.innerWidth, window.innerHeight) * 1.2;
+  circle.style.background = next==='dark' ? '#18191C' : '#ECEAE2';
+  circle.style.width = circle.style.height = r+'px';
+  circle.style.left = (window.innerWidth - r/2)+'px';
+  circle.style.top = '0px';
+  document.body.appendChild(circle);
+  requestAnimationFrame(()=>{
+    circle.style.transition = 'transform .55s cubic-bezier(.22,1,.36,1), opacity .55s';
+    circle.style.transform = 'scale(1)'; circle.style.opacity = '1';
+  });
+  /* 先切主题，再让圆形遮住切换瞬间 */
+  setTimeout(()=>applyTheme(next), 120);
+  setTimeout(()=>{ circle.style.opacity='0'; setTimeout(()=>circle.remove(), 500); }, 620);
+}
+
+/* ---------- 事件绑定 ---------- */
+function bind(){
+  $('#v16Menu').onclick = openDrawer;
+  $('#v16DrawerMask').onclick = closeDrawer;
+  $('#v16DrawerClose').onclick = closeDrawer;
+  $('#v16SearchBtn').onclick = ()=>{ show('search'); setTimeout(()=>$('#v16SrInput').focus(), 300); };
+  $('#v16More').onclick = ()=>openSheet('更多', [
+    {icon:I.export, label:'导入文件', fn:()=>toast('导入文件 · M4 接入')},
+    {icon:I.trash, label:'回收站', fn:()=>{show('trash'); renderTrash();}},
+    {icon:I.settings, label:'设置', fn:()=>{show('settings'); renderSettings();}},
+    {icon:I.theme, label:'切换深色/浅色', fn:()=>toggleTheme(true)}
+  ]);
+  $('#v16ViewSeg').querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{
+      S.viewMode = b.dataset.v;
+      $('#v16ViewSeg').querySelectorAll('button').forEach(x=>x.classList.toggle('on', x===b));
+      renderHome();
+    };
+  });
+  /* FAB */
+  const fab = $('#v16Fab'), menu = $('#v16FabMenu');
+  fab.onclick = ()=>{ if(S.fabOpen){ /* 单击新建笔记 */ menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false; toast('新建笔记 · M2 接入'); } };
+  bindLongPress(fab, ()=>{ S.fabOpen=true; menu.classList.add('open'); fab.classList.add('open'); });
+  menu.querySelectorAll('.v16-fab-item').forEach(it=>{
+    it.onclick = ()=>{
+      menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false;
+      if(it.dataset.f==='note') toast('新建笔记 · M2 接入');
+      else if(it.dataset.f==='folder') toast('新建文件夹 · M2 接入');
+      else toast('导入文件 · M4 接入');
+    };
+  });
+  /* 编辑器 */
+  $('#v16EdBack').onclick = ()=>{ show('home'); renderHome(); };
+  $('#v16EdSource').onclick = ()=>{ S.sourceMode=!S.sourceMode; renderEditor(); };
+  $('#v16EdMore').onclick = ()=>openSheet('笔记操作', [
+    {icon:I.move, label:'移动到…', fn:()=>toast('移动到… · M2 接入')},
+    {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ await Vault.remove(S._cur.entry.path); toast('已移入回收站'); show('home'); renderHome(); } }},
+    {icon:I.pin, label:'置顶/取消', fn:async()=>{ if(S._cur){ await Vault.setPin(S._cur.entry.path, !S._cur.entry.pinned); toast('已更新'); } }}
+  ]);
+  /* 工具栏 */
+  $('#v16Dock').querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>toast('工具栏「'+b.dataset.t+'」· M3/M4 接入');
+  });
+  /* 搜索 */
+  $('#v16SrBack').onclick = ()=>show('home');
+  $('#v16SrInput').addEventListener('input', doSearch);
+  /* 回收站 */
+  $('#v16TrashBack').onclick = ()=>show('home');
+  $('#v16TrashEmpty').onclick = ()=>toast('清空回收站 · 后续接入');
+  /* 设置 */
+  $('#v16SetBack').onclick = ()=>show('home');
+  /* sheet */
+  $('#v16SheetMask').onclick = closeSheet;
+  $('#v16SheetCancel').onclick = closeSheet;
+  /* 图片查看器 */
+  $('#v16ImgClose').onclick = ()=>$('#v16ImgViewer').classList.remove('open');
+  $('#v16ImgViewer').onclick = (e)=>{ if(e.target.id==='v16ImgViewer') e.currentTarget.classList.remove('open'); };
+  /* 抽屉新建 */
+  $('#v16DrawerNew').onclick = ()=>toast('新建文件夹 · M2 接入');
+  /* 多选操作条 */
+  $('#v16Selbar').querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ toast('批量'+b.dataset.a+' · M2 接入'); S.selecting=false; S.selected=new Set(); renderHome(); };
+  });
+}
+
+/* ---------- 启动 ---------- */
+async function boot(){
+  buildRoot();
+  applyTheme(document.documentElement.dataset.theme==='dark' ? 'dark' : 'light');
+  await Vault.init();
+  bind();
+  renderHome();
+}
+
+window.VUI = { boot, show, renderHome, openNote, renderSettings, renderTrash, doSearch,
+  applyTheme, toggleTheme, openSheet, toast, get state(){return S;} };
+})();
+
+/* ============================================================
+   v16-boot.js —— v16 新 UI 引导（M1 alpha 启动入口）
+   排在旧 main.js 之后执行：旧 v15 逻辑仍在磁盘与旧 screen 里运行
+   （M2-M4 复用其功能），新 UI 通过 #v16root（z-index:60）覆盖其上。
+   M2 起把 mock 切换为 RealVault：VUI 内部 const Vault = useMock?MockVault:RealVault。
+   ============================================================ */
+(function(){
+'use strict';
+function start(){
+  try{
+    /* 让旧 boot() 先跑一帧完成 DOM 绑定，再挂载新 UI */
+    requestAnimationFrame(()=>{
+      VUI.boot().catch(e=>console.warn('v16 boot failed', e));
+    });
+  }catch(e){ console.warn('v16 start failed', e); }
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start);
+else start();
+})();
+
 })();
 </script>
   </div>
