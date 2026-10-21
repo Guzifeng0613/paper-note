@@ -91,6 +91,9 @@ const path = require('path');
   await page.click('#v16EdMore');
   await page.waitForTimeout(300);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('删除')).click();});
+  await page.waitForTimeout(300);
+  /* v16.0.2 删除二次确认：点确认按钮 */
+  await page.evaluate(()=>{const b=document.getElementById('delConf'); if(b && b.onclick) b.onclick();});
   await page.waitForTimeout(600);
   const stillHere = await page.evaluate(()=>!!document.querySelector('.v16-note-card[data-path*="审计测试笔记AAA"]'));
   log('删除后首页卡片还在?', stillHere);
@@ -131,12 +134,18 @@ const path = require('path');
   await page.waitForSelector('#v16EdBody', {timeout:5000});
   await page.click('#v16EdMore'); await page.waitForTimeout(200);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('删除')).click();});
+  await page.waitForTimeout(300);
+  /* v16.0.2 删除二次确认 */
+  await page.evaluate(()=>{const b=document.getElementById('delConf'); if(b && b.onclick) b.onclick();});
   await page.waitForTimeout(500);
   await page.click('#v16More'); await page.waitForTimeout(200);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('回收站')).click();});
   await page.waitForTimeout(500);
   /* 点"彻底删除" */
   await page.evaluate(()=>{const b=document.querySelector('.v16-trash-item .b-del'); if(b)b.click();});
+  await page.waitForTimeout(300);
+  /* v16.0.2 彻底删除二次确认 */
+  await page.evaluate(()=>{const b=document.getElementById('delForeverConf'); if(b && b.onclick) b.onclick();});
   await page.waitForTimeout(500);
   const afterDel = await page.$$eval('.v16-trash-item', els=>els.length);
   log('彻底删除后回收站条目数:', afterDel);

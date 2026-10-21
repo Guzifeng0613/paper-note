@@ -9,8 +9,8 @@ android {
         applicationId "com.zhipian.notes"
         minSdk 24
         targetSdk 34
-        versionCode 231
-        versionName "16.0.1"
+        versionCode 232
+        versionName "16.0.2"
     }
     buildTypes {
         release {

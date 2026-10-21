@@ -59,7 +59,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.1';
+const APP_VERSION = '16.0.2';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -649,11 +649,13 @@ async function renderSettings(){
       <div class="v16-row" data-row="safpush"><span class="rl">同步到绑定目录</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="safpull"><span class="rl">从绑定目录恢复</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="newvault"><span class="rl">新建 / 切换资料库</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="import"><span class="rl">导入数据（zip/JSON/JSONL）</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="export"><span class="rl">导出资料库（zip）</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="exportbak"><span class="rl">完整备份包（zip）</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="exportjsonl"><span class="rl">知识库切片（JSONL）</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="exportkbmd"><span class="rl">知识库（Markdown）</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="exportjson"><span class="rl">JSON 导出</span>${I.export.replace('stic','rgo')}</div>
+      <div class="v16-row" data-row="kbbuild"><span class="rl">构建 / 更新知识切片</span><span class="rv">按段落切片+溯源</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row hl" data-row="migrate"><span class="rl">检测到旧库 library.json</span><span class="rv" style="color:#A04438;font-weight:700">迁移旧库 →</span></div>
     `)
     + g('g-edit','编辑',I.edit, `
@@ -671,7 +673,7 @@ async function renderSettings(){
     + g('g-more','更多',I.settings, `
       <div class="v16-row" data-row="ai"><span class="rl">AI 服务与模型</span><span class="rv">OpenAI 兼容</span></div>
       <div class="v16-row" data-row="log"><span class="rl">运行日志</span>${I.export.replace('stic','rgo')}</div>
-      <div class="v16-row" data-row="pan"><span class="rl">百度网盘</span><span class="rv">连接/同步</span></div>
+      <div class="v16-row" data-row="pan"><span class="rl">百度网盘</span><span class="rv" style="color:var(--vp-ink-3)">即将上线</span></div>
       <div class="v16-row" data-row="install"><span class="rl">安装到主屏</span><span class="rv">像原生应用</span></div>
       <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v${APP_VERSION}</span></div>
       <div class="v16-row" data-row="privacy"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
@@ -691,10 +693,7 @@ async function renderSettings(){
       else if(a==='migrate'){ startMigrateFlow(); }
       else if(a==='ai'){ openLegacy('ai','settings'); }
       else if(a==='log'){ openLegacy('log','settings'); }
-      else if(a==='pan'){
-        /* 进入网盘前先 vault→Store，保证上传/合并用最新库 */
-        (async()=>{ try{ await VaultSync.syncVaultToStore(); }catch(e){} openLegacy('pan','settings'); })();
-      }
+      else if(a==='pan'){ toast('百度网盘即将上线，敬请期待'); }
       else if(a==='about'){
         openModal('<h3>关于纸片</h3><p><b>纸片 · 便签 v16</b><br>Markdown 单文件资料库（类 Obsidian）：文字笔记与待办、文件夹分类、富文本、图片与附件、内联搜索、回收站、目录绑定与 zip 迁移，并可接入 OpenAI 兼容 AI 与百度网盘。</p><p>所有数据仅存于本机，不经过任何服务器。</p>');
       }
@@ -733,6 +732,22 @@ async function renderSettings(){
       }
       else if(a==='exportjson'){
         (async()=>{ toast('正在导出…'); try{ await VaultSync.syncVaultToStore(); const blob=new Blob([Store.payload()],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='zhipian-library.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); toast('JSON 已导出'); }catch(e){ console.warn(e); toast('导出失败'); } })();
+      }
+      else if(a==='import'){
+        (async()=>{
+          try{
+            await VaultSync.syncVaultToStore();
+            if(typeof unifiedImportEntry==='function'){ unifiedImportEntry(); haptic(8); }
+            else toast('导入功能暂不可用');
+          }catch(e){ console.warn(e); toast('导入失败'); }
+        })();
+      }
+      else if(a==='kbbuild'){
+        /* 用 v16 底部 sheet 包装（v15 openActionSheet 层级在 v16 之下不可见） */
+        openSheet('构建知识切片', [
+          {icon:I.file, label:'前台构建（显示进度）', fn:()=>{ try{ buildKnowledgeIndex(false); toast('已开始前台构建'); }catch(e){ console.warn(e); toast('构建失败'); } }},
+          {icon:I.file, label:'后台保活构建', fn:()=>{ try{ buildKnowledgeIndex(true); toast('后台构建已开始'); }catch(e){ console.warn(e); toast('构建失败'); } }}
+        ]);
       }
       else if(a==='hlsyn'){
         prefs.hlSyntax=!prefs.hlSyntax; persistPrefs();
@@ -793,9 +808,13 @@ async function renderTrash(){
     : '<div class="v16-empty">'+I.trash+'<p>回收站为空</p></div>';
   $('#v16TrashBody').querySelectorAll('button').forEach(b=>{
     b.onclick = async ()=>{
-      if(b.dataset.action==='restore'){ await Vault.restore(b.dataset.path); toast('已恢复'); }
-      else { await Vault.deleteForever(b.dataset.path); toast('已彻底删除'); }
-      await renderTrash();
+      if(b.dataset.action==='restore'){ await Vault.restore(b.dataset.path); haptic(6); toast('已恢复'); await renderTrash(); }
+      else {
+        const p = b.dataset.path;
+        openModal('<h3>彻底删除？</h3><p>此操作不可恢复，笔记将被永久删除。</p>'
+          +'<div class="modal-actions"><button class="btn-ghost" data-close>取消</button><button class="btn-danger" id="delForeverConf">彻底删除</button></div>');
+        $('#delForeverConf').onclick=async()=>{ closeModal(); await Vault.deleteForever(p); haptic(10); toast('已彻底删除'); await renderTrash(); };
+      }
     };
   });
 }
@@ -816,6 +835,7 @@ async function pickFolderAndMove(notePath){
       label: '　'.repeat(f.depth) + (f.name||'根目录'),
       fn: async ()=>{
         await Vault.move(notePath, f.path);
+        haptic(6);
         toast('已移动到「'+(f.name||'根目录')+'」');
         show('home'); renderHome();
       }
@@ -863,6 +883,12 @@ function openLegacy(name, returnScr){
   /* 若该屏需要初始化（如本页问答需当前笔记上下文），可在调用前由调用方设置 */
   el.classList.add('active','legacy-top');
   _legacyReturn = returnScr || 'settings';
+  /* 旧屏内容原本由 hash 路由 route() 触发 render；桥接不走 hash，这里手动补一次初始化，
+     否则 chat/ai/log/pan 屏会是空壳（#chatBody / #aiList 无内容）。 */
+  if(name==='chat' && typeof openChatScreen==='function') openChatScreen();
+  else if(name==='ai' && typeof renderAiList==='function') renderAiList();
+  else if(name==='log' && typeof renderLog==='function') renderLog();
+  else if(name==='pan' && typeof renderPan==='function') renderPan();
 }
 function closeLegacy(){
   const el = document.querySelector('.screen.legacy-top');
@@ -949,6 +975,7 @@ function applyTheme(t){
 }
 function toggleTheme(target, animate){
   const next = target || (S.theme==='dark' ? 'light' : 'dark');
+  haptic(10);
   if(!animate || reduceMotion()){ applyTheme(next); return; }
   /* 双图层揭示：圆形遮罩从右上扩散 */
   const circle = document.createElement('div');
@@ -996,7 +1023,7 @@ function bind(){
   $('#v16DrawerClose').onclick = closeDrawer;
   $('#v16SearchBtn').onclick = ()=>{ show('search'); setTimeout(()=>$('#v16SrInput').focus(), 300); };
   $('#v16More').onclick = ()=>openSheet('更多', [
-    {icon:I.export, label:'导入文件', fn:()=>toast('导入文件 · M4 接入')},
+    {icon:I.upload, label:'导入文件', fn:()=>{ try{ VaultSync.syncVaultToStore(); if(typeof unifiedImportEntry==='function'){ unifiedImportEntry(); haptic(8); } else toast('导入功能暂不可用'); }catch(e){ console.warn(e); toast('导入失败'); } }},
     {icon:I.trash, label:'回收站', fn:()=>{show('trash'); renderTrash();}},
     {icon:I.settings, label:'设置', fn:()=>{show('settings'); renderSettings();}},
     {icon:I.theme, label:'切换深色/浅色', fn:()=>toggleTheme(true)}
@@ -1018,11 +1045,13 @@ function bind(){
       try{
         if(it.dataset.f==='note'){
           const path = await Vault.create({ title:'未命名', folder:S.curFolder, type:'note' });
+          haptic(8);
           await renderHome();
           await openNote(path);
         } else if(it.dataset.f==='folder'){
           const nm = '新文件夹';
           const path = await Vault.createFolder ? await Vault.createFolder(S.curFolder, nm) : null;
+          haptic(8);
           toast('已新建文件夹'); renderHome();
         } else if(it.dataset.f==='import'){
           /* 统一导入：原生 vaultPickImport，浏览器降级 file input */
@@ -1075,11 +1104,14 @@ function bind(){
       /* 刷新编辑器缓存，避免下次 WYSIWYG 保存用旧 frontmatter 覆盖新颜色 */
       const fresh = await Vault.get(S._cur.entry.path);
       S._cur.md=fresh.md; S._cur.entry=fresh.entry; S._cur.frontmatter=fresh.frontmatter;
-      toast('颜色已更换'); }); } }},
+      haptic(6); toast('颜色已更换'); }); } }},
     {icon:I.move, label:'移动到…', fn:()=>pickFolderAndMove(S._cur.entry.path)},
     {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ const path=S._cur.entry.path;
-      beforeDelete([path], async()=>{ await Vault.remove(path); toast('已移入回收站'); show('home'); renderHome(); }); } }},
-    {icon:I.pin, label:'置顶/取消', fn:async()=>{ if(S._cur){ await Vault.setPin(S._cur.entry.path, !S._cur.entry.pinned); toast('已更新'); } }}
+      openModal('<h3>删除这篇笔记？</h3><p>将移入回收站，可在回收站恢复。</p>'
+        +'<div class="modal-actions"><button class="btn-ghost" data-close>取消</button><button class="btn-danger" id="delConf">移入回收站</button></div>');
+      $('#delConf').onclick=()=>{ closeModal(); beforeDelete([path], async()=>{ await Vault.remove(path); toast('已移入回收站'); show('home'); renderHome(); }); };
+    } }},
+    {icon:I.pin, label:'置顶/取消', fn:async()=>{ if(S._cur){ await Vault.setPin(S._cur.entry.path, !S._cur.entry.pinned); haptic(6); toast('已更新'); } }}
   ]);
   /* 底部工具栏：WYSIWYG 格式化 */
   $('#v16Dock').querySelectorAll('button').forEach(b=>{
@@ -1149,7 +1181,7 @@ function bind(){
   $('#v16ImgViewer').onclick = (e)=>{ if(e.target.id==='v16ImgViewer') e.currentTarget.classList.remove('open'); };
   /* 抽屉新建文件夹 */
   $('#v16DrawerNew').onclick = async ()=>{
-    try{ await Vault.createFolder(S.curFolder, '新文件夹'); toast('已新建文件夹'); renderDrawer(); renderHome(); }
+    try{ await Vault.createFolder(S.curFolder, '新文件夹'); haptic(8); toast('已新建文件夹'); renderDrawer(); renderHome(); }
     catch(e){ console.warn(e); toast('新建文件夹失败'); }
   };
   /* 多选操作条：批量删除真实，其余单篇操作已在编辑器更多里支持 */
@@ -1158,18 +1190,23 @@ function bind(){
       const action = b.dataset.a;
       const paths = Array.from(S.selected);
       if(action==='del'){
-        beforeDelete(paths, async()=>{
+        const cnt = paths.length;
+        openModal('<h3>删除选中的 '+cnt+' 篇笔记？</h3><p>将移入回收站，可在回收站恢复。</p>'
+          +'<div class="modal-actions"><button class="btn-ghost" data-close>取消</button><button class="btn-danger" id="delBatchConf">移入回收站</button></div>');
+        $('#delBatchConf').onclick=()=>{ closeModal(); beforeDelete(paths, async()=>{
           for(const p of paths){ try{ await Vault.remove(p); }catch(e){} }
           toast('已移入回收站');
           S.selecting=false; S.selected=new Set(); renderHome();
-        });
+        }); };
         return;
       } else if(action==='pin'){
         for(const p of paths){ try{ await Vault.setPin(p, true); }catch(e){} }
+        haptic(6);
         toast('已置顶');
       } else if(action==='color'){
         openColorPicker(null, async(c)=>{
           for(const p of paths){ try{ await Vault.setColor(p, c); }catch(e){} }
+          haptic(6);
           toast('颜色已批量更换');
         });
         return; /* 颜色选择后由 picker 内部关闭并刷新 */
@@ -1188,6 +1225,7 @@ function bind(){
           label: '　'.repeat(f.depth)+(f.name||'根目录'),
           fn: async ()=>{
             for(const p of paths){ try{ await Vault.move(p, f.path); }catch(e){} }
+            haptic(6);
             toast('已移动 '+paths.length+' 篇');
             S.selecting=false; S.selected=new Set(); renderHome();
           }
@@ -1246,7 +1284,20 @@ function bind(){
 /* ---------- 启动 ---------- */
 async function boot(){
   buildRoot();
-  applyTheme(document.documentElement.dataset.theme==='dark' ? 'dark' : 'light');
+  /* 从 prefs 读主题（而非从 DOM dataset 读），保证重启后主题持久化 */
+  const savedTheme = (typeof prefs!=='undefined' && prefs.theme) ? prefs.theme : 'auto';
+  const effTheme = savedTheme==='auto'
+    ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : savedTheme;
+  applyTheme(effTheme);
+  /* 跟随系统时监听系统主题变化（v16 applyTheme 在 IIFE 内，全局访问不到，此处自注册） */
+  if(window.matchMedia){
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{
+      if((typeof prefs!=='undefined' && prefs.theme)==='auto'){
+        applyTheme(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      }
+    });
+  }
   await Vault.init();
   /* 云端/目录整库恢复后的待同步：把已恢复的 Store 落进 vault（先清空避免重复） */
   if(typeof VaultSync!=='undefined' && VaultSync.consumePending && VaultSync.consumePending()){

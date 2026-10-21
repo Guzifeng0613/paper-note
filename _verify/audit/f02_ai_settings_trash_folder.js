@@ -73,16 +73,26 @@ const { chromium } = require('playwright');
   log('点击前 fontSize:', fs0, ' 点击后:', fs1);
 
   log('\n=== 回收站清空 + 恢复刷新 ===');
-  await page.evaluate(()=>{ window.VUI.show('home'); window.VUI.renderHome(); });
-  await page.waitForTimeout(300);
+  /* 强制关闭所有残留弹层，避免遮罩拦截后续点击 */
+  await page.evaluate(()=>{
+    const sm=document.getElementById('v16SheetMask'); if(sm) sm.classList.remove('open');
+    const s=document.getElementById('v16Sheet'); if(s) s.classList.remove('open');
+    const m=document.getElementById('modal'); if(m) m.classList.remove('show','v16-lift');
+    const legacy=document.querySelector('.screen.legacy-top'); if(legacy) legacy.classList.remove('active','legacy-top');
+  });
+  await page.evaluate(()=>{ window.VUI.show('home'); window.VUI.state.curFolder=''; window.VUI.renderHome(); });
+  await page.waitForTimeout(500);
+  await page.waitForSelector('.v16-folder-card', {timeout: 5000});
   /* 删一篇进回收站 */
-  await page.evaluate(()=>{[...document.querySelectorAll('.v16-folder-card')].find(f=>f.dataset.folder==='生活').click();});
+  await page.evaluate(()=>{const f=[...document.querySelectorAll('.v16-folder-card')].find(x=>x.dataset.folder==='生活'); if(f)f.click();});
   await page.waitForTimeout(400);
   const beforeCount = await page.$$eval('.v16-note-card', e=>e.length);
   await page.evaluate(()=>{const c=document.querySelector('.v16-note-card'); if(c)c.click();});
   await page.waitForSelector('#v16EdBody', {timeout:5000});
   await page.click('#v16EdMore'); await page.waitForTimeout(300);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('删除')).click();});
+  await page.waitForTimeout(300);
+  await page.evaluate(()=>{const b=document.getElementById('delConf'); if(b && b.onclick) b.onclick();});
   await page.waitForTimeout(600);
   /* 进回收站 */
   await page.click('#v16More'); await page.waitForTimeout(300);

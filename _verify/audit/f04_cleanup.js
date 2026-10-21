@@ -37,6 +37,8 @@ const { chromium } = require('playwright');
   await page.evaluate(()=>{document.getElementById('v16EdMore').click();});
   await page.waitForTimeout(300);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('删除')).click();});
+  await page.waitForTimeout(300);
+  await page.evaluate(()=>{const b=document.getElementById('delConf'); if(b && b.onclick) b.onclick();});
   await page.waitForTimeout(700);
   /* 回收站 */
   await page.evaluate(()=>{document.getElementById('v16More').click();});
@@ -52,12 +54,27 @@ const { chromium } = require('playwright');
   log('恢复后返回首页，原笔记卡片可见?', restored, '(path='+notePath+')');
 
   log('\n=== 回收站清空 ===');
+  /* 先再删一篇，确保回收站有内容可彻底删除 */
+  await page.evaluate(()=>{ window.VUI.show('home'); window.VUI.renderHome(); });
+  await page.waitForTimeout(400);
+  await page.evaluate(()=>{const c=document.querySelector('.v16-note-card'); if(c)c.click();});
+  await page.waitForSelector('#v16EdBody', {timeout:5000});
+  await page.waitForTimeout(300);
+  await page.evaluate(()=>{document.getElementById('v16EdMore').click();});
+  await page.waitForTimeout(300);
+  await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('删除')).click();});
+  await page.waitForTimeout(300);
+  await page.evaluate(()=>{const b=document.getElementById('delConf'); if(b && b.onclick) b.onclick();});
+  await page.waitForTimeout(500);
+  /* 进回收站 */
   await page.evaluate(()=>{document.getElementById('v16More').click();});
   await page.waitForTimeout(300);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('回收站')).click();});
   await page.waitForTimeout(500);
-  /* 再删一篇 */
-  await page.evaluate(()=>{document.querySelector('.v16-trash-item .b-del').click();});
+  /* 彻底删除 */
+  await page.evaluate(()=>{const b=document.querySelector('.v16-trash-item .b-del'); if(b)b.click();});
+  await page.waitForTimeout(300);
+  await page.evaluate(()=>{const b=document.getElementById('delForeverConf'); if(b && b.onclick) b.onclick();});
   await page.waitForTimeout(400);
   log('手动彻底删除后条目数:', await page.$$eval('.v16-trash-item', e=>e.length));
 

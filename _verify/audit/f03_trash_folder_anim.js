@@ -23,6 +23,13 @@ const { chromium } = require('playwright');
   log('fontSize:', JSON.stringify(fs0), '→', JSON.stringify(fs1));
 
   log('\n=== 回收站：删→恢复→返回首页应可见；清空 ===');
+  /* 强制关闭所有残留弹层 */
+  await page.evaluate(()=>{
+    const sm=document.getElementById('v16SheetMask'); if(sm) sm.classList.remove('open');
+    const s=document.getElementById('v16Sheet'); if(s) s.classList.remove('open');
+    const m=document.getElementById('modal'); if(m) m.classList.remove('show','v16-lift');
+    const legacy=document.querySelector('.screen.legacy-top'); if(legacy) legacy.classList.remove('active','legacy-top');
+  });
   await page.evaluate(()=>{ window.VUI.state.curFolder=''; window.VUI.show('home'); window.VUI.renderHome(); });
   await page.waitForTimeout(400);
   /* 进 生活 删一篇 */
@@ -34,7 +41,9 @@ const { chromium } = require('playwright');
   await page.waitForSelector('#v16EdBody', {timeout:5000});
   await page.click('#v16EdMore'); await page.waitForTimeout(300);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('删除')).click();});
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(400);
+  await page.evaluate(()=>{ const b=document.getElementById('delConf'); if(b && b.onclick) b.onclick(); });
+  await page.waitForTimeout(800);
   /* 进回收站 */
   await page.click('#v16More'); await page.waitForTimeout(300);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('回收站')).click();});
@@ -52,7 +61,9 @@ const { chromium } = require('playwright');
   await page.waitForSelector('#v16EdBody', {timeout:5000});
   await page.click('#v16EdMore'); await page.waitForTimeout(300);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('删除')).click();});
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(400);
+  await page.evaluate(()=>{ const b=document.getElementById('delConf'); if(b && b.onclick) b.onclick(); });
+  await page.waitForTimeout(800);
   await page.click('#v16More'); await page.waitForTimeout(300);
   await page.evaluate(()=>{[...document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')].find(o=>o.textContent.includes('回收站')).click();});
   await page.waitForTimeout(500);

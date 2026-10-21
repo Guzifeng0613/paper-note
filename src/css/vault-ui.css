@@ -435,6 +435,12 @@
 /* 旧 modal 在 v16 之上打开（字体/关于/隐私等）：提升层级，覆盖默认的 z-index:1 */
 #app > .modal.v16-lift{ z-index:90 !important; }
 
+/* 本页问答面板 + 遮罩、AI 历史抽屉 + 遮罩：
+   M1 兜底规则把它们压到 z-index:1（低于 #v16root:60），打开时必须抬到 v16 之上，
+   否则从 v16 编辑器/AI 对话屏里打开会被新 UI 遮住。 */
+#noteAiPanel.open, #noteAiMask.open{ z-index:80 !important; }
+#chatDrawer.open, #chatDrawerMask.open{ z-index:80 !important; }
+
 /* ============ 颜色选择器（7 色圆点） ============ */
 .v16-colorpal{ display:flex; gap:14px; padding:16px 10px 6px; justify-content:center; flex-wrap:wrap; }
 .v16-colorpal .v16cdot{
