@@ -58,7 +58,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.0-beta.2';
+const APP_VERSION = '16.0.0-rc';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -457,6 +457,14 @@ function renderEditor(){
         const src = ev.target.getAttribute('data-relpath') || ev.target.getAttribute('src')||'';
         if(src){ $('#v16Img').src = src; $('#v16ImgViewer').classList.add('open'); }
       }
+      /* 点击 wiki 双链：跳转对应笔记 */
+      if(ev.target && ev.target.classList && ev.target.classList.contains('md-wiki')){
+        const target = ev.target.dataset.target || ev.target.textContent;
+        Vault.search(target, 3).then(res=>{
+          if(res.entries && res.entries.length){ openNote(res.entries[0].path); }
+          else toast('未找到「'+target+'」');
+        }).catch(()=>toast('未找到「'+target+'」'));
+      }
     };
   }
 
@@ -512,6 +520,38 @@ function renderEditor(){
 }
 function afterMove(){ toast('已移动'); closeSheet(); show('home'); S.curFolder=''; renderHome(); }
 
+/* ---------- 迁移完整流程 ---------- */
+async function startMigrateFlow(){
+  if(typeof Migrate==='undefined' || !Migrate || !Migrate.run){ toast('迁移模块未加载'); return; }
+  try{
+    const det = await Migrate.detect();
+    if(!det || !det.notes){ toast('未检测到旧库'); return; }
+    /* 1) 确认 */
+    if(!confirm('检测到旧库 '+det.notes+' 篇笔记。\n将先备份旧库，再迁移为 Markdown 资料库。\n继续？')) return;
+    /* 2) 备份（失败中止） */
+    toast('正在备份旧库…');
+    const backup = await Migrate.backup();
+    if(!backup){ toast('备份失败，已中止迁移'); return; }
+    /* 3) 迁移（进度条） */
+    openSheet('迁移旧库', [
+      {html:'<div class="v16-progress"><i id="v16MigProg" style="width:0%"></i></div><div id="v16MigMsg" style="font-size:13px;color:var(--vp-ink-2)">准备中…</div>', noClose:true}
+    ]);
+    const res = await Migrate.run({onProgress:(p)=>{
+      const bar = document.getElementById('v16MigProg');
+      const msg = document.getElementById('v16MigMsg');
+      if(bar) bar.style.width = Math.min(100, Math.round(p*100))+'%';
+      if(msg) msg.textContent = '迁移中… '+Math.round(p*100)+'%';
+    }});
+    /* 4) 校验 */
+    const verify = await Migrate.verify().catch(()=>null);
+    closeSheet();
+    /* 5) 报告 */
+    const ok = res && res.converted!=null ? res.converted : (res||{});
+    alert('迁移完成\n成功 '+(ok.converted||0)+' 篇\n跳过 '+(ok.skipped||0)+' 篇\n失败 '+(ok.failed||0)+' 篇\n'+(verify?'\n校验通过':'')+'\n旧库已保留，14 天后自动清理。');
+    renderHome();
+  }catch(e){ console.warn(e); closeSheet(); toast('迁移失败'); }
+}
+
 /* ---------- 设置 ---------- */
 async function renderSettings(){
   const st = await Vault.stats();
@@ -565,11 +605,7 @@ async function renderSettings(){
     r.onclick = ()=>{
       const a = r.dataset.row;
       if(a==='theme'){ toggleTheme(true); }
-      else if(a==='migrate'){
-        if(typeof Migrate!=='undefined' && Migrate && Migrate.run){
-          Migrate.run({onProgress:m=>toast(String(m))}).then(()=>toast('迁移完成')).catch(e=>toast('迁移失败'));
-        } else toast('迁移旧库 · M4 接入');
-      }
+      else if(a==='migrate'){ startMigrateFlow(); }
       else if(a==='about'){ toast('纸片 v'+APP_VERSION); }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };

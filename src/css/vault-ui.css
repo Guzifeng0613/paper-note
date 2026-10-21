@@ -386,3 +386,37 @@
 .v16-ed-todoul li{ display:flex; align-items:flex-start; gap:8px; padding:4px 0; }
 .v16-ed-todoinput{ width:20px; height:20px; margin-top:3px; flex-shrink:0; accent-color:var(--vp-accent); }
 .v16-ed-todoinput:checked + *{ text-decoration:line-through; color:var(--vp-ink-3); }
+
+/* ============ M5 rc：纸感金色 checkbox + wiki + 动效 ============ */
+.v16-ed-todoul{ list-style:none; padding-left:2px; margin:8px 0; }
+.v16-ed-todoul li{ display:flex; align-items:flex-start; gap:10px; padding:5px 0; }
+.v16-ed-todoinput{
+  -webkit-appearance:none; appearance:none;
+  width:22px; height:22px; border-radius:50%;
+  border:2px solid #C9B98A; background:#FBFAF4;
+  cursor:pointer; position:relative; flex-shrink:0; margin-top:2px;
+  transition:background .2s, border-color .2s;
+}
+.v16-ed-todoinput:checked{ background:#A8843C; border-color:#A8843C; }
+.v16-ed-todoinput:checked::after{
+  content:''; position:absolute; left:6px; top:2px;
+  width:6px; height:11px; border:solid #FBFAF4; border-width:0 2px 2px 0;
+  transform:rotate(45deg);
+}
+:root[data-theme="dark"] .v16-ed-todoinput{ background:#26272C; border-color:#6E5A32; }
+:root[data-theme="dark"] .v16-ed-todoinput:checked{ background:#D3B266; border-color:#D3B266; }
+:root[data-theme="dark"] .v16-ed-todoinput:checked::after{ border-color:#18191C; }
+/* wiki 双链 */
+.v16-ed-body .md-wiki{
+  color:var(--vp-accent); background:var(--vp-accent-soft);
+  padding:1px 6px; border-radius:6px; cursor:pointer; font-size:.95em;
+}
+/* 手风琴展开动画 */
+.v16-tree-node .v16-tree-children{ overflow:hidden; }
+.v16-tree-node.collapsed .v16-tree-children{ display:none; }
+/* 进度条 */
+.v16-progress{ height:6px; background:var(--vp-line); border-radius:3px; overflow:hidden; margin:8px 0; }
+.v16-progress > i{ display:block; height:100%; background:var(--vp-accent); border-radius:3px; transition:width .4s cubic-bezier(.34,1.56,.64,1); }
+/* 卡片按压 */
+.v16-note-card, .v16-folder-card{ transition:transform .15s, box-shadow .15s; }
+.v16-note-card:active, .v16-folder-card:active{ transform:scale(.97); }

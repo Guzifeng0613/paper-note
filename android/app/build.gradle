@@ -10,7 +10,7 @@ android {
         minSdk 24
         targetSdk 34
         versionCode 230
-        versionName "16.0.0-beta.2"
+        versionName "16.0.0-rc"
     }
     buildTypes {
         release {
