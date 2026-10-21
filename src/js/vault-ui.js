@@ -58,7 +58,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.0-alpha.2';
+const APP_VERSION = '16.0.0-beta.1';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
