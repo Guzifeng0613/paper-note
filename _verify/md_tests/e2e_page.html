@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<!-- migrate e2e 演练页：node/playwright 驱动，无 UI 依赖 -->
+<html><head><meta charset="utf8"><title>migrate e2e</title></head><body>
+<script src="../../src/js/vault-fs.js"></script>
+<script src="../../src/js/markdown.js"></script>
+<script src="../../src/js/migrate.js"></script>
+<script>
+(async()=>{
+  const now = Date.now(), D = 864e5;
+  const fixture = {
+    app:'zhipian-notes', version:3, savedAt:new Date().toISOString(),
+    notes:[
+      {id:'n1', type:'note', pinned:true, trashed:false, notebook:'工作', title:'产品灵感记录',
+       color:'blue', createdAt:now-4*D, updatedAt:now-8*36e5, todos:[],
+       files:[{id:'f1',name:'白板.jpg',size:10,type:'image/jpeg',kind:'image',idx:1},
+              {id:'f2',name:'需求说明.pdf',size:480,type:'application/pdf',kind:'pdf',idx:2}],
+       content:'便签<b>字号调节</b>；<span class="hl">搜索高亮</span>。<br><br>'
+        +'<img class="note-img" data-id="f1">'
+        +'<span class="attref" contenteditable="false" data-fid="f2" data-name="需求说明.pdf">芯片</span>'
+        +'<ul><li>甲</li><li>乙</li></ul><blockquote><p>引</p></blockquote><hr>'},
+      {id:'n2', type:'todo', pinned:false, trashed:false, notebook:'工作', title:'本周采购清单',
+       color:'yellow', createdAt:now-2*D, updatedAt:now-36e5, files:[],
+       todos:[{id:'t1',text:'咖啡豆',done:true,priority:'normal'},
+              {id:'t2',text:'牛奶',done:true,priority:'high'},
+              {id:'t3',text:'洗衣液',done:false,priority:'low'}]},
+      {id:'n3', type:'note', pinned:false, trashed:false, notebook:null, title:'随手记',
+       color:'cream', createdAt:now-D, updatedAt:now-D, todos:[], files:[], content:'<b>桂花拿铁</b>'},
+      {id:'n4', type:'note', pinned:false, trashed:true, trashedAt:now-36e5, notebook:'生活',
+       title:'废弃草稿', color:'pink', createdAt:now, updatedAt:now, todos:[],
+       files:[{id:'f4',name:'旧图.png',size:5,type:'image/png',kind:'image',idx:1}], content:'<s>删</s>'},
+      {id:'n5', type:'note', pinned:false, trashed:false, notebook:'生活', title:'',
+       color:'green', createdAt:now, updatedAt:now, todos:[], files:[], content:''}
+    ],
+    prefs:{ notebooks:['工作','生活'], view:'grid' },
+    cloudDeleted:[]
+  };
+
+  /* 种子旧库进 zhipian-db-v3（kv.library + blobs） */
+  await new Promise((res,rej)=>{
+    const rq = indexedDB.open('zhipian-db-v3',1);
+    rq.onupgradeneeded=e=>{const db=e.target.result;
+      if(!db.objectStoreNames.contains('kv'))db.createObjectStore('kv');
+      if(!db.objectStoreNames.contains('blobs'))db.createObjectStore('blobs');};
+    rq.onsuccess=async e=>{
+      const db=e.target.result;
+      const put=(store,k,v)=>new Promise((rs,rj)=>{const r=db.transaction(store,'readwrite').objectStore(store).put(v,k);r.onsuccess=rs;r.onerror=rj;});
+      await put('kv','library',JSON.stringify(fixture));
+      await put('blobs','f1',new Blob(['IMG_BYTES'],{type:'image/jpeg'}));
+      await put('blobs','f2',new Blob(['PDF_FAKE'],{type:'application/pdf'}));
+      await put('blobs','f4',new Blob(['PNG_FAKE'],{type:'image/png'}));
+      res();
+    };
+    rq.onerror=()=>rej(rq.error);
+  });
+
+  await VaultFS.init('idb');
+  const zipEntries = [];
+  Migrate.configure({
+    FS: VaultFS, MD: MD,
+    loadBlob: async (note, file) => await new Promise((res,rej)=>{
+      const rq=indexedDB.open('zhipian-db-v3',1);
+      rq.onsuccess=e=>{const g=e.target.result.transaction('blobs','readonly').objectStore('blobs').get(file.id);
+        g.onsuccess=()=>res(g.result);g.onerror=()=>rej(g.error);};
+    }),
+    zipImpl: {
+      pack: async (entries) => { zipEntries.push(...entries.map(x=>x.name)); return new Blob(['zipfake']); },
+      save: async () => {}
+    }
+  });
+
+  try{
+    const det = await Migrate.detect();
+    const bak = await Migrate.backup();
+    const rep = await Migrate.run({onProgress:()=>{}});
+    const v = await Migrate.verify();
+    const n1 = await VaultFS.read('工作/产品灵感记录.md');
+    const n2 = await VaultFS.read('工作/本周采购清单.md');
+    const trashList = await VaultFS.listTrash();
+    window.__result = {
+      ok:true,
+      det:{found:det.found, summary:det.summary},
+      bak:{name:bak.name, entries:bak.entries, zipEntries},
+      rep:{files:rep.files, trash:rep.trash, attachments:rep.attachments, failures:rep.failures, notes:rep.notes},
+      v:{files:v.files, attachments:v.attachments, parseRate:v.parseRate, missingAttach:v.missingAttach, failures:v.failures},
+      n1Has:{bold:n1.includes('**字号调节**'), hl:n1.includes('==搜索高亮=='),
+             img:n1.includes('![白板.jpg](attachments/产品灵感记录/白板.jpg)'),
+             link:n1.includes('[需求说明.pdf](attachments/产品灵感记录/需求说明.pdf)'),
+             ul:n1.includes('- 甲'), quote:n1.includes('> 引')},
+      n2Has:{todo:n2.includes('- [x] 牛奶 #p/high'), type:n2.includes('type: todo')},
+      trashList
+    };
+  }catch(e){
+    window.__result = {ok:false, err:String(e&&e.stack||e)};
+  }
+})();
+</script>
+</body></html>

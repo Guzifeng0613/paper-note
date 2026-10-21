@@ -39,12 +39,12 @@ function legacyHTMLtoMD(html, fileByFid){
   // 1) 图片附件 → 占位 token（data-id 指向旧 files[]）
   s = s.replace(/<img[^>]*class="[^"]*note-img[^"]*"[^>]*data-id="([^"]*)"[^>]*>/gi, '@@IMG:$1@@');
   s = s.replace(/<img[^>]*data-id="([^"]*)"[^>]*class="[^"]*note-img[^"]*"[^>]*>/gi, '@@IMG:$1@@');
-  // 2) 文档附件芯片 → 占位 token
-  s = s.replace(/<span[^>]*class="[^"]*attref[^"]*"[^>]*data-fid="([^"]*)"[^>]*>/gi, '@@FILE:$1@@');
-  s = s.replace(/<span[^>]*data-fid="([^"]*)"[^>]*class="[^"]*attref[^"]*"[^>]*>/gi, '@@FILE:$1@@');
-  // 3) 高亮 span.hl / 背景色 span → mark（转 ==）
-  s = s.replace(/<span[^>]*class="[^"]*\bhl\b[^"]*"[^>]*>/gi, '<mark>');
-  s = s.replace(/<span[^>]*style="[^"]*background[^"]*"[^>]*>/gi, '<mark>');
+  // 2) 文档附件芯片（整块，含内部 svg/文字）→ 占位 token
+  s = s.replace(/<span[^>]*class="[^"]*attref[^"]*"[^>]*data-fid="([^"]*)"[^>]*>[\s\S]*?<\/span>/gi, '@@FILE:$1@@');
+  s = s.replace(/<span[^>]*data-fid="([^"]*)"[^>]*class="[^"]*attref[^"]*"[^>]*>[\s\S]*?<\/span>/gi, '@@FILE:$1@@');
+  // 3) 高亮 span.hl / 背景色 span（整块）→ mark（转 ==）
+  s = s.replace(/<span[^>]*class="[^"]*\bhl\b[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<mark>$1</mark>');
+  s = s.replace(/<span[^>]*style="[^"]*background[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '<mark>$1</mark>');
 
   let out = '';
   const stack = [];               // ul|ol|quote
@@ -345,11 +345,13 @@ const Migrate = {
         }
         if(/<span[^>]*style=|<font/i.test(n.content||'')) complexBlocks.push(notePath);
 
-        const md = MDX.stringify(MDX.parse(MDX.stringifyFrontmatter(fm)+'\n'+body).blocks, fm);
+        const md = MDX.serialize(MDX.parse(MDX.stringifyFrontmatter(fm)+'\n'+body).blocks, fm);
 
         if(n.trashed){
           // 旧回收站 → .trash/<原结构>/<文件>
           const trashPath = '.trash/'+notePath;
+          const trashDir = '.trash/'+folder;
+          if(!this._mkdirDone.has(trashDir)){ await FS.mkdir(trashDir); this._mkdirDone.add(trashDir); }
           await FS.write(trashPath, md);
           report.trash++;
         } else {
@@ -369,8 +371,8 @@ const Migrate = {
 
   _mkdirDone: new Set(),
   _toBlob(bytes, type){
-    // 浏览器包成 Blob；node 环境直接透传 Buffer/Uint8Array（注入 FS 自行消费）
-    if(typeof Blob!=='undefined' && bytes instanceof Uint8Array) return new Blob([bytes],{type});
+    // 浏览器包成 Blob；node 环境（无 window）直接透传 Buffer/Uint8Array（注入 FS 自行消费）
+    if(typeof window!=='undefined' && typeof Blob!=='undefined' && bytes instanceof Uint8Array) return new Blob([bytes],{type});
     return bytes;
   },
 

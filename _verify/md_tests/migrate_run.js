@@ -139,7 +139,6 @@ t('summary：6 篇 / 活跃 5 / 回收 1 / 笔记本 2 / 附件 3', ()=>{
   eq(det.summary.notes, 6); eq(det.summary.active, 5); eq(det.summary.trashed, 1);
   eq(det.summary.notebooks.length, 2); eq(det.summary.attachments, 3);
 });
-t('detect 无旧库时 found=false', async()=>{}); // 占位，下方单独验证
 
 console.log('\n[B] backup');
 const bak = await Migrate.backup();
