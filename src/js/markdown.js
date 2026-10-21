@@ -419,6 +419,9 @@ function htmlToMD(html){
       case 'span':
         if(!isClose && /md-wiki/.test(attrs)){ stack.push('wiki'); emit('[['); }
         else if(isClose && stack[stack.length-1]==='wiki'){ stack.pop(); emit(']]'); }
+        /* M4：高亮 span（style="background-color:..."）→ == == */
+        else if(!isClose && /background(-color)?:/.test(attrs)){ stack.push('hl'); emit('=='); }
+        else if(isClose && stack[stack.length-1]==='hl'){ stack.pop(); emit('=='); }
         break;
       default: break;
     }

@@ -374,3 +374,15 @@
   pointer-events:none !important; z-index:0 !important; transform:none !important; }
 #app > .mask, #app > .sheet, #app > .modal, #app > .sync-overlay,
 #app > .toast, #app > .nb-picker, #app > .chat-drawer, #app > .note-ai-panel{ z-index:1 !important; }
+
+/* ============ M4 WYSIWYG 编辑器 ============ */
+.v16-ed-body{ outline:none; min-height:200px; font-size:16px; line-height:1.8; color:var(--vp-ink); padding:4px 2px; }
+.v16-ed-body:empty::before{ content:attr(data-ph); color:var(--vp-ink-3); }
+.v16-ed-body h2{ font-size:20px; font-weight:800; margin:16px 0 8px; color:var(--vp-ink); }
+.v16-ed-body blockquote{ border-left:3px solid var(--vp-accent); padding:4px 12px; margin:10px 0; color:var(--vp-ink-2); background:var(--vp-paper-2); border-radius:0 8px 8px 0; }
+.v16-ed-body pre{ background:var(--vp-paper-2); padding:10px 12px; border-radius:8px; font-family:monospace; font-size:14px; overflow-x:auto; margin:10px 0; }
+.v16-ed-body img{ max-width:100%; border-radius:12px; margin:8px 0; }
+.v16-ed-todoul{ list-style:none; padding-left:4px; margin:8px 0; }
+.v16-ed-todoul li{ display:flex; align-items:flex-start; gap:8px; padding:4px 0; }
+.v16-ed-todoinput{ width:20px; height:20px; margin-top:3px; flex-shrink:0; accent-color:var(--vp-accent); }
+.v16-ed-todoinput:checked + *{ text-decoration:line-through; color:var(--vp-ink-3); }

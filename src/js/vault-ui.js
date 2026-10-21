@@ -58,7 +58,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.0-beta.1';
+const APP_VERSION = '16.0.0-beta.2';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -313,6 +313,94 @@ function renderDrawer(){
 function openDrawer(){ $('#v16Drawer').classList.add('open'); $('#v16DrawerMask').classList.add('open'); renderDrawer(); }
 function closeDrawer(){ $('#v16Drawer').classList.remove('open'); $('#v16DrawerMask').classList.remove('open'); }
 
+/* ---------- WYSIWYG 辅助 ---------- */
+/* MD.toHTML 输出 → 可编辑 HTML：把 <div class="md-todo"> 转成 <ul><li><input checkbox>文本</li></ul>，
+   htmlToMD 序列化时自动转回 "- [ ]"/"- [x]" 行 */
+function mdToEditableHTML(md){
+  const html = MD.toHTML(md||'');
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  const todos = div.querySelectorAll('.md-todo');
+  if(todos.length){
+    const ul = document.createElement('ul');
+    ul.className = 'v16-ed-todoul';
+    todos.forEach(t=>{
+      const li = document.createElement('li');
+      const input = document.createElement('input');
+      input.type='checkbox';
+      if(t.dataset.done==='1') input.checked=true;
+      input.className='v16-ed-todoinput';
+      const txt = t.querySelector('.md-todo-text');
+      li.appendChild(input);
+      li.appendChild(document.createTextNode(' '));
+      if(txt) li.appendChild(txt);
+      ul.appendChild(li);
+    });
+    todos[0].parentNode.insertBefore(ul, todos[0]);
+    todos.forEach(t=>t.remove());
+  }
+  return div.innerHTML;
+}
+/* 序列化当前 contenteditable → md 字符串（保留 frontmatter） */
+function serializeWYSIWIG(){
+  const ed = document.getElementById('v16EdBody');
+  if(!ed || !S._cur) return null;
+  /* 把临时 objectURL 替换为相对路径，便于 htmlToMD 序列化 */
+  const imgs = ed.querySelectorAll('img');
+  const restore = [];
+  imgs.forEach(im=>{
+    const rel = im.dataset.relpath;
+    if(rel){ restore.push([im, im.src]); im.src = rel; }
+  });
+  const bodyMD = MD.htmlToMD(ed.innerHTML);
+  restore.forEach(([im, src])=> im.src = src);
+  const parsed = MD.parseFrontmatter(S._cur.md);
+  const fm = parsed.fm || {};
+  if(!fm.type) fm.type = e_type(S._cur);
+  const clean = {};
+  Object.keys(fm).forEach(k=>{ if(fm[k]!=null && fm[k]!=='') clean[k]=fm[k]; });
+  return MD.stringifyFrontmatter(clean) + bodyMD;
+}
+/* 选图 → VaultFS.writeAttachment 落盘 → 插入 contenteditable */
+async function pickWYSIWYGImage(){
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='image/*';
+  inp.style.display='none'; document.body.appendChild(inp);
+  inp.onchange = async ()=>{
+    inp.remove();
+    const file = inp.files && inp.files[0]; if(!file) return;
+    try{
+      const relPath = await VaultFS.writeAttachment(file.name, file, S._cur.entry.path);
+      const url = URL.createObjectURL(file);
+      const ed = $('#v16EdBody'); ed.focus();
+      document.execCommand('insertHTML', false,
+        '<img src="'+url+'" data-relpath="'+relPath+'" style="max-width:100%;border-radius:12px;margin:8px 0;display:block">');
+      scheduleWYSIWIGSave();
+      toast('图片已插入');
+    }catch(e){ console.warn(e); toast('图片插入失败'); }
+  };
+  inp.click();
+}
+function e_type(data){
+  const ed = document.getElementById('v16EdBody');
+  if(ed && ed.querySelector('input[type="checkbox"]')) return 'todo';
+  return (data.entry && data.entry.type) || 'note';
+}
+let _wysiwygTimer=null;
+function scheduleWYSIWIGSave(){
+  clearTimeout(_wysiwygTimer);
+  _wysiwygTimer = setTimeout(async ()=>{
+    const newMd = serializeWYSIWIG();
+    if(!newMd || !S._cur) return;
+    try{
+      await Vault.save(S._cur.entry.path, newMd);
+      S._cur.md = newMd;
+      S._cur.html = MD.toHTML(newMd);
+      S._cur.entry = (await Vault.get(S._cur.entry.path)).entry;
+    }catch(e){ console.warn('wysiwyg save failed', e); }
+  }, 500);
+}
+
 /* ---------- 编辑器 ---------- */
 async function openNote(path){
   S.curNote = path; S.sourceMode = false;
@@ -342,33 +430,35 @@ function renderEditor(){
   if(S.sourceMode){
     body += `<textarea class="v16-source" id="v16SourceTa" spellcheck="false">${esc(data.md)}</textarea>`;
   } else {
-    if(e.type==='todo'){
-      const todos = MD.todoLines(data.md);
-      body += `<div class="v16-todo-list">` + todos.map(t=>`
-        <div class="v16-todo ${t.done?'done':''} ${t.priority!=='normal'?'pr-'+t.priority:''}" data-key="${t.key}">
-          <span class="mbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-          <span class="mtxt">${esc(t.text.replace(/#p\/(high|low)/g,'').trim())}</span>
-          ${t.priority!=='normal'?`<span class="badge">${t.priority==='high'?'高':'低'}</span>`:''}
-        </div>`).join('') + `</div>`;
-    } else {
-      let html = data.html;
-      /* 图片 src 映射到 mock data-URI */
-      html = html.replace(/src="attachments\/([^"]+)"/g, (m,enc)=>{
-        const name = decodeURIComponent(enc);
-        const url = Vault.attachmentUrl(e.path, name);
-        return url ? `src="${url}"` : m;
-      });
-      body += `<div class="v16-ed-body">${html}</div>`;
-    }
-    if(attachments.length){
-      body += `<div class="v16-attach-sec"><div class="ast">附件（${attachments.length}）</div><div class="v16-attach-row">`
-        + attachments.map((a,i)=> a.kind==='image'
-          ? `<div class="v16-att" data-img="${i}"><img src="${a.url}" alt="${esc(a.name)}"><div class="an">${esc(a.name)}</div></div>`
-          : `<div class="v16-att"><span class="fileico">${I.file}</span><div class="an">${esc(a.name)}</div></div>`
-        ).join('') + `</div></div>`;
-    }
+    /* WYSIWYG 正文：contenteditable，初始 HTML 由 MD.toHTML 后处理（todo 行转 checkbox li） */
+    body += `<div class="v16-ed-body" id="v16EdBody" contenteditable="true" data-ph="点这里开始书写…">${mdToEditableHTML(data.md)}</div>`;
+  }
+  if(attachments.length){
+    body += `<div class="v16-attach-sec"><div class="ast">附件（${attachments.length}）</div><div class="v16-attach-row">`
+      + attachments.map((a,i)=> a.kind==='image'
+        ? `<div class="v16-att" data-img="${i}"><img src="${a.url}" alt="${esc(a.name)}"><div class="an">${esc(a.name)}</div></div>`
+        : `<div class="v16-att"><span class="fileico">${I.file}</span><div class="an">${esc(a.name)}</div></div>`
+      ).join('') + `</div></div>`;
   }
   $('#v16EdScroll').innerHTML = body;
+
+  /* WYSIWYG：输入防抖保存 500ms（htmlToMD 序列化） */
+  if(!S.sourceMode){
+    const ed = $('#v16EdBody');
+    ed.oninput = ()=> scheduleWYSIWIGSave();
+    /* 勾选 input：同步 checked attribute（htmlToMD 读 attribute） */
+    ed.onclick = (ev)=>{
+      if(ev.target && ev.target.classList && ev.target.classList.contains('v16-ed-todoinput')){
+        if(ev.target.checked) ev.target.setAttribute('checked','checked');
+        else ev.target.removeAttribute('checked');
+      }
+      /* 点击图片：打开大图查看器 */
+      if(ev.target && ev.target.tagName==='IMG'){
+        const src = ev.target.getAttribute('data-relpath') || ev.target.getAttribute('src')||'';
+        if(src){ $('#v16Img').src = src; $('#v16ImgViewer').classList.add('open'); }
+      }
+    };
+  }
 
   /* 标题联动文件名（防抖 600ms 调 Vault.rename） */
   let titleTimer=null;
@@ -475,7 +565,11 @@ async function renderSettings(){
     r.onclick = ()=>{
       const a = r.dataset.row;
       if(a==='theme'){ toggleTheme(true); }
-      else if(a==='migrate'){ toast('迁移旧库 · M4 接入'); }
+      else if(a==='migrate'){
+        if(typeof Migrate!=='undefined' && Migrate && Migrate.run){
+          Migrate.run({onProgress:m=>toast(String(m))}).then(()=>toast('迁移完成')).catch(e=>toast('迁移失败'));
+        } else toast('迁移旧库 · M4 接入');
+      }
       else if(a==='about'){ toast('纸片 v'+APP_VERSION); }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };
@@ -623,9 +717,41 @@ function bind(){
     {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ await Vault.remove(S._cur.entry.path); toast('已移入回收站'); show('home'); renderHome(); } }},
     {icon:I.pin, label:'置顶/取消', fn:async()=>{ if(S._cur){ await Vault.setPin(S._cur.entry.path, !S._cur.entry.pinned); toast('已更新'); } }}
   ]);
-  /* 工具栏 */
+  /* 底部工具栏：WYSIWYG 格式化 */
   $('#v16Dock').querySelectorAll('button').forEach(b=>{
-    b.onclick = ()=>toast('工具栏「'+b.dataset.t+'」· M3/M4 接入');
+    b.onclick = async ()=>{
+      const ed = $('#v16EdBody');
+      if(!ed){ toast('请先打开笔记'); return; }
+      ed.focus();
+      const t = b.dataset.t;
+      try{
+        if(t==='bold') document.execCommand('bold');
+        else if(t==='italic') document.execCommand('italic');
+        else if(t==='underline') document.execCommand('underline');
+        else if(t==='strike') document.execCommand('strikeThrough');
+        else if(t==='head') document.execCommand('formatBlock', false, 'h2');
+        else if(t==='list') document.execCommand('insertUnorderedList');
+        else if(t==='quote') document.execCommand('formatBlock', false, 'blockquote');
+        else if(t==='code') document.execCommand('formatBlock', false, 'pre');
+        else if(t==='hl'){
+          try{ document.execCommand('styleWithCSS', false, true); }catch(e){}
+          document.execCommand('hiliteColor', false, '#FFE27A');
+        }
+        else if(t==='link'){
+          const url = prompt('链接地址（https://…）');
+          if(url) document.execCommand('createLink', false, url);
+        }
+        else if(t==='todo'){
+          /* 插入一个可勾选 li */
+          document.execCommand('insertHTML', false,
+            '<ul><li><input type="checkbox" class="v16-ed-todoinput"> </li></ul><p><br></p>');
+        }
+        else if(t==='image'){
+          await pickWYSIWYGImage();
+        }
+        scheduleWYSIWIGSave();
+      }catch(e){ console.warn('toolbar exec', e); }
+    };
   });
   /* 搜索 */
   $('#v16SrBack').onclick = ()=>show('home');
