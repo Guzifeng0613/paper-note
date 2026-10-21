@@ -6,3 +6,5 @@ android/app/build/
 _verify/_inline_*.js
 _verify/shots/
 *.idsig
+*.apk
+dist/
