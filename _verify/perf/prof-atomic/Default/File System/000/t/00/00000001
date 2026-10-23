@@ -1,0 +1,16 @@
+---
+id: seed-6e231612
+created: "2026-10-19T06:46:39.135Z"
+updated: "2026-10-21T05:46:39.135Z"
+color: yellow
+pinned: true
+tags: []
+type: todo
+---
+## 本周采购清单
+
+- [x] 咖啡豆 200g
+- [x] 牛奶、鸡蛋 #p/high
+- [ ] 厨房纸巾
+- [ ] 洗衣液 #p/low
+- [ ] 周末的水果

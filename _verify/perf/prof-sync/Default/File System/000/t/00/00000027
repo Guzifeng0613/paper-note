@@ -1,0 +1,17 @@
+---
+id: seed-21d46163
+created: "2026-10-19T07:16:28.691Z"
+updated: "2026-10-21T06:16:28.691Z"
+color: yellow
+pinned: true
+type: todo
+---
+- [x] 咖啡豆 200g
+
+- [x] 牛奶、鸡蛋 #p/high #p/high
+
+- [ ] 厨房纸巾
+
+- [ ] 洗衣液 #p/low #p/low
+
+- [ ] 周末的水果

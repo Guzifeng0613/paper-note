@@ -62,7 +62,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.3';
+const APP_VERSION = '16.0.4';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -461,19 +461,35 @@ function e_type(data){
   if(ed && ed.querySelector('input[type="checkbox"]')) return 'todo';
   return (data.entry && data.entry.type) || 'note';
 }
+/* ===== 编辑器写操作串行队列（核心：所有 save/rename 排队，杜绝竞态）=====
+   问题场景：正文防抖(500)、标题改名(600)、退出 flush 三者并发，会出现
+   旧文件先改名、正文写回旧路径，或退出时 renderHome 早于改名。
+   方案：所有这类操作 enqueue 到同一条链，按调用顺序逐个执行；
+   每个 save 执行时读取的是"当时最新"的 contenteditable 与路径。 */
+let _opChain = Promise.resolve();
+function enqueue(fn){
+  const p = _opChain.then(()=>fn()).catch(e=>{ if(e) console.warn('op failed', e); });
+  _opChain = p;
+  return p;
+}
 let _wysiwygTimer=null;
-function scheduleWYSIWIGSave(){
+/* 把当前 contenteditable 序列化并落盘（入队，自动等待前一个操作） */
+function flushWYSIWYG(){
   clearTimeout(_wysiwygTimer);
-  _wysiwygTimer = setTimeout(async ()=>{
+  return enqueue(async ()=>{
     const newMd = serializeWYSIWIG();
     if(!newMd || !S._cur) return;
-    try{
-      await Vault.save(S._cur.entry.path, newMd);
-      S._cur.md = newMd;
-      S._cur.html = MD.toHTML(newMd);
-      S._cur.entry = (await Vault.get(S._cur.entry.path)).entry;
-    }catch(e){ console.warn('wysiwyg save failed', e); }
-  }, 500);
+    /* 用最新路径（重命名可能已发生），避免写回旧路径 */
+    const path = S._cur.entry.path;
+    await Vault.save(path, newMd);
+    S._cur.md = newMd;
+    S._cur.html = MD.toHTML(newMd);
+    S._cur.entry = (await Vault.get(path)).entry;
+  });
+}
+function scheduleWYSIWIGSave(){
+  clearTimeout(_wysiwygTimer);
+  _wysiwygTimer = setTimeout(flushWYSIWYG, 500);
 }
 
 /* ---------- 编辑器 ---------- */
@@ -546,22 +562,33 @@ function renderEditor(){
     };
   }
 
-  /* 标题联动文件名（防抖 600ms 调 Vault.rename） */
+  /* 标题联动文件名（防抖 600ms）。把"正文落盘 + 改名 + 重渲染"作为一个
+     原子操作 enqueue，保证退出 flush 等操作不会插在中间。 */
   let titleTimer=null;
   $('#v16EdTitle').oninput = (ev)=>{
     clearTimeout(titleTimer);
     const newTitle = ev.target.value.trim() || '未命名';
-    titleTimer = setTimeout(async ()=>{
-      if(newTitle === e.title) return;
-      try{
-        const newPath = await Vault.rename(e.path, newTitle);
-        if(newPath !== e.path){
-          S.curNote = newPath; e.path = newPath; e.title = newTitle;
-          S._cur = await Vault.get(newPath);
-          renderCrumbs();
-          toast('已重命名为「'+newTitle+'」');
+    titleTimer = setTimeout(()=>{
+      enqueue(async ()=>{
+        if(newTitle === S._cur.entry.title) return;
+        /* 1. 正文最新内容落盘（在同一队列内，直接序列化保存） */
+        const newMd = serializeWYSIWIG();
+        if(newMd){
+          const beforePath = S._cur.entry.path;
+          await Vault.save(beforePath, newMd);
+          S._cur.md = newMd;
+          /* 2. 取最新路径改名 */
+          const newPath = await Vault.rename(S._cur.entry.path, newTitle);
+          if(newPath !== beforePath){
+            S.curNote = newPath;
+            S._cur = await Vault.get(newPath);
+            /* 3. 重渲染编辑器（标题/meta/路径一致） */
+            renderEditor();
+            haptic(6);
+            toast('已重命名为「'+newTitle+'」');
+          }
         }
-      }catch(err){ console.warn('rename failed', err); }
+      });
     }, 600);
   };
 
@@ -698,7 +725,7 @@ async function renderSettings(){
       else if(a==='log'){ openLegacy('log','settings'); }
       else if(a==='pan'){ toast('百度网盘即将上线，敬请期待'); }
       else if(a==='about'){
-        openModal('<h3>关于纸片</h3><p><b>纸片 · 便签 v16</b><br>Markdown 单文件资料库（类 Obsidian）：文字笔记与待办、文件夹分类、富文本、图片与附件、内联搜索、回收站、目录绑定与 zip 迁移，并可接入 OpenAI 兼容 AI 与百度网盘。</p><p>所有数据仅存于本机，不经过任何服务器。</p>');
+        openModal('<h3>关于纸片</h3><p><b>纸片 · 便签 v'+APP_VERSION+'</b><br>Markdown 单文件资料库（类 Obsidian）：文字笔记与待办、文件夹分类、富文本、图片与附件、内联搜索、回收站、目录绑定与 zip 迁移，并可接入 OpenAI 兼容 AI 与百度网盘。</p><p>所有数据仅存于本机，不经过任何服务器。</p>');
       }
       else if(a==='privacy'){
         openModal('<h3>纯本地隐私说明</h3><p>纸片不设账号、不收集任何数据。所有笔记、图片、附件与 AI 配置均只保存在本设备；AI 问答仅在你主动触发时，把当前页内容发送到你自己配置的模型服务。</p><p>清理应用数据前请先导出备份。</p>');
@@ -1102,8 +1129,12 @@ function bind(){
   });
   /* FAB：长按展开菜单；菜单内真实新建 */
   const fab = $('#v16Fab'), menu = $('#v16FabMenu');
-  fab.onclick = ()=>{ if(S.fabOpen){ menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false; } };
-  bindLongPress(fab, ()=>{ S.fabOpen=true; menu.classList.add('open'); fab.classList.add('open'); });
+  /* 短按 FAB 直接展开新建菜单（之前短按无反应、只能长按 520ms，真机上像空壳）；
+     再点一次收起。长按同样展开。 */
+  const fabOpen=()=>{ S.fabOpen=true; menu.classList.add('open'); fab.classList.add('open'); };
+  const fabClose=()=>{ S.fabOpen=false; menu.classList.remove('open'); fab.classList.remove('open'); };
+  fab.onclick = ()=>{ if(S.fabOpen) fabClose(); else fabOpen(); };
+  bindLongPress(fab, fabOpen);
   menu.querySelectorAll('.v16-fab-item').forEach(it=>{
     it.onclick = async ()=>{
       menu.classList.remove('open'); fab.classList.remove('open'); S.fabOpen=false;
@@ -1140,6 +1171,9 @@ function bind(){
       if(ta && ta.value !== S._cur.md){
         try{ await Vault.save(S._cur.entry.path, ta.value); }catch(e){}
       }
+    } else if(S._cur){
+      /* WYSIWYG：退出前立即落盘，避免刚输入（500ms 防抖未到）就返回导致丢内容 */
+      try{ await flushWYSIWYG(); }catch(e){}
     }
     show('home'); renderHome();
   };

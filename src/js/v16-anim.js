@@ -613,7 +613,10 @@ initDeleteFx();
 initTodoCheckFx();
 initRubber();
 initTodoDrag();
-initFontRuler();
+/* 字号刻度尺：v16 采用 vault-ui 内的三档循环（toast 反馈+持久化），
+   不再用 initFontRuler 捕获拦截——它会 stopPropagation 且 openFontSizeSheet 失败，
+   导致点击无任何反馈。 */
+/* initFontRuler(); */
 initNbSuggest();
 initImgViewer();
 initPressCancel();
