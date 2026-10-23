@@ -62,7 +62,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.10';
+const APP_VERSION = '16.0.11';
 /* 数据层：真实 Markdown 资料库（VaultFS 三后端） */
 const Vault = window.Vault;
 
@@ -81,6 +81,8 @@ function toast(msg, action){
   }
   clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), action?4500:1800);
 }
+/* 让大 IIFE 内所有 legacy 代码（ai.js/main.js 等）的 toast 统一走 v16 浮层 */
+window.__v16Toast = toast;
 
 /* ---------- 删除前先播放飞行删除动画（v16-anim 监听并回调 done；含降级） ----------
    增强层在飞至回收站 + 收拢动画后回调；若增强层未加载，超时兜底直接执行。 */
@@ -100,13 +102,14 @@ function appConfirm(o){
   o = o||{};
   return new Promise(resolve=>{
     const finish=v=>{ closeModal(); resolve(v); };
+    const hasCancel = o.cancelText !== null;
     openModal('<h3>'+esc(o.title||'请确认')+'</h3>'+(o.desc?'<p>'+esc(o.desc)+'</p>':'')
-      +'<div class="modal-actions">'
-      +'<button class="btn-ghost" id="appCancel">'+esc(o.cancelText||'取消')+'</button>'
+      +'<div class="modal-actions'+(hasCancel?'':' one')+'">'
+      +(hasCancel?'<button class="btn-ghost" id="appCancel">'+esc(o.cancelText||'取消')+'</button>':'')
       +'<button class="'+(o.danger===false?'btn-primary':'btn-danger')+'" id="appOk">'+esc(o.okText||'确定')+'</button>'
       +'</div>');
     const ok=$('#appOk'), cancel=$('#appCancel');
-    ok.onclick=()=>finish(true); cancel.onclick=()=>finish(false);
+    ok.onclick=()=>finish(true); if(cancel) cancel.onclick=()=>finish(false);
   });
 }
 function appPrompt(o){
@@ -885,9 +888,14 @@ async function startMigrateFlow(){
     /* 4) 校验 */
     const verify = await Migrate.verify().catch(()=>null);
     closeSheet();
-    /* 5) 报告 */
+    /* 5) 报告（应用内弹窗，替代原生 alert——真机无 WebChromeClient 不弹） */
     const ok = res && res.converted!=null ? res.converted : (res||{});
-    alert('迁移完成\n成功 '+(ok.converted||0)+' 篇\n跳过 '+(ok.skipped||0)+' 篇\n失败 '+(ok.failed||0)+' 篇\n'+(verify?'\n校验通过':'')+'\n旧库已保留，14 天后自动清理。');
+    await appConfirm({
+      title:'迁移完成',
+      desc:'成功 '+(ok.converted||0)+' 篇 · 跳过 '+(ok.skipped||0)+' 篇 · 失败 '+(ok.failed||0)+' 篇'
+           +(verify?'\n校验通过':'')+'\n旧库已保留，14 天后自动清理。',
+      okText:'好的', cancelText:null, danger:false
+    });
     renderHome();
   }catch(e){ console.warn(e); closeSheet(); toast('迁移失败'); }
 }
@@ -1153,6 +1161,8 @@ function openSheet(title, opts){
     el.onclick = ()=>{ if(!o.noClose) closeSheet(); o.fn&&o.fn(); };
   });
   $('#v16SheetMask').classList.add('open'); $('#v16Sheet').classList.add('open');
+  /* 点击遮罩关闭（每次打开重绑，避免重复绑定）；进度类 noClose 表也允许遮罩关闭 */
+  $('#v16SheetMask').onclick = ()=>closeSheet();
 }
 function closeSheet(){ $('#v16SheetMask').classList.remove('open'); $('#v16Sheet').classList.remove('open'); }
 

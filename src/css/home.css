@@ -236,6 +236,8 @@
 .modal-box p{font-size:13.5px;color:var(--ink-2);line-height:1.6;margin-bottom:16px}
 .modal-input{width:100%;background:var(--soft-bg);border-radius:13px;height:44px;padding:0 15px;font-size:16px;margin-bottom:16px}
 .modal-actions{display:flex;gap:10px}
+.modal-actions.one{justify-content:center}
+.modal-actions.one button{flex:0 0 60%;max-width:260px}
 .fs-ctl{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 20px}
 .fs-btn{width:64px;height:56px;border-radius:16px;font-size:20px;font-weight:700;color:var(--ink);
   background:var(--paper-card);box-shadow:var(--sh-out-sm)}

@@ -2,6 +2,8 @@
 let toastTimer=null;
 function hideToast(){$('#toast').classList.remove('show');clearTimeout(toastTimer);}
 function toast(msg,action){
+  /* v16 UI 就绪后，所有 toast 统一走 v16 浮层（.v16-toast），避免 v15 #toast 在 v16 层级下不可见 */
+  if(window.__v16Toast){ window.__v16Toast(msg, action); return; }
   const t=$('#toast');
   t.innerHTML='<span>'+esc(msg)+'</span>'+(action?'<button class="t-undo" id="tUndo">'+esc(action.label)+'</button>':'');
   t.classList.add('show');
