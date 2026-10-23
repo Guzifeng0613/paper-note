@@ -491,11 +491,24 @@ const Vault = {
 
   /* ---- 整库清空（云端/目录整库恢复前：删全部笔记/文件夹/回收站，保证恢复不产生重复） ---- */
   async clear(){
-    let root=[];
-    try{ root = await VaultFS.list(''); }catch(e){ root=[]; }
-    for(const e of root){
-      try{ await VaultFS.delete(e.name); }catch(_){}
-    }
+    /* 递归遍历收集所有文件/文件夹路径（含 .trash，根 list 会过滤 .trash 故单独遍历） */
+    const files = [], dirs = [];
+    const walk = async (rel) => {
+      let entries = [];
+      try { entries = await VaultFS.list(rel); } catch(e) { return; }
+      for(const e of entries){
+        const full = rel ? rel + '/' + e.name : e.name;
+        if(e.type === 'folder'){ dirs.push(full); await walk(full); }
+        else files.push(full);
+      }
+    };
+    await walk('');
+    dirs.push('.trash');
+    await walk('.trash');
+    /* 先删全部文件，再从深到浅删文件夹（保证空文件夹也被清理） */
+    for(const p of files){ try{ await VaultFS.delete(p); }catch(_){} }
+    dirs.sort((a,b) => (b.split('/').length - a.split('/').length));
+    for(const p of dirs){ try{ await VaultFS.delete(p); }catch(_){} }
     _entries.clear(); _folders.clear(); _trash.clear(); _attach.clear();
     return true;
   }

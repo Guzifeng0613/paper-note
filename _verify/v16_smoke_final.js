@@ -85,7 +85,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await jsClick('.v16-row[data-row="about"]');
   await sleep(500);
   const aboutText = await page.evaluate(() => document.getElementById('modal')?.textContent || '');
-  check('关于显示当前版本', aboutText.includes('16.0.5'));
+  check('关于显示当前版本', aboutText.includes('16.0.6'));
   await page.evaluate(() => document.getElementById('modal')?.classList.remove('show'));
 
   /* 8. AI 配置屏 */

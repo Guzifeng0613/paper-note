@@ -62,7 +62,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.5';
+const APP_VERSION = '16.0.6';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -691,7 +691,7 @@ async function renderSettings(){
       <div class="v16-row hl" data-row="migrate"><span class="rl">检测到旧库 library.json</span><span class="rv" style="color:#A04438;font-weight:700">迁移旧库 →</span></div>
     `)
     + g('g-edit','编辑',I.edit, `
-      <div class="v16-row" data-row="attachloc"><span class="rl">默认附件位置</span><span class="rv">attachments/</span></div>
+      <div class="v16-row" style="cursor:default;opacity:.85"><span class="rl">默认附件位置</span><span class="rv">attachments/</span></div>
       <div class="v16-row" data-row="newloc"><span class="rl">新建文件默认位置</span><span class="rv">${prefs.newFileLoc==='root'?'资料库根':'当前目录'}</span></div>
       <div class="v16-row" data-row="hlsyn"><span class="rl">==高亮== 语法</span><span class="v16-switch ${prefs.hlSyntax?'on':''}" data-sw></span></div>
       <div class="v16-row" data-row="wiki"><span class="rl">[[wiki]] 双链</span><span class="v16-switch ${prefs.wikiSyntax?'on':''}" data-sw></span></div>
@@ -706,7 +706,7 @@ async function renderSettings(){
       <div class="v16-row" data-row="ai"><span class="rl">AI 服务与模型</span><span class="rv">OpenAI 兼容</span></div>
       <div class="v16-row" data-row="log"><span class="rl">运行日志</span>${I.export.replace('stic','rgo')}</div>
       <div class="v16-row" data-row="pan"><span class="rl">百度网盘</span><span class="rv" style="color:var(--vp-ink-3)">即将上线</span></div>
-      <div class="v16-row" data-row="install"><span class="rl">安装到主屏</span><span class="rv">像原生应用</span></div>
+      ${Store.env==='native'?'':`<div class="v16-row" data-row="install"><span class="rl">安装到主屏</span><span class="rv">像原生应用</span></div>`}
       <div class="v16-row" data-row="about"><span class="rl">关于</span><span class="rv">v${APP_VERSION}</span></div>
       <div class="v16-row" data-row="privacy"><span class="rl">纯本地隐私</span><span class="rv">数据不出设备</span></div>
     `);
@@ -826,7 +826,6 @@ async function renderSettings(){
           (async()=>{ try{ await Vault.clear(); await Vault.init(); renderHome(); toast('已新建资料库'); }catch(e){ toast('新建失败'); } })();
         }
       }
-      else if(a==='attachloc'){ toast('附件统一存放在资料库 attachments/ 目录，无需修改'); }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };
   });
