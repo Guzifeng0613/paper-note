@@ -75,32 +75,36 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   await page.keyboard.type('这是审计正文BBB');
   await sleep(800);
 
-  /* ===== 编辑器 dock 逐个按钮 ===== */
+  /* ===== 先在干净正文上验证 todo / link（受控），避免后续格式级联产生嵌套结构 ===== */
+  // todo 插入（受控，异步 flush+save+重渲染，需等待）
+  await page.evaluate(()=>{ document.querySelector('#v16Dock button[data-t="todo"]').click(); });
+  await sleep(800);
+  await idle();
+  const todoInserted=await page.evaluate(()=>document.querySelectorAll('#v16EdBody .v16-ed-todoinput').length);
+  check('dock 插入待办 checkbox',todoInserted>=1);
+  // link：走应用内 appPrompt 弹窗（非 window.prompt），填值并确认
+  await page.evaluate(()=>document.querySelector('#v16Dock button[data-t="link"]').click());
+  await sleep(600);
+  await page.evaluate(()=>{ const i=document.getElementById('appInput'); if(i)i.value='https://example.com'; });
+  await page.evaluate(()=>document.getElementById('appOk')?.click());
+  await sleep(400);
+  check('dock link 无报错',true);
+  await idle();
+
+  /* ===== dock 8 个格式按钮：逐个全选应用，只验证不报错（放在最后，不影响上面的断言） ===== */
   const dockTests=[
     ['head','h2'],['bold','b'],['italic','i'],['underline','u'],['strike','del'],
     ['list','ul'],['quote','blockquote'],['code','pre']
   ];
   for(const [t,tag] of dockTests){
-    // 全选后应用
     await page.evaluate(()=>{ const ed=document.getElementById('v16EdBody'); ed.focus(); document.execCommand('selectAll'); });
     await page.evaluate((tt)=>{ document.querySelector(`#v16Dock button[data-t="${tt}"]`).click(); },t);
     await sleep(300);
   }
   check('dock 8 个格式按钮无报错',true);
-
   // hl 高亮
   await page.evaluate(()=>{ document.querySelector('#v16Dock button[data-t="hl"]').click(); });
   await sleep(300);
-  // todo 插入
-  await page.evaluate(()=>{ document.querySelector('#v16Dock button[data-t="todo"]').click(); });
-  await sleep(300);
-  const todoInserted=await page.evaluate(()=>document.querySelectorAll('#v16EdBody .v16-ed-todoinput').length);
-  check('dock 插入待办 checkbox',todoInserted>=1);
-  // link
-  await page.evaluate(()=>{ window.prompt=()=>'https://example.com'; document.querySelector('#v16Dock button[data-t="link"]').click(); });
-  await sleep(300);
-  check('dock link 无报错',true);
-  await idle();
 
   /* ===== 编辑器更多 ===== */
   await page.click('#v16EdMore'); await sleep(500);

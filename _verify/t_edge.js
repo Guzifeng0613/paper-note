@@ -34,9 +34,11 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const folderMenu=await page.evaluate(()=>document.querySelectorAll('#v16SheetOpts .v16-sheet-opt').length);
   check('长按文件夹→操作菜单',folderMenu>=2);
 
-  // 重命名
-  await page.evaluate(()=>{ window.prompt=()=>'重命名文件夹X'; });
+  // 重命名（走应用内 appPrompt 弹窗）
   await page.evaluate(()=>{ Array.from(document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')).find(e=>e.textContent.includes('重命名'))?.click(); });
+  await sleep(600);
+  await page.evaluate(()=>{ const i=document.getElementById('appInput'); if(i)i.value='重命名文件夹X'; });
+  await page.evaluate(()=>document.getElementById('appOk')?.click());
   await sleep(800);
   await idle();
   const renamed=await page.evaluate(()=>Array.from(document.querySelectorAll('.v16-folder-card .fname')).some(e=>e.textContent.includes('重命名文件夹X')));

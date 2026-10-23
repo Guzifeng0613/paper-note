@@ -62,7 +62,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.9';
+const APP_VERSION = '16.0.10';
 /* 数据层：真实 Markdown 资料库（VaultFS 三后端） */
 const Vault = window.Vault;
 
@@ -91,6 +91,75 @@ function beforeDelete(paths, doThen){
   try{
     window.dispatchEvent(new CustomEvent('v16:before-delete',{detail:{paths,done}}));
   }catch(e){ done(); }
+}
+
+/* ---------- 应用内确认/输入弹窗（替代 confirm()/prompt()）。
+   本 App WebView 未设 WebChromeClient，原生 confirm/prompt 在真机上不弹出对话框
+   （confirm 恒 false、prompt 恒 null），故所有这类交互一律走应用内弹窗。 ---------- */
+function appConfirm(o){
+  o = o||{};
+  return new Promise(resolve=>{
+    const finish=v=>{ closeModal(); resolve(v); };
+    openModal('<h3>'+esc(o.title||'请确认')+'</h3>'+(o.desc?'<p>'+esc(o.desc)+'</p>':'')
+      +'<div class="modal-actions">'
+      +'<button class="btn-ghost" id="appCancel">'+esc(o.cancelText||'取消')+'</button>'
+      +'<button class="'+(o.danger===false?'btn-primary':'btn-danger')+'" id="appOk">'+esc(o.okText||'确定')+'</button>'
+      +'</div>');
+    const ok=$('#appOk'), cancel=$('#appCancel');
+    ok.onclick=()=>finish(true); cancel.onclick=()=>finish(false);
+  });
+}
+function appPrompt(o){
+  o = o||{};
+  return new Promise(resolve=>{
+    const finish=v=>{ closeModal(); resolve(v); };
+    openModal('<h3>'+esc(o.title||'请输入')+'</h3>'
+      +'<input class="modal-input" id="appInput" type="text" value="'+esc(o.initial||'')+'" placeholder="'+esc(o.placeholder||'')+'">'
+      +'<div class="modal-actions">'
+      +'<button class="btn-ghost" id="appCancel">'+esc(o.cancelText||'取消')+'</button>'
+      +'<button class="btn-primary" id="appOk">'+esc(o.okText||'确定')+'</button>'
+      +'</div>');
+    const inp=$('#appInput');
+    inp.focus(); inp.select();
+    inp.onkeydown=e=>{ if(e.key==='Enter'||e.keyCode===13){ finish(inp.value); } };
+    $('#appCancel').onclick=()=>finish(null);
+    $('#appOk').onclick=()=>finish(inp.value);
+  });
+}
+
+/* 空笔记占位段落：开始插入任何内容前，先把它还原成干净空段落，
+   避免链接/文字插进带"（空笔记）"的占位段、或占位文字被当成正文保存。 */
+function clearEmptyPlaceholder(){
+  const ed = document.getElementById('v16EdBody');
+  if(!ed) return;
+  ed.querySelectorAll('.md-empty').forEach(p=>{
+    p.classList.remove('md-empty');
+    if(!p.querySelector('img,a,input,ul,ol,blockquote,pre')) p.innerHTML='<br>';
+  });
+  /* 兜底：只含占位文字"（空笔记）"的段落（md-empty 类可能已被移除） */
+  ed.querySelectorAll('p').forEach(p=>{
+    if(p.textContent.trim()==='（空笔记）' && !p.querySelector('img,a,input,ul,ol,blockquote,pre')) p.innerHTML='<br>';
+  });
+}
+
+/* ---------- 选区保存/恢复（弹窗会移动焦点，execCommand 需恢复选区） ---------- */
+function saveSelection(){
+  const sel = window.getSelection();
+  if(!sel || sel.rangeCount===0) return null;
+  const r = sel.getRangeAt(0);
+  return { startContainer:r.startContainer, startOffset:r.startOffset,
+           endContainer:r.endContainer, endOffset:r.endOffset };
+}
+function restoreSelection(s){
+  if(!s) return false;
+  const sel = window.getSelection();
+  const r = document.createRange();
+  try{
+    r.setStart(s.startContainer, s.startOffset);
+    r.setEnd(s.endContainer, s.endOffset);
+    sel.removeAllRanges(); sel.addRange(r);
+    return true;
+  }catch(e){ return false; }
 }
 
 /* ---------- 骨架 ---------- */
@@ -267,17 +336,17 @@ async function renderHome(){
     const fpath = card.dataset.folder;
     card.onclick = ()=>{ S.curFolder = fpath; renderHome(); };
     bindLongPress(card, ()=>{ openSheet('文件夹操作（'+fpath+'）', [
-      {icon:I.move, label:'重命名', fn:()=>{
-        const nn = prompt('重命名文件夹为：', fpath.split('/').pop());
-        if(nn && nn.trim() && nn.trim()!==fpath.split('/').pop()){
+      {icon:I.move, label:'重命名', fn:async()=>{
+        const curName = fpath.split('/').pop();
+        const nn = await appPrompt({title:'重命名文件夹', initial:curName, okText:'重命名'});
+        if(nn && nn.trim() && nn.trim()!==curName){
           const newPath = fpath.split('/').slice(0,-1).concat(nn.trim()).join('/');
           Vault.renameFolder(fpath, newPath).then(()=>{ toast('已重命名'); renderHome(); }).catch(e=>toast('重命名失败'));
         }
       }},
-      {icon:I.trash, label:'删除', fn:()=>{
-        if(confirm('删除文件夹「'+fpath+'」？内含笔记将移入回收站。')){
-          Vault.removeFolder(fpath).then(()=>{ toast('已删除'); renderHome(); }).catch(e=>toast('删除失败'));
-        }
+      {icon:I.trash, label:'删除', fn:async()=>{
+        const ok = await appConfirm({title:'删除文件夹「'+fpath+'」？', desc:'文件夹内的笔记将移入回收站，可在回收站恢复。', okText:'删除文件夹'});
+        if(ok){ Vault.removeFolder(fpath).then(()=>{ toast('已删除'); renderHome(); }).catch(e=>toast('删除失败')); }
       }}
     ]); });
   });
@@ -428,6 +497,31 @@ function buildTodoUL(rows, todoDivs){
     ul.appendChild(li);
   });
   return rootUl;
+}
+/* 插入一条新待办：先落盘当前正文，再在 MD 末尾追加 - [ ] 行并受控重渲染。
+   相比直接插裸 checkbox，能正确处理空占位、取得 data-key，新行立即可勾选。 */
+async function insertTodoLine(){
+  const path = S._cur.entry.path;
+  await flushWYSIWYG();
+  S._cur = await Vault.get(path);
+  const parsed = MD.parseFrontmatter(S._cur.md);
+  let body = (parsed.body||'').replace(/（空笔记）/g,'').replace(/[ \t]*\n+[ \t]*$/,'');
+  /* 块级元素之间需空行（与 htmlToMD 序列化结果一致），否则新待办的行号 key
+     会与自动保存重序列化后的行号错位，导致勾选失效 */
+  body = body ? body + '\n\n- [ ] ' : '- [ ] ';
+  const fm = parsed.fm || {};
+  if(!fm.type) fm.type='todo';
+  const newMd = MD.stringifyFrontmatter(fm) + body;
+  await Vault.save(path, newMd);
+  S._cur = await Vault.get(path);
+  const ed = document.getElementById('v16EdBody');
+  if(ed) ed.innerHTML = mdToEditableHTML(S._cur.md);
+  const cbs = Array.from(document.querySelectorAll('#v16EdBody .v16-ed-todoinput'));
+  const last = cbs[cbs.length-1];
+  if(last){
+    const span = last.closest('li') && last.closest('li').querySelector('.md-todo-text');
+    if(span) span.focus();
+  }
 }
 /* 序列化当前 contenteditable → md 字符串（保留 frontmatter） */
 function serializeWYSIWIG(){
@@ -771,7 +865,9 @@ async function startMigrateFlow(){
     const det = await Migrate.detect();
     if(!det || !det.notes){ toast('未检测到旧库'); return; }
     /* 1) 确认 */
-    if(!confirm('检测到旧库 '+det.notes+' 篇笔记。\n将先备份旧库，再迁移为 Markdown 资料库。\n继续？')) return;
+    const cont = await appConfirm({title:'检测到旧库 '+det.notes+' 篇笔记',
+      desc:'将先备份旧库，再迁移为 Markdown 资料库。', okText:'开始迁移', danger:false});
+    if(!cont) return;
     /* 2) 备份（失败中止） */
     toast('正在备份旧库…');
     const backup = await Migrate.backup();
@@ -959,9 +1055,10 @@ async function renderSettings(){
       }
       else if(a==='newvault'){
         /* 新建资料库：确认后清空当前库（含回收站），重新落 seed 或空白 */
-        if(confirm('新建资料库？当前所有笔记将被清空，建议先导出备份。')){
-          (async()=>{ try{ await Vault.clear(); await Vault.init(); renderHome(); toast('已新建资料库'); }catch(e){ toast('新建失败'); } })();
-        }
+        (async()=>{
+          const ok = await appConfirm({title:'新建资料库？', desc:'当前所有笔记（含回收站）将被清空，建议先导出备份。', okText:'清空并新建'});
+          if(ok){ try{ await Vault.clear(); await Vault.init(); renderHome(); toast('已新建资料库'); }catch(e){ toast('新建失败'); } }
+        })();
       }
       else { toast(r.querySelector('.rl').textContent + ' · v16 后续里程碑接入'); }
     };
@@ -1384,6 +1481,7 @@ function bind(){
       const ed = $('#v16EdBody');
       if(!ed){ toast('请先打开笔记'); return; }
       ed.focus();
+      clearEmptyPlaceholder();
       const t = b.dataset.t;
       try{
         if(t==='bold') document.execCommand('bold');
@@ -1399,13 +1497,34 @@ function bind(){
           document.execCommand('hiliteColor', false, '#FFE27A');
         }
         else if(t==='link'){
-          const url = prompt('链接地址（https://…）');
-          if(url) document.execCommand('createLink', false, url);
+          /* 先等挂起的改名（其 renderEditor 会重建正文）完成，避免选区失效/链接被重渲染覆盖；
+             弹窗会把焦点移到输入框，再保存正文选区，关闭后恢复并 createLink */
+          await _opChain;
+          const saved = saveSelection();
+          const url = await appPrompt({title:'插入链接', placeholder:'https://…', okText:'插入'});
+          if(url && url.trim()){
+            const u = url.trim();
+            const edBody = document.getElementById('v16EdBody');
+            edBody.focus();
+            const restored = restoreSelection(saved);
+            const sel = window.getSelection();
+            /* 选区有效且非折叠：createLink 包裹选中文字；否则（折叠/空笔记/弹窗后焦点丢失）
+               直接在正文末尾追加链接段落，不依赖 execCommand 的选区 */
+            if(restored && sel && !sel.isCollapsed){
+              document.execCommand('createLink', false, u);
+            } else {
+              clearEmptyPlaceholder();
+              const p = document.createElement('p');
+              p.className='md-p';
+              p.innerHTML = '<a href="'+esc(u)+'">'+esc(u)+'</a>';
+              edBody.appendChild(p);
+            }
+          }
         }
         else if(t==='todo'){
-          /* 插入一个可勾选 li */
-          document.execCommand('insertHTML', false,
-            '<ul><li><input type="checkbox" class="v16-ed-todoinput"> </li></ul><p><br></p>');
+          /* 先等挂起的改名完成，再追加受控待办行（正确处理空占位与 data-key） */
+          await _opChain;
+          await insertTodoLine();
         }
         else if(t==='image'){
           await pickWYSIWYGImage();
@@ -1420,11 +1539,12 @@ function bind(){
     if(!(ev.target && ev.target.classList && ev.target.classList.contains('v16-ed-todoinput'))) return;
     if(!S._cur) return;
     clearTimeout(_wysiwygTimer);   /* 取消挂起的自由序列化，受控勾选为唯一写入源 */
+    const path = S._cur.entry.path;
     const key = ev.target.dataset.key;
     try{
-      const res = await Vault.toggleTodo(S._cur.entry.path, key);
+      const res = await Vault.toggleTodo(path, key);
       if(res){
-        S._cur = await Vault.get(S._cur.entry.path);
+        S._cur = await Vault.get(path);
         const ed = document.getElementById('v16EdBody');
         if(ed) ed.innerHTML = mdToEditableHTML(S._cur.md);
       }
@@ -1435,7 +1555,10 @@ function bind(){
   $('#v16SrInput').addEventListener('input', doSearch);
   /* 回收站 */
   $('#v16TrashBack').onclick = ()=>{ show('home'); renderHome(); };
-  $('#v16TrashEmpty').onclick = async ()=>{ if(confirm('清空回收站？此操作不可恢复。')){ await Vault.emptyTrash(); toast('回收站已清空'); renderTrash(); } };
+  $('#v16TrashEmpty').onclick = async ()=>{
+    const ok = await appConfirm({title:'清空回收站？', desc:'回收站中的笔记将被永久删除，此操作不可恢复。', okText:'清空回收站'});
+    if(ok){ await Vault.emptyTrash(); toast('回收站已清空'); renderTrash(); }
+  };
   /* 设置 */
   $('#v16SetBack').onclick = ()=>{ show('home'); renderHome(); };
   /* sheet */

@@ -531,7 +531,7 @@ function todoLines(md){
   const out = [];
   let offset = 0;
   body.split(/\r?\n/).forEach((line, idx)=>{
-    const m = line.match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
+    const m = line.match(/^(\s*)- \[([ xX])\]\s*(.*)$/);
     if(m){
       const priority = /#p\/high/.test(m[3]) ? 'high' : /#p\/low/.test(m[3]) ? 'low' : 'normal';
       out.push({
@@ -553,7 +553,7 @@ function setTodoLine(md, key, patch){
   const parsed = parseFrontmatter(md);
   const lines = parsed.body.split(/\r?\n/);
   const idx = Number(key);
-  const m = lines[idx] && lines[idx].match(/^(\s*)- \[([ xX])\]\s+(.*)$/);
+  const m = lines[idx] && lines[idx].match(/^(\s*)- \[([ xX])\]\s*(.*)$/);
   if(!m) return md;
   const done = (patch && patch.done!=null) ? !!patch.done : (m[2].toLowerCase()==='x');
   lines[idx] = m[1]+'- ['+(done?'x':' ')+'] '+m[3];

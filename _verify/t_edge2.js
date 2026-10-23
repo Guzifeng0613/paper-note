@@ -87,9 +87,10 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   await page.mouse.move(fbox.x+fbox.width/2,fbox.y+fbox.height/2);
   await page.mouse.down(); await sleep(550); await page.mouse.up();
   await sleep(700);
-  // 点删除（confirm 自动确认）
-  await page.evaluate(()=>{ window.confirm=()=>true; });
+  // 点删除（走应用内 appConfirm 二次确认，点确认）
   await page.evaluate(()=>{ Array.from(document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')).find(e=>e.textContent.includes('删除'))?.click(); });
+  await sleep(600);
+  await page.evaluate(()=>document.getElementById('appOk')?.click());
   await sleep(1000);
   await idle();
   const folderGone=await page.evaluate((p)=>!document.querySelector(`.v16-folder-card[data-folder="${p}"]`),newFolderPath);
