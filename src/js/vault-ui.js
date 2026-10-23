@@ -62,17 +62,24 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.8';
+const APP_VERSION = '16.0.9';
 /* 数据层：真实 Markdown 资料库（VaultFS 三后端） */
 const Vault = window.Vault;
 
 /* ---------- 工具 ---------- */
 const fmtDate = (ts)=>{ const d=new Date(ts); const p=n=>String(n).padStart(2,'0');
   return (d.getMonth()+1)+'月'+d.getDate()+'日'; };
-function toast(msg){
+/* v16 toast；第二参数可选 action {label,fn}，用于删除后撤销 */
+function toast(msg, action){
   const t = root.querySelector('.v16-toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), 1800);
+  t.innerHTML = '<span class="v16-toast-msg">'+esc(msg)+'</span>'
+    +(action?'<button class="v16-toast-act" id="v16ToastAct">'+esc(action.label)+'</button>':'');
+  t.classList.add('show');
+  if(action){
+    const btn=t.querySelector('#v16ToastAct');
+    btn.onclick=()=>{ clearTimeout(t._h); t.classList.remove('show'); try{action.fn();}catch(e){} };
+  }
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove('show'), action?4500:1800);
 }
 
 /* ---------- 删除前先播放飞行删除动画（v16-anim 监听并回调 done；含降级） ----------
@@ -426,15 +433,18 @@ function buildTodoUL(rows, todoDivs){
 function serializeWYSIWIG(){
   const ed = document.getElementById('v16EdBody');
   if(!ed || !S._cur) return null;
-  /* 把临时 objectURL 替换为相对路径，便于 htmlToMD 序列化 */
-  const imgs = ed.querySelectorAll('img');
+  /* 把临时 objectURL/显示 href 替换为相对路径，便于 htmlToMD 序列化（图片 + 附件链接） */
   const restore = [];
-  imgs.forEach(im=>{
+  ed.querySelectorAll('img').forEach(im=>{
     const rel = im.dataset.relpath;
-    if(rel){ restore.push([im, im.src]); im.src = rel; }
+    if(rel){ restore.push([im,'src',im.src]); im.src = rel; }
+  });
+  ed.querySelectorAll('a[data-relpath]').forEach(a=>{
+    const rel = a.dataset.relpath;
+    if(rel){ restore.push([a,'href',a.getAttribute('href')]); a.setAttribute('href', rel); }
   });
   const bodyMD = MD.htmlToMD(ed.innerHTML);
-  restore.forEach(([im, src])=> im.src = src);
+  restore.forEach(([el,attr,val])=> el.setAttribute(attr, val));
   const parsed = MD.parseFrontmatter(S._cur.md);
   const fm = parsed.fm || {};
   if(!fm.type) fm.type = e_type(S._cur);
@@ -477,10 +487,116 @@ async function pickWYSIWYGImage(){
   };
   inp.click();
 }
+/* 选非图片文件（Word/Excel/PDF…）→ attachments 落盘 → 正文插入 MD 链接。
+   原生：vaultPickImport（系统选择器，返回 rel 路径）；浏览器：file input。 */
+async function pickWYSIWYGFile(){
+  if(typeof Native!=='undefined' && Native && Native.call){
+    try{
+      const relPath = await Native.call('vaultPickImport', {notePath: S._cur.entry.path});
+      if(relPath){
+        const fname = relPath.split('/').pop();
+        const ed = $('#v16EdBody'); ed.focus();
+        document.execCommand('insertHTML', false,
+          '<p><a class="md-link" href="'+relPath+'" data-relpath="'+relPath+'">'+fname+'</a></p>');
+        scheduleWYSIWIGSave();
+        toast('文件已添加');
+        return;
+      }
+    }catch(e){ console.warn('pickImport fallback', e); }
+  }
+  const inp = document.createElement('input');
+  inp.type='file';
+  inp.style.display='none'; document.body.appendChild(inp);
+  inp.onchange = async ()=>{
+    inp.remove();
+    const file = inp.files && inp.files[0]; if(!file) return;
+    try{
+      const relPath = await VaultFS.writeAttachment(file.name, file, S._cur.entry.path);
+      const ed = $('#v16EdBody'); ed.focus();
+      document.execCommand('insertHTML', false,
+        '<p><a class="md-link" href="'+relPath+'" data-relpath="'+relPath+'">'+file.name+'</a></p>');
+      scheduleWYSIWIGSave();
+      toast('文件已添加');
+    }catch(e){ console.warn(e); toast('文件添加失败'); }
+  };
+  inp.click();
+}
 function e_type(data){
   const ed = document.getElementById('v16EdBody');
   if(ed && ed.querySelector('input[type="checkbox"]')) return 'todo';
   return (data.entry && data.entry.type) || 'note';
+}
+
+/* ================= 导出：长截图 PNG / PDF（v16 专用，基于当前 vault 笔记） ================= */
+function v16ExportName(){
+  const t = S._cur ? S._cur.entry.title : '便签';
+  return (t||'便签').replace(/[\\/:*?"<>|]/g,'_').slice(0,30)||'便签';
+}
+/* 从当前 vault 笔记构建离屏导出节点（浏览器 html2canvas 路径） */
+async function buildV16ExportNode(){
+  const cur = S._cur;
+  const node=document.createElement('div');
+  node.style.cssText='position:fixed;left:-10000px;top:0;width:700px;background:#fff;'
+    +'padding:46px 44px;font-family:"Noto Sans SC",sans-serif;color:#1d201c;box-sizing:border-box';
+  let inner='<div style="font-size:32px;font-weight:900;line-height:1.3;margin-bottom:18px;color:#161815">'
+    +esc(cur.entry.title||'无标题')+'</div>';
+  if(cur.entry.type==='todo'){
+    const rows=MD.todoLines(cur.md);
+    inner+='<div style="margin-top:6px">'+rows.filter(t=>t.text.trim()).map(t=>
+      '<div style="display:flex;align-items:center;gap:12px;padding:9px 0;font-size:16.5px">'
+      +'<span style="width:22px;height:22px;border-radius:50%;border:2px '
+      +(t.done?'solid #2f6b4f;background:#2f6b4f':'solid #b9bdb4')+';flex-shrink:0"></span>'
+      +'<span style="'+(t.done?'text-decoration:line-through;color:#a9ada5':'')+'">'+esc(t.text)+'</span></div>').join('')+'</div>';
+  } else {
+    inner+='<div style="font-size:17px;line-height:1.85;word-break:break-word">'+(cur.html||'')+'</div>';
+  }
+  node.innerHTML=inner;
+  document.body.appendChild(node);
+  const imgs=Array.from(node.querySelectorAll('img'));
+  await Promise.all(imgs.map(im=>im.complete?null:new Promise(r=>{im.onload=r;im.onerror=r;})));
+  return node;
+}
+function v16PdfFromCanvas(cv, name){
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF('p','mm','a4');
+  const pw=210,pxPerMm=cv.width/pw,pageHpx=Math.floor(297*pxPerMm);
+  let y=0;
+  while(y<cv.height){
+    const h=Math.min(pageHpx,cv.height-y);
+    const c=document.createElement('canvas');
+    c.width=cv.width;c.height=h;
+    const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+    x.drawImage(cv,0,y,cv.width,h,0,0,cv.width,h);
+    if(y>0)pdf.addPage();
+    pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,pw,h/pxPerMm);
+    y+=h;
+  }
+  pdf.save(name+'.pdf');
+}
+async function v16Export(kind){
+  const name=v16ExportName();
+  /* 原生：先落盘再请原生捕获当前屏幕（v16 编辑器可见） */
+  if(typeof Native!=='undefined' && Native && Native.call){
+    try{
+      await flushWYSIWYG();
+      document.body.classList.add('capturing');
+      await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+      const cr=await Native.call('captureExport',{kind,name});
+      document.body.classList.remove('capturing');
+      toast(cr&&cr.path?('已保存到 '+cr.path):(kind==='png'?'长截图已保存':'PDF 已保存'));
+    }catch(e){ document.body.classList.remove('capturing'); toast((e&&e.message)||'导出失败'); }
+    return;
+  }
+  /* 浏览器：html2canvas 离屏渲染 */
+  try{
+    toast(kind==='png'?'正在生成长截图…':'正在生成 PDF…');
+    await ensureExportLibs();
+    const node=await buildV16ExportNode();
+    const cv=await html2canvas(node,{scale:2,backgroundColor:'#ffffff'});
+    node.remove();
+    if(kind==='png'){ downloadURL(cv.toDataURL('image/png'),name+'.png'); toast('长截图已导出'); }
+    else { v16PdfFromCanvas(cv,name); toast('PDF 已导出'); }
+  }catch(e){ toast(e.message||'导出失败'); }
 }
 /* ===== 编辑器写操作串行队列（核心：所有 save/rename 排队，杜绝竞态）=====
    问题场景：正文防抖(500)、标题改名(600)、退出 flush 三者并发，会出现
@@ -1240,7 +1356,13 @@ function bind(){
     {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ const path=S._cur.entry.path;
       openModal('<h3>删除这篇笔记？</h3><p>将移入回收站，可在回收站恢复。</p>'
         +'<div class="modal-actions"><button class="btn-ghost" data-close>取消</button><button class="btn-danger" id="delConf">移入回收站</button></div>');
-      $('#delConf').onclick=()=>{ closeModal(); beforeDelete([path], async()=>{ await Vault.remove(path); toast('已移入回收站'); show('home'); renderHome(); }); };
+      $('#delConf').onclick=()=>{ closeModal(); beforeDelete([path], async()=>{
+        const trashPath = await Vault.remove(path);
+        show('home'); renderHome();
+        toast('已移入回收站', {label:'撤销', fn:async()=>{
+          try{ await Vault.restore(trashPath); renderHome(); toast('已恢复'); }catch(e){ toast('恢复失败'); }
+        }});
+      }); };
     } }},
     {icon:I.pin, label:'置顶/取消', fn:()=>{ if(S._cur){
       const newPin = !S._cur.entry.pinned;
@@ -1251,7 +1373,10 @@ function bind(){
         S._cur.md=fresh.md; S._cur.entry=fresh.entry; S._cur.frontmatter=fresh.frontmatter;
         haptic(6); toast(newPin?'已置顶':'已取消置顶');
       });
-    } }}
+    } }},
+    {icon:I.clip, label:'添加文件（Word/Excel/PDF…）', fn:()=>pickWYSIWYGFile()},
+    {icon:I.image, label:'导出整页长截图（PNG）', fn:()=>v16Export('png')},
+    {icon:I.down, label:'导出 PDF 版', fn:()=>v16Export('pdf')}
   ]);
   /* 底部工具栏：WYSIWYG 格式化 */
   $('#v16Dock').querySelectorAll('button').forEach(b=>{
@@ -1334,9 +1459,13 @@ function bind(){
         openModal('<h3>删除选中的 '+cnt+' 篇笔记？</h3><p>将移入回收站，可在回收站恢复。</p>'
           +'<div class="modal-actions"><button class="btn-ghost" data-close>取消</button><button class="btn-danger" id="delBatchConf">移入回收站</button></div>');
         $('#delBatchConf').onclick=()=>{ closeModal(); beforeDelete(paths, async()=>{
-          for(const p of paths){ try{ await Vault.remove(p); }catch(e){} }
-          toast('已移入回收站');
+          const trashPaths=[];
+          for(const p of paths){ try{ trashPaths.push(await Vault.remove(p)); }catch(e){} }
           S.selecting=false; S.selected=new Set(); renderHome();
+          toast('已移入回收站', {label:'撤销', fn:async()=>{
+            for(const tp of trashPaths){ try{ await Vault.restore(tp); }catch(e){} }
+            renderHome(); toast('已恢复');
+          }});
         }); };
         return;
       } else if(action==='pin'){

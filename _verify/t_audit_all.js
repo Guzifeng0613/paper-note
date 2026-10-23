@@ -105,7 +105,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   /* ===== 编辑器更多 ===== */
   await page.click('#v16EdMore'); await sleep(500);
   const edMoreOpts=await page.evaluate(()=>document.querySelectorAll('#v16SheetOpts .v16-sheet-opt').length);
-  check('编辑器更多有4选项',edMoreOpts===4);
+  check('编辑器更多有7选项（含添加文件/导出）',edMoreOpts===7);
 
   // 置顶
   await page.evaluate(()=>{ Array.from(document.querySelectorAll('#v16SheetOpts .v16-sheet-opt')).find(e=>e.textContent.includes('置顶'))?.click(); });
