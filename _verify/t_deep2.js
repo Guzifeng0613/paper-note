@@ -13,7 +13,7 @@ const P=(r,name,cond)=>{console.log((cond?'✓ ':'✗ ')+name); if(!cond) r.fail
   // 1. 新建文件夹
   await page.click('#v16Fab'); await sleep(500);
   await page.evaluate(()=>document.querySelector('.v16-fab-item[data-f="folder"]').click());
-  await idle();
+  await sleep(600);
   const folderExists = await page.evaluate(()=>Array.from(document.querySelectorAll('.v16-folder-card')).some(c=>c.dataset.folder==='新文件夹'));
   P(r,'新建文件夹出现在首页', folderExists);
 

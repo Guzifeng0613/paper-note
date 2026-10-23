@@ -11,32 +11,6 @@ const reduceMotion=()=>window.matchMedia&&window.matchMedia('(prefers-reduced-mo
 function haptic(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms||8); }catch(e){} }
 /* FLIP：记录一组元素位置 → 执行变更 → 在下一帧用 transform 平滑补位
    只动 transform/opacity；返回选择器内全部元素。opts:duration/ease/stagger */
-function flipPositions(els, mutate, opts){
-  opts=opts||{};
-  const list=els.filter(Boolean);
-  const before=new Map(list.map(el=>[el, el.getBoundingClientRect()]));
-  const ret=mutate();
-  if(reduceMotion()) return ret;
-  const dur=opts.duration||'var(--dur-3)', ease=opts.ease||'var(--ease-spring-soft)';
-  requestAnimationFrame(()=>{
-    list.forEach((el,i)=>{
-      const b=before.get(el); if(!b)return;
-      const a=el.getBoundingClientRect();
-      const dx=b.left-a.left, dy=b.top-a.top;
-      if(!dx&&!dy)return;
-      const st=el.style;
-      st.transition='none'; st.transform='translate('+dx+'px,'+dy+'px)';
-      const delay=opts.stagger?(';transition-delay:'+(i*opts.stagger)+'ms'):'';
-      void el.offsetWidth;
-      st.transition='transform '+dur+' '+ease+delay;
-      st.transform='';
-      const clear=()=>{st.transition='';st.transitionDelay='';st.transform='';el.removeEventListener('transitionend',clear);};
-      el.addEventListener('transitionend',clear);
-      setTimeout(clear, opts.timeout||600);
-    });
-  });
-  return ret;
-}
 /* 数字滚动（odometer）：把文本节点的旧数字滚动到新值；非数字部分不动 */
 function animateNumber(el, newVal, opts){
   opts=opts||{};

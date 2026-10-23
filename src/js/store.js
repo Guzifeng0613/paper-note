@@ -1,6 +1,6 @@
 /* ============ 数据与存储 v3 ============ */
 const KNOTES_V1='zhipian.notes.v1', KNOTES_V2='zhipian.notes.v2', KPREF_V2='zhipian.prefs.v2';
-const APP_VERSION='16.0.7';
+const APP_VERSION='16.0.8';
 const KLIB_V3='zhipian.library.v3', DB_NAME='zhipian-db-v3';
 const MAX_FILE=100*1024*1024;  /* 单个附件上限 100MB */
 const COLORS=['cream','yellow','orange','pink','green','blue','purple'];

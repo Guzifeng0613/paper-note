@@ -62,10 +62,9 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.7';
-/* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
-const USE_MOCK = false;
-const Vault = USE_MOCK ? MockVault : window.Vault;
+const APP_VERSION = '16.0.8';
+/* 数据层：真实 Markdown 资料库（VaultFS 三后端） */
+const Vault = window.Vault;
 
 /* ---------- 工具 ---------- */
 const fmtDate = (ts)=>{ const d=new Date(ts); const p=n=>String(n).padStart(2,'0');

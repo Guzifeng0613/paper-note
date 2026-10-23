@@ -28,7 +28,6 @@ const _entries = new Map();
 const _trash  = new Map();
 const _folders = new Set();
 const _attach = new Map();
-const _saveTimers = {};   // path -> timer（save 防抖）
 
 /* ---------- 由 md 全文构造 Entry ---------- */
 function makeEntry(path, md){
@@ -274,25 +273,14 @@ const Vault = {
   },
 
   /* ---- 保存（防抖 500ms，原子写 + 更新索引） ---- */
-  save(path, md){
-    if(_saveTimers[path]) clearTimeout(_saveTimers[path]);
-    return new Promise(resolve=>{
-      _saveTimers[path] = setTimeout(async ()=>{
-        delete _saveTimers[path];
-        try{
-          await VaultFS.write(path, md);
-          _entries.set(path, makeEntry(path, md));
-        }catch(e){ console.warn('save failed', e); }
-        resolve(path);
-      }, 500);
-    });
-  },
-
-  /* ---- 强制刷盘（退出编辑器时调用） ---- */
-  async flushSave(path){
-    if(_saveTimers[path]){ clearTimeout(_saveTimers[path]); delete _saveTimers[path]; }
-    /* 最近一次 md 已在内存；若有未刷盘的，这里直接写 */
-    /* 由 UI 在退出前调用 Vault.save 后再调 flush */
+  /* 立即写盘并更新索引。防抖由调用方负责（编辑器 scheduleWYSIWIGSave 500ms），
+     这里不再做第二层 500ms 延迟——否则退出时 flush 仍要空等 500ms，且总延迟翻倍。 */
+  async save(path, md){
+    try{
+      await VaultFS.write(path, md);
+      _entries.set(path, makeEntry(path, md));
+    }catch(e){ console.warn('save failed', e); }
+    return path;
   },
 
   /* ---- 重命名（改标题=改文件名，重名加序号） ---- */
