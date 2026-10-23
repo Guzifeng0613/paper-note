@@ -2240,7 +2240,7 @@ const DEMO_PDF='data:application/pdf;base64,JVBERi0xLjMKMSAwIG9iajw8L1R5cGUvQ2F0
 
 /* ============ 数据与存储 v3 ============ */
 const KNOTES_V1='zhipian.notes.v1', KNOTES_V2='zhipian.notes.v2', KPREF_V2='zhipian.prefs.v2';
-const APP_VERSION='16.0.4';
+const APP_VERSION='16.0.5';
 const KLIB_V3='zhipian.library.v3', DB_NAME='zhipian-db-v3';
 const MAX_FILE=100*1024*1024;  /* 单个附件上限 100MB */
 const COLORS=['cream','yellow','orange','pink','green','blue','purple'];
@@ -11266,7 +11266,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.4';
+const APP_VERSION = '16.0.5';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -11676,6 +11676,8 @@ function enqueue(fn){
   _opChain = p;
   return p;
 }
+/* 测试/排障：等待所有排队的写操作完成；并暴露运行态 S（只读用途） */
+if(typeof window!=='undefined'){ window.__opIdle=()=>_opChain; window.__S=()=>S; }
 let _wysiwygTimer=null;
 /* 把当前 contenteditable 序列化并落盘（入队，自动等待前一个操作） */
 function flushWYSIWYG(){
@@ -12074,7 +12076,8 @@ async function renderTrash(){
 }
 
 /* ---------- 文件夹选择面板（移动/批量移动） ---------- */
-async function pickFolderAndMove(notePath){
+/* mode: 'stay' = 从编辑器调用，移动后留在编辑器并刷新；否则移动后回首页 */
+async function pickFolderAndMove(notePath, mode){
   try{
     const root = await Vault.tree();   /* 根节点对象 {name,path:'',children:[...]} */
     const folders = [{path:'',name:'根目录',depth:0}];
@@ -12087,11 +12090,21 @@ async function pickFolderAndMove(notePath){
     const opts = folders.map(f=>({
       icon: I.folder,
       label: '　'.repeat(f.depth) + (f.name||'根目录'),
-      fn: async ()=>{
-        await Vault.move(notePath, f.path);
-        haptic(6);
-        toast('已移动到「'+(f.name||'根目录')+'」');
-        show('home'); renderHome();
+      fn: ()=>{
+        /* 移动 + 刷新作为一个原子操作入队，idle 能等到，避免竞态 */
+        enqueue(async ()=>{
+          const newPath = await Vault.move(notePath, f.path);
+          haptic(6);
+          if(mode==='stay'){
+            S.curNote = newPath;
+            S._cur = await Vault.get(newPath);
+            renderEditor();
+            toast('已移动到「'+(f.name||'根目录')+'」');
+          } else {
+            toast('已移动到「'+(f.name||'根目录')+'」');
+            show('home'); renderHome();
+          }
+        });
       }
     }));
     openSheet('移动到…', opts);
@@ -12394,13 +12407,20 @@ function bind(){
     renderEditor();
   };
   $('#v16EdMore').onclick = ()=>openSheet('笔记操作', [
-    {icon:I.hl, label:'颜色', fn:()=>{ if(S._cur){ openColorPicker(S._cur.entry.color, async(c)=>{
-      await Vault.setColor(S._cur.entry.path, c);
-      /* 刷新编辑器缓存，避免下次 WYSIWYG 保存用旧 frontmatter 覆盖新颜色 */
-      const fresh = await Vault.get(S._cur.entry.path);
-      S._cur.md=fresh.md; S._cur.entry=fresh.entry; S._cur.frontmatter=fresh.frontmatter;
-      haptic(6); toast('颜色已更换'); }); } }},
-    {icon:I.move, label:'移动到…', fn:()=>pickFolderAndMove(S._cur.entry.path)},
+    {icon:I.hl, label:'颜色', fn:()=>{ if(S._cur){ openColorPicker(S._cur.entry.color, (c)=>{
+      /* 入队，保证与正文保存互斥、且 idle 能等到 */
+      enqueue(async ()=>{
+        const path = S._cur.entry.path;
+        await Vault.setColor(path, c);
+        /* 刷新编辑器缓存，避免下次 WYSIWYG 保存用旧 frontmatter 覆盖新颜色 */
+        const fresh = await Vault.get(S._cur.entry.path);
+        S._cur.md=fresh.md; S._cur.entry=fresh.entry; S._cur.frontmatter=fresh.frontmatter;
+        haptic(6); toast('颜色已更换');
+      }); }); } }},
+    {icon:I.move, label:'移动到…', fn:()=>{
+      const path = S._cur.entry.path;
+      pickFolderAndMove(path, 'stay');
+    }},
     {icon:I.trash, label:'删除（回收站）', fn:async()=>{ if(S._cur){ const path=S._cur.entry.path;
       openModal('<h3>删除这篇笔记？</h3><p>将移入回收站，可在回收站恢复。</p>'
         +'<div class="modal-actions"><button class="btn-ghost" data-close>取消</button><button class="btn-danger" id="delConf">移入回收站</button></div>');

@@ -58,14 +58,21 @@ const P=(r,name,cond)=>{console.log((cond?'✓ ':'✗ ')+name); if(!cond) r.fail
   await page.click('#v16SrBack');
   await sleep(500);
 
-  // 7. 重开笔记，内容持久化
+  // 7. 重开笔记，内容持久化（用卡片 data-path 精确点击，并等待编辑器真正显示）
   await page.evaluate(()=>{
-    const cards=document.querySelectorAll('#v16Body *');
-    for(const c of cards){ if(c.textContent.includes('测试笔记XYZ')){ c.click(); return; } }
+    const card=document.querySelector('#v16Body .v16-note-card[data-path="测试笔记XYZ.md"]');
+    if(card) card.click();
   });
-  await sleep(900);
+  // 等待编辑器屏幕 on
+  for(let i=0;i<20;i++){
+    const on = await page.evaluate(()=>document.querySelector('.v16-scr[data-scr="editor"]').classList.contains('on'));
+    if(on) break;
+    await sleep(150);
+  }
+  await page.evaluate(()=>window.__opIdle());
   const persisted = await page.evaluate(()=>document.getElementById('v16EdBody').textContent.includes('AAABBB'));
-  P(r,'重开笔记内容持久化', persisted);
+  const edOn = await page.evaluate(()=>document.querySelector('.v16-scr[data-scr="editor"]').classList.contains('on'));
+  P(r,'重开笔记内容持久化', persisted && edOn);
 
   // 8. 更多菜单有删除
   await page.click('#v16EdMore');
