@@ -2240,7 +2240,7 @@ const DEMO_PDF='data:application/pdf;base64,JVBERi0xLjMKMSAwIG9iajw8L1R5cGUvQ2F0
 
 /* ============ 数据与存储 v3 ============ */
 const KNOTES_V1='zhipian.notes.v1', KNOTES_V2='zhipian.notes.v2', KPREF_V2='zhipian.prefs.v2';
-const APP_VERSION='16.0.6';
+const APP_VERSION='16.0.7';
 const KLIB_V3='zhipian.library.v3', DB_NAME='zhipian-db-v3';
 const MAX_FILE=100*1024*1024;  /* 单个附件上限 100MB */
 const COLORS=['cream','yellow','orange','pink','green','blue','purple'];
@@ -11279,7 +11279,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.6';
+const APP_VERSION = '16.0.7';
 /* M2 起默认用真实 Vault（window.Vault）；USE_MOCK=true 时回退 mock 走查 */
 const USE_MOCK = false;
 const Vault = USE_MOCK ? MockVault : window.Vault;
@@ -11508,16 +11508,38 @@ function toggleSelect(path){
   renderCrumbs(); // keep
   const home = root.querySelector('.v16-home');
   home.classList.toggle('selecting', S.selecting);
-  if(!S.selecting) $('#v16Selbar').classList.remove('open');
+  /* 长按进入多选时 renderHome 未重跑，这里显式同步 selbar 的 open 态 */
+  $('#v16Selbar').classList.toggle('open', S.selecting);
 }
 function cssesc(s){ return s.replace(/"/g,'\\"'); }
 
+/* 长按：用 pointer 事件统一鼠标/触摸。旧版 touchmove 一有微小抖动就清计时器，
+   真机上手指几乎总会轻微移动，导致长按失效。改为移动超过阈值(10px)才取消。 */
 function bindLongPress(el, fn){
-  let t=null;
-  el.addEventListener('touchstart', ()=>{ t=setTimeout(fn, 520); }, {passive:true});
-  ['touchend','touchmove'].forEach(ev=>el.addEventListener(ev, ()=>clearTimeout(t), {passive:true}));
-  el.addEventListener('mousedown', ()=>{ t=setTimeout(fn, 520); });
-  el.addEventListener('mouseup', ()=>clearTimeout(t));
+  let t=null, pid=null, sx=0, sy=0, fired=false;
+  el.addEventListener('pointerdown', (e)=>{
+    if(e.pointerType==='mouse' && e.button!==0) return;
+    pid=e.pointerId; sx=e.clientX; sy=e.clientY; fired=false;
+    clearTimeout(t);
+    t=setTimeout(()=>{
+      fired=true; t=null; fn();
+      /* 长按触发后，同一次按压抬手会产生一个 click，必须吞掉，
+         否则卡片 onclick 会把刚选中的项又切换掉（多选被立即取消） */
+      const suppress=(ev)=>{
+        if(ev.target===el || el.contains(ev.target)){ ev.stopPropagation(); ev.preventDefault(); }
+        window.removeEventListener('click', suppress, true);
+      };
+      window.addEventListener('click', suppress, true);
+    }, 480);
+  });
+  el.addEventListener('pointermove', (e)=>{
+    if(e.pointerId!==pid || fired) return;
+    if(Math.hypot(e.clientX-sx, e.clientY-sy) > 10){ clearTimeout(t); }
+  });
+  const cancel=(e)=>{ if(e && e.pointerId!==pid && e.pointerId!==undefined) return; clearTimeout(t); };
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('pointerleave', cancel);
 }
 
 /* ---------- 文件树抽屉 ---------- */
@@ -12438,7 +12460,16 @@ function bind(){
         +'<div class="modal-actions"><button class="btn-ghost" data-close>取消</button><button class="btn-danger" id="delConf">移入回收站</button></div>');
       $('#delConf').onclick=()=>{ closeModal(); beforeDelete([path], async()=>{ await Vault.remove(path); toast('已移入回收站'); show('home'); renderHome(); }); };
     } }},
-    {icon:I.pin, label:'置顶/取消', fn:async()=>{ if(S._cur){ await Vault.setPin(S._cur.entry.path, !S._cur.entry.pinned); haptic(6); toast('已更新'); } }}
+    {icon:I.pin, label:'置顶/取消', fn:()=>{ if(S._cur){
+      const newPin = !S._cur.entry.pinned;
+      enqueue(async ()=>{
+        const path = S._cur.entry.path;
+        await Vault.setPin(path, newPin);
+        const fresh = await Vault.get(path);
+        S._cur.md=fresh.md; S._cur.entry=fresh.entry; S._cur.frontmatter=fresh.frontmatter;
+        haptic(6); toast(newPin?'已置顶':'已取消置顶');
+      });
+    } }}
   ]);
   /* 底部工具栏：WYSIWYG 格式化 */
   $('#v16Dock').querySelectorAll('button').forEach(b=>{
