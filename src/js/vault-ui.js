@@ -62,7 +62,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.11';
+const APP_VERSION = '16.0.12';
 /* 数据层：真实 Markdown 资料库（VaultFS 三后端） */
 const Vault = window.Vault;
 

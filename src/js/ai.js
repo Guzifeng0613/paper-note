@@ -75,6 +75,12 @@ const AIs={
   setCur(id){const c=this.get(id);if(!c)return;
     prefs.ais.cur=id;persistPrefs();Logs.info('AI配置','切换当前配置：'+c.name);}
 };
+/* 测试钩子：注入一套 AI 配置（验收 AI 全流程用；本地应用无远程攻击面） */
+window.__injectAi=(c)=>{
+  const cfg={id:cfgUid(),name:'测试配置',baseUrl:c.baseUrl,key:c.key,model:c.model,embModel:'',addedAt:Date.now()};
+  prefs.ais={cur:cfg.id,list:[cfg]};persistPrefs();return cfg;
+};
+window.__hasVaultSynth=()=>notes.some(n=>n._vaultSynth);
 async function vectorRank(children,query,size){
   const ai=AIs.current();
   const url=((ai&&ai.baseUrl)||'').replace(/\/$/,'');
