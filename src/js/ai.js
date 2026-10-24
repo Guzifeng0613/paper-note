@@ -81,6 +81,7 @@ window.__injectAi=(c)=>{
   prefs.ais={cur:cfg.id,list:[cfg]};persistPrefs();return cfg;
 };
 window.__hasVaultSynth=()=>notes.some(n=>n._vaultSynth);
+window.__hasNote=(id)=>notes.some(n=>n.id===id);
 /* 测试钩子：知识库切片 + 检索（验收 RAG 流程） */
 window.__testKB={
   sync:()=>VaultSync.syncVaultToStore(),
