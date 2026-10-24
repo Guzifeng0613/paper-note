@@ -81,6 +81,13 @@ window.__injectAi=(c)=>{
   prefs.ais={cur:cfg.id,list:[cfg]};persistPrefs();return cfg;
 };
 window.__hasVaultSynth=()=>notes.some(n=>n._vaultSynth);
+/* 测试钩子：知识库切片 + 检索（验收 RAG 流程） */
+window.__testKB={
+  sync:()=>VaultSync.syncVaultToStore(),
+  build:()=>buildKnowledgeIndex(false),
+  search:(q)=>knowledgeSearch(q,{limit:10}),
+  kbInfo:async()=>({available:KB.available, chunks:(await KB.allChunks()).length})
+};
 async function vectorRank(children,query,size){
   const ai=AIs.current();
   const url=((ai&&ai.baseUrl)||'').replace(/\/$/,'');
