@@ -9,8 +9,8 @@ android {
         applicationId "com.zhipian.notes"
         minSdk 24
         targetSdk 34
-        versionCode 244
-        versionName "16.0.14"
+        versionCode 245
+        versionName "16.0.15"
     }
     signingConfigs {
         release {

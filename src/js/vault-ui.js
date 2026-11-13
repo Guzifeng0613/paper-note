@@ -62,7 +62,7 @@ const S = {
 };
 
 let root = null;
-const APP_VERSION = '16.0.14';
+const APP_VERSION = '16.0.15';
 /* 数据层：真实 Markdown 资料库（VaultFS 三后端） */
 const Vault = window.Vault;
 
@@ -322,7 +322,6 @@ async function renderHome(){
   } else if(notes.length){
     html += `<div class="${S.viewMode==='grid'?'v16-grid':'v16-list'}">` + notes.map(n=>`
       <div class="v16-note-card c-${n.color||'cream'}" data-path="${esc(n.path)}">
-        ${n.pinned?I.pin:''}
         <div class="nt">${n.pinned?I.pin:''}${esc(n.title)}</div>
         <div class="ns">${esc(n.summary)}</div>
         <div class="nfoot">

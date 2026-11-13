@@ -590,6 +590,7 @@ function extractSummary(md){
     .replace(/#p\/(high|low)/g,'')
     .replace(/^[-*+]\s?/gm,'')
     .replace(/^\d+\.\s?/gm,'')
+    .replace(/<\/?[a-zA-Z][^>]*>/g,'')
     .replace(/[*_`~=]/g,'')
     .replace(/\s+/g,' ')
     .trim();
